@@ -1,0 +1,874 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sheikha Textiles – Point of Sale</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EDEFF2; --surface:#FFFFFF; --ink:#14171C; --muted:#676D78; --line:#D4D8DE; --soft:#E2E5EA;
+  --brand:#E1550C; --brand-ink:#FFFFFF; --gold:#E1550C; --ok:#0F8F72; --danger:#C4392E;
+  --shadow:0 1px 2px rgba(15,17,20,.05),0 14px 30px -14px rgba(15,17,20,.3);
+  color-scheme: light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.4;-webkit-tap-highlight-color:transparent}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.num{font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}
+[hidden]{display:none!important}
+
+#app{height:100%;display:flex;flex-direction:column}
+/* top bar */
+.top{display:flex;align-items:center;gap:14px;padding:12px 20px;background:var(--bg);color:var(--ink)}
+.brand svg rect{fill:var(--ink);opacity:1}
+.brand svg g:nth-of-type(1){stroke:var(--brand)}
+.brand svg g:nth-of-type(2){stroke:var(--bg);opacity:1}
+.brand{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
+.brand svg{flex:none}
+.brand h1{margin:0;font-family:'Space Grotesk','Inter',sans-serif;font-weight:700;font-size:20px;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand small{display:block;color:var(--muted);font-size:12px}
+.clock{font-size:12px;color:var(--muted);text-align:right;white-space:nowrap}
+.tbtn{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:8px 12px;font-weight:600;box-shadow:var(--shadow)}
+.tbtn:hover{border-color:var(--brand)}
+.tbtn svg{color:var(--brand)}
+.tbtn svg{width:18px;height:18px}
+
+/* layout */
+.main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 400px}
+.catalog{display:flex;flex-direction:column;min-height:0;padding:26px 30px 0}
+.tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.search{flex:1 1 220px;min-width:0;position:relative}
+.search input{width:100%;padding:11px 14px 11px 40px;border-radius:12px;border:1px solid var(--line);background:var(--surface)}
+.search svg{position:absolute;left:12px;top:50%;translate:0 -50%;width:18px;height:18px;color:var(--muted)}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;max-width:100%}
+.chip{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 14px;font-weight:600;color:var(--muted)}
+.chip.on{background:var(--ink);border-color:var(--ink);color:var(--surface)}
+.sec{margin:0 0 4px;font-family:'Space Grotesk','Inter',sans-serif;font-size:28px;font-weight:700}
+.sechint{margin:0 0 22px;color:var(--muted)}
+.grid{flex:1;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;align-content:start;padding:2px 2px 24px}
+.tile{display:flex;flex-direction:column;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden;padding:0;transition:transform .12s ease,box-shadow .12s ease;box-shadow:0 1px 2px rgba(14,40,34,.06);align-self:start}
+.tile:hover{box-shadow:var(--shadow);transform:translateY(-2px)}
+.tile:active{transform:scale(.98)}
+.sw{height:180px;background-color:var(--c)}
+.sw.plain{background-image:repeating-linear-gradient(0deg,rgba(255,255,255,.17) 0 1px,transparent 1px 4px),repeating-linear-gradient(90deg,rgba(0,0,0,.16) 0 1px,transparent 1px 4px)}
+.sw.twill{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.2) 0 2px,rgba(0,0,0,.14) 2px 4px,transparent 4px 7px)}
+.sw.sheer{background-image:linear-gradient(115deg,rgba(255,255,255,.5),rgba(255,255,255,0) 35%,rgba(255,255,255,.34) 62%,rgba(255,255,255,0) 85%)}
+.sw.dots{background-image:radial-gradient(rgba(255,255,255,.3) 1.3px,transparent 1.8px);background-size:8px 8px}
+.tile .tb{padding:16px 18px 18px;display:flex;justify-content:space-between;align-items:flex-end;gap:8px}
+.tile b{display:block;font-size:21px;font-family:'Space Grotesk','Inter',sans-serif}
+.tile span{color:var(--muted);font-size:13.5px}
+.tile .go{flex:none;width:38px;height:38px;border-radius:50%;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center;font-size:24px;line-height:1}
+.tile.custom{border-style:dashed}
+.empty{grid-column:1/-1;color:var(--muted);padding:40px 10px;text-align:center}
+
+/* cart */
+.cart{background:var(--surface);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.cart-h{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--line)}
+.cart-h h2{margin:0;font-family:'Space Grotesk','Inter',sans-serif;font-size:21px}
+.link{background:none;border:0;color:var(--muted);font-weight:600;padding:6px 8px;border-radius:8px}
+.link:hover{color:var(--danger)}
+.back{display:none}
+.lines{flex:1;min-height:0;overflow-y:auto;padding:6px 8px}
+.cl{display:grid;grid-template-columns:1fr auto 30px;gap:8px;align-items:center;padding:10px 8px;border-radius:10px;cursor:pointer}
+.cl:hover{background:var(--soft)}
+.cl+.cl{border-top:1px solid var(--line)}
+.cl b{display:block}
+.cl small{color:var(--muted);font-size:12.5px}
+.cl em{font-style:normal;font-weight:600;font-size:11.5px;padding:1px 6px;border-radius:6px;background:var(--soft);color:var(--ink);margin-left:4px}
+.cl-amt{font-weight:700}
+.x{width:30px;height:30px;border-radius:8px;border:0;background:transparent;color:var(--muted);font-size:20px;line-height:1}
+.x:hover{background:var(--danger);color:#fff}
+.cart-empty{color:var(--muted);text-align:center;padding:48px 20px}
+.foot{padding:12px 16px 16px;border-top:1px solid var(--line);background:var(--surface)}
+.disc{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.disc label{font-weight:600;flex:1}
+.disc input{width:90px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);text-align:right}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--bg)}
+.seg button{border:0;background:transparent;padding:8px 12px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--ink);color:var(--surface)}
+.row{display:flex;justify-content:space-between;color:var(--muted);padding:2px 0}
+.row.total{color:var(--ink);font-size:22px;font-weight:700;padding-top:8px;margin-top:6px;border-top:1px dashed var(--line)}
+.primary{width:100%;margin-top:12px;padding:15px;border:0;border-radius:12px;background:var(--brand);color:var(--brand-ink);font-weight:700;font-size:17px}
+.primary:hover{filter:brightness(1.1)}
+.primary:disabled{opacity:.4;cursor:not-allowed}
+.ghost{padding:11px 16px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:600}
+.ghost:hover{background:var(--soft)}
+.danger{background:var(--danger);color:#fff;border:0}
+
+.cartbar{display:none}
+
+/* modals */
+#modals{position:relative;z-index:50}
+.back-drop{position:fixed;inset:0;background:rgba(10,14,34,.55);display:flex;align-items:center;justify-content:center;padding:16px;padding-top:calc(16px + env(safe-area-inset-top,0px));padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));overflow-y:auto}
+.modal{background:var(--surface);border-radius:16px;box-shadow:var(--shadow);width:100%;max-width:460px;padding:22px;max-height:100%;overflow-y:auto;animation:pop .16s ease-out}
+.modal.wide{max-width:760px}
+@keyframes pop{from{transform:translateY(10px);opacity:.4}to{transform:none;opacity:1}}
+.modal h2{margin:0 0 2px;font-family:'Space Grotesk','Inter',sans-serif;font-size:24px}
+.modal .sub{margin:0 0 16px;color:var(--muted)}
+.fld{display:block;margin-bottom:14px}
+.fld>span{display:block;font-weight:600;margin-bottom:6px}
+.fld input,.fld select{width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--bg)}
+.money{position:relative}
+.money i{position:absolute;left:14px;top:50%;translate:0 -50%;font-style:normal;color:var(--muted);font-weight:600}
+.money input{padding-left:52px;font-size:26px;font-weight:700}
+.step{display:flex;gap:8px}
+.step input{text-align:center;font-weight:700;font-size:18px}
+.step button{flex:none;width:48px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:22px;font-weight:600}
+.qchips{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.qchips button{padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-weight:600}
+.ask{font-weight:700;margin:6px 0 8px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.vbtn{border:2px solid var(--line);background:var(--surface);border-radius:14px;padding:12px;text-align:left}
+.vbtn:hover:not(:disabled){border-color:var(--brand);background:var(--soft)}
+.vbtn:disabled{opacity:.45;cursor:not-allowed}
+.vbtn strong{display:block;font-size:14px}
+.vbtn .tot{display:block;font-size:20px;font-weight:700;margin:4px 0 2px}
+.vbtn small{color:var(--muted);font-size:12px}
+.paytotal{display:flex;justify-content:space-between;align-items:baseline;background:var(--soft);border-radius:12px;padding:14px 16px;margin-bottom:14px}
+.paytotal b{font-size:28px}
+.seg.big{display:flex;margin-bottom:14px}
+.seg.big button{flex:1;padding:13px;font-size:16px}
+.quick{display:flex;gap:8px;flex-wrap:wrap;margin:-4px 0 12px}
+.quick button{padding:9px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:600}
+.change{display:flex;justify-content:space-between;font-size:20px;font-weight:700;padding:10px 0}
+.change.ok b{color:var(--ok)}
+.change.bad b{color:var(--danger)}
+.actions{display:flex;gap:10px;justify-content:flex-end;margin-top:8px;flex-wrap:wrap}
+.actions .primary{margin-top:0;width:auto;padding:12px 20px;font-size:16px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:14px 0}
+.stat{background:var(--soft);border-radius:12px;padding:10px 12px}
+.stat span{display:block;color:var(--muted);font-size:12.5px}
+.stat b{font-size:18px}
+.list{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.li{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:10px 12px}
+.li+.li{border-top:1px solid var(--line)}
+.li.void .nm,.li.void .am{text-decoration:line-through;color:var(--muted)}
+.li small{color:var(--muted)}
+.tag{font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--soft)}
+.tag.void{background:var(--danger);color:#fff}
+.mini{padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-weight:600;font-size:13px}
+.sw-pick{display:flex;gap:8px;flex-wrap:wrap}
+.sw-pick button{width:34px;height:34px;border-radius:8px;border:2px solid transparent;background:var(--c)}
+.sw-pick button.on{border-color:var(--ink);outline:2px solid var(--surface);outline-offset:-4px}
+.two-f{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));translate:-50% 0;background:var(--ink);color:var(--surface);padding:10px 16px;border-radius:999px;font-weight:600;z-index:80;box-shadow:var(--shadow)}
+
+/* receipt */
+.paper{background:#fff;color:#111;border-radius:6px;padding:16px 14px;margin:0 auto 14px;width:100%;max-width:320px;font-size:13px;box-shadow:0 0 0 1px var(--line)}
+.rc{font-size:12.5px;color:#111}
+.rc .c{text-align:center}
+.rc h3{margin:0;font-family:'Space Grotesk','Inter',sans-serif;font-size:18px;letter-spacing:.06em}
+.rc .ar{font-size:15px;margin:2px 0}
+.rc hr{border:0;border-top:1px dashed #777;margin:8px 0}
+.rc .rl{margin:5px 0}
+.rc .rq{display:flex;justify-content:space-between;gap:8px;color:#333}
+.rc .kv{display:flex;justify-content:space-between;padding:1px 0}
+.rc .kv.t{font-size:16px;font-weight:700;padding-top:4px}
+.rc .fine{font-size:11px;color:#444}
+#printArea{display:none}
+
+
+.modal.xl{max-width:1040px}
+.rhead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+.rhead h2{margin:0}
+.rtabs{display:flex;gap:4px;overflow-x:auto;background:var(--soft);border-radius:11px;padding:3px}
+.rtabs button{flex:none;border:0;background:transparent;color:var(--muted);font-weight:600;padding:9px 14px;border-radius:8px}
+.rtabs button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(15,17,20,.12)}
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin:14px 0}
+.filters .qk{display:flex;gap:6px;flex-wrap:wrap}
+.fld.sm{margin:0}
+.fld.sm span{font-size:12px;color:var(--muted);margin-bottom:4px}
+.fld.sm input,.fld.sm select{padding:9px 12px}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:12px;margin-bottom:14px}
+.tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+.tbl th{background:var(--soft);text-align:left;padding:9px 12px;white-space:nowrap;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.tbl td{padding:9px 12px;border-top:1px solid var(--line);vertical-align:top}
+.tbl .r{text-align:right}
+.tbl tr.sum td{font-weight:700;background:var(--soft)}
+.tbl tr.sh td{background:var(--soft);font-weight:700;font-size:12.5px}
+.tbl tr.void td{color:var(--muted);text-decoration:line-through}
+.tbl tr.void td:last-child{text-decoration:none}
+.tbl .bx{font-weight:700;white-space:nowrap;width:44px}
+.vin{width:120px;padding:6px 8px;border-radius:8px;border:1px solid var(--brand);background:var(--bg);text-align:right}
+.rs{margin:18px 0 8px;font-family:'Space Grotesk','Inter',sans-serif;font-size:16px}
+.none{color:var(--muted)}
+.note{color:var(--muted);font-size:12.5px;margin:0 0 6px}
+.rpt{color:#111;font-size:11.5px;font-family:'Inter',system-ui,sans-serif;background:#fff}
+.rpt .rh{display:flex;justify-content:space-between;gap:16px;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:12px}
+.rpt h1{margin:0;font-size:18px;font-family:'Space Grotesk','Inter',sans-serif}
+.rpt .rt{text-align:right}
+.rpt .tw{border:0;border-radius:0;overflow:visible}
+.rpt .tbl{font-size:11px}
+.rpt .tbl th{background:#eee;color:#111;border-bottom:1px solid #999}
+.rpt .tbl td{border-top:1px solid #ccc;padding:5px 8px;color:#111}
+.rpt .tbl tr.sum td,.rpt .tbl tr.sh td{background:#f2f2f2}
+.rpt .stats{grid-template-columns:repeat(4,1fr)}
+.rpt .stat{background:#f2f2f2;border:1px solid #ddd;color:#111}
+.rpt .stat span{color:#444}
+.rpt .tag{background:#eee}
+.rpt .rs{color:#111}
+.rpt .note{color:#444}
+
+/* responsive */
+@media (max-width:900px){
+  .catalog{padding:18px 14px 0}
+  .sw{height:130px}
+  .main{grid-template-columns:1fr}
+  .clock{display:none}
+  .tbtn span{display:none}
+  .cart{position:fixed;inset:0;z-index:40;transform:translateY(100%);transition:transform .22s ease;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+  body.cart-open .cart{transform:none}
+  .back{display:inline-flex}
+  .cartbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 12px 12px;padding:14px 16px;border:0;border-radius:14px;background:var(--brand);color:var(--brand-ink);font-weight:700;box-shadow:var(--shadow)}
+}
+@media (max-width:480px){.two{grid-template-columns:1fr}.two-f{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media print{
+  html,body{height:auto;background:#fff}
+  body>*:not(#printArea){display:none!important}
+  #printArea{display:block}
+  :root{padding:0}
+  @page{size:80mm auto;margin:4mm}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <div class="brand">
+      <svg width="38" height="38" viewBox="0 0 38 38" aria-hidden="true">
+        <rect width="38" height="38" rx="9" fill="#fff" opacity=".12"/>
+        <g stroke="#E8C36E" stroke-width="2.4" stroke-linecap="round">
+          <path d="M8 12h22M8 19h22M8 26h22"/>
+        </g>
+        <g stroke="#fff" stroke-width="2.4" stroke-linecap="round" opacity=".9">
+          <path d="M12 8v22M19 8v22M26 8v22" stroke-dasharray="4 4"/>
+        </g>
+      </svg>
+      <div><h1>SHEIKHA TEXTILES</h1><small id="brandAr">الشيخة للأقمشة</small></div>
+    </div>
+    <div class="clock num" id="clock"></div>
+    <button class="tbtn" id="btnSales"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg><span>Reports</span></button>
+    <button class="tbtn" id="btnItems"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Items</span></button>
+    <button class="tbtn" id="btnSet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Settings</span></button>
+  </header>
+
+  <div class="main">
+    <section class="catalog" aria-label="Fabrics">
+      <h2 class="sec">Select fabric</h2>
+      <p class="sechint">Tap a fabric, enter the price, then choose with or without VAT.</p>
+      <div class="grid" id="grid"></div>
+      <button class="cartbar" id="cartbar" aria-label="Open bill"><span id="cbCount">Bill is empty</span><span class="num" id="cbTotal">AED 0.00</span></button>
+    </section>
+
+    <aside class="cart" aria-label="Current bill">
+      <div class="cart-h">
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="ghost back" id="btnBack" aria-label="Back to fabrics">Back</button>
+          <h2>Current bill</h2>
+        </div>
+        <button class="link" id="btnClear">Clear</button>
+      </div>
+      <div class="lines" id="lines"></div>
+      <div class="foot">
+        <div class="disc">
+          <label for="discVal">Discount</label>
+          <input id="discVal" class="num" inputmode="decimal" placeholder="0">
+          <div class="seg" id="discType"><button data-t="pct" class="on">%</button><button data-t="aed">AED</button></div>
+        </div>
+        <div class="row"><span>Items (incl. VAT)</span><span class="num" id="tItems">0.00</span></div>
+        <div class="row" id="rDisc" hidden><span>Discount</span><span class="num" id="tDisc">0.00</span></div>
+        <div class="row"><span>Amount excl. VAT</span><span class="num" id="tNet">0.00</span></div>
+        <div class="row"><span id="vatLbl">VAT 5%</span><span class="num" id="tVat">0.00</span></div>
+        <div class="row total"><span>Total</span><span class="num" id="tTotal">AED 0.00</span></div>
+        <button class="primary" id="btnPay" disabled>Take payment</button>
+      </div>
+    </aside>
+  </div>
+</div>
+<div id="modals"></div>
+<div id="printArea"></div>
+
+<script>
+(function(){
+'use strict';
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const r2=x=>Math.round((x+Number.EPSILON)*100)/100;
+const nf=new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmt=n=>nf.format(n||0);
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const store={
+  get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+};
+
+/* ---------- data ---------- */
+const UNITS={m:{short:'m',per:'per metre',name:'Metre'},yd:{short:'yd',per:'per yard',name:'Yard'},pc:{short:'pc',per:'per piece',name:'Piece'},kg:{short:'kg',per:'per kg',name:'Kilogram'}};
+const us=u=>(UNITS[u]||UNITS.m).short;
+const CATS=[
+  {id:'everyday',label:'Everyday',weave:'plain'},
+  {id:'sheer',label:'Sheer & silk',weave:'sheer'},
+  {id:'heavy',label:'Heavy & winter',weave:'twill'},
+  {id:'home',label:'Home',weave:'dots'},
+  {id:'other',label:'Other',weave:'plain'}
+];
+const weaveOf=c=>(CATS.find(x=>x.id===c)||CATS[4]).weave;
+const COLORS=['#243B8C','#9E2B3B','#C88A1B','#1F7A78','#6B3A7A','#5F6F2F','#1A1F3A','#C76F86','#B79F7A','#4B8FBF'];
+const DEFAULT_ITEMS=[
+  {id:'i0',name:'Cotton',cat:'everyday',color:'#2F6F8F',unit:'m',price:''},
+  {id:'i1',name:'Silk',cat:'sheer',color:'#8E3B55',unit:'m',price:''},
+  {id:'i2',name:'Chiffon',cat:'sheer',color:'#B9944F',unit:'m',price:''}
+];
+const CUSTOM={id:'custom',name:'Custom item',cat:'other',color:'#5B6390',unit:'m',custom:true};
+
+let settings=Object.assign({
+  name:'SHEIKHA TEXTILES',nameAr:'الشيخة للأقمشة',trn:'',address:'Dubai, United Arab Emirates',phone:'',emirate:'Dubai',vat:5,
+  footer:'Thank you for shopping at Sheikha Textiles.',footerAr:'شكراً لتسوقكم معنا'
+},store.get('sk_settings',{}));
+let items=store.get('sk_items3',null)||DEFAULT_ITEMS;
+let sales=store.get('sk_sales',[]);
+let seq=store.get('sk_seq',1);
+let actlog=store.get('sk_log',[]);
+function logAct(type,text){actlog.unshift({ts:Date.now(),type:type,text:text});if(actlog.length>1000)actlog.length=1000;store.set('sk_log',actlog)}
+const saved=store.get('sk_cart',{cart:[],discount:{type:'pct',value:''}});
+let cart=saved.cart||[];
+let discount=saved.discount||{type:'pct',value:''};
+
+
+const saveSettings=()=>store.set('sk_settings',settings);
+const saveItems=()=>store.set('sk_items3',items);
+const saveSales=()=>{store.set('sk_sales',sales);store.set('sk_seq',seq)};
+const saveCart=()=>store.set('sk_cart',{cart,discount});
+
+/* ---------- calculations ---------- */
+function calcLine(l){
+  const rate=settings.vat/100, p=+l.price||0, q=+l.qty||0;
+  let gross,net,vat;
+  if(l.mode==='incl'){gross=r2(p*q);net=r2(gross/(1+rate));vat=r2(gross-net)}
+  else{net=r2(p*q);vat=r2(net*rate);gross=r2(net+vat)}
+  return {gross,net,vat};
+}
+function totals(){
+  let sumGross=0,sumNet=0;
+  cart.forEach(l=>{const c=calcLine(l);sumGross+=c.gross;sumNet+=c.net});
+  sumGross=r2(sumGross);sumNet=r2(sumNet);
+  const v=parseFloat(discount.value)||0;
+  let disc=0;
+  if(v>0)disc=discount.type==='pct'?r2(sumGross*Math.min(v,100)/100):Math.min(v,sumGross);
+  disc=r2(disc);
+  const total=r2(sumGross-disc);
+  const net=sumGross>0?r2(sumNet*total/sumGross):0;
+  const vat=r2(total-net);
+  return {sumGross,disc,total,net,vat,count:cart.length};
+}
+
+/* ---------- helpers ---------- */
+function toast(msg){
+  const t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);
+  setTimeout(()=>t.remove(),1800);
+}
+const modalStack=[];
+function modal(html,opts={}){
+  const back=document.createElement('div');back.className='back-drop';
+  back.innerHTML='<div class="modal'+(opts.wide?' wide':'')+(opts.xl?' xl':'')+'" role="dialog" aria-modal="true">'+html+'</div>';
+  $('#modals').appendChild(back);
+  const api={el:back.firstElementChild,close(){const i=modalStack.indexOf(api);if(i>-1)modalStack.splice(i,1);back.remove();if(opts.onClose)opts.onClose()}};
+  back.addEventListener('mousedown',e=>{if(e.target===back)api.close()});
+  modalStack.push(api);
+  return api;
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modalStack.length)modalStack[modalStack.length-1].close()});
+function askConfirm(title,text,okLabel,danger){
+  return new Promise(res=>{
+    const m=modal('<h2>'+esc(title)+'</h2><p class="sub">'+esc(text)+'</p><div class="actions"><button class="ghost" data-no>Cancel</button><button class="primary'+(danger?' danger':'')+'" data-yes>'+esc(okLabel)+'</button></div>');
+    let done=false;
+    const fin=v=>{if(done)return;done=true;m.close();res(v)};
+    $('[data-no]',m.el).onclick=()=>fin(false);
+    $('[data-yes]',m.el).onclick=()=>fin(true);
+    $('[data-yes]',m.el).focus();
+  });
+}
+function fmtDate(ts){return new Date(ts).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}
+function fmtTime(ts){return new Date(ts).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}
+const isToday=ts=>new Date(ts).toDateString()===new Date().toDateString();
+
+/* ---------- catalog ---------- */
+function renderGrid(){
+  $('#grid').innerHTML=items.map(i=>'<button class="tile" data-id="'+esc(i.id)+'"><div class="sw '+weaveOf(i.cat)+'" style="--c:'+esc(i.color)+'"></div><div class="tb"><div><b>'+esc(i.name)+'</b><span>'+(i.price?'AED '+fmt(+i.price)+' '+UNITS[i.unit].per.replace('per ','/'):'Price entered at sale')+'</span></div><i class="go" aria-hidden="true">+</i></div></button>').join('');
+}
+$('#grid').addEventListener('click',e=>{
+  const t=e.target.closest('.tile');if(!t)return;
+  const item=t.dataset.id==='custom'?CUSTOM:items.find(i=>i.id===t.dataset.id);
+  if(item)itemModal(item,null);
+});
+
+/* ---------- item price modal (asks incl / excl VAT) ---------- */
+function itemModal(item,line){
+  const custom=!!item.custom;
+  const st={
+    price:line?line.price:(item.price||''),
+    qty:line?line.qty:1,
+    name:line?line.name:(custom?'':item.name),
+    unit:line?line.unit:item.unit
+  };
+  const m=modal(
+    '<h2>'+esc(custom?'Custom item':item.name)+'</h2>'+
+    '<p class="sub" id="mSub"></p>'+
+    (custom?'<div class="two-f"><label class="fld"><span>Item name</span><input id="mName" placeholder="e.g. Buttons" value="'+esc(st.name)+'"></label><label class="fld"><span>Sold by</span><select id="mUnit">'+Object.keys(UNITS).map(k=>'<option value="'+k+'"'+(st.unit===k?' selected':'')+'>'+UNITS[k].name+'</option>').join('')+'</select></label></div>':'')+
+    '<label class="fld"><span id="mPriceLbl">Price</span><div class="money"><i>AED</i><input id="mPrice" class="num" inputmode="decimal" placeholder="0.00" value="'+esc(st.price)+'"></div></label>'+
+    '<div class="fld"><span id="mQtyLbl">Quantity</span><div class="step"><button type="button" id="mMinus" aria-label="Less">−</button><input id="mQty" class="num" inputmode="decimal" value="'+esc(st.qty)+'"><button type="button" id="mPlus" aria-label="More">+</button></div><div class="qchips">'+[1,2,3,5,10].map(n=>'<button type="button" data-q="'+n+'">'+n+'</button>').join('')+'</div></div>'+
+    '<div class="ask">Is the price you entered including VAT?</div>'+
+    '<div class="two"><button class="vbtn" data-mode="incl"><strong>Includes VAT</strong><span class="tot num"></span><small class="num"></small></button><button class="vbtn" data-mode="excl"><strong>Excludes VAT</strong><span class="tot num"></span><small class="num"></small></button></div>'
+  );
+  const $m=s=>$(s,m.el);
+  const unit=()=>custom?$m('#mUnit').value:st.unit;
+  function refresh(){
+    const u=UNITS[unit()]||UNITS.m;
+    $m('#mSub').textContent=line?'Editing this line':u.per.charAt(0).toUpperCase()+u.per.slice(1);
+    $m('#mPriceLbl').textContent='Price '+u.per;
+    $m('#mQtyLbl').textContent='Quantity ('+u.name.toLowerCase()+'s)';
+    const p=parseFloat($m('#mPrice').value), q=parseFloat($m('#mQty').value);
+    const ok=p>0&&q>0;
+    $$('.vbtn',m.el).forEach(b=>{
+      b.disabled=!ok;
+      if(!ok){$('.tot',b).textContent='AED –';$('small',b).textContent='Enter price and quantity';return}
+      const c=calcLine({price:p,qty:q,mode:b.dataset.mode});
+      $('.tot',b).textContent='AED '+fmt(c.gross);
+      $('small',b).textContent='Excl. VAT '+fmt(c.net)+' + VAT '+fmt(c.vat);
+    });
+  }
+  ['#mPrice','#mQty'].forEach(s=>$m(s).addEventListener('input',refresh));
+  if(custom)$m('#mUnit').addEventListener('change',refresh);
+  const bump=d=>{const step=(unit()==='pc')?1:0.5;let q=parseFloat($m('#mQty').value)||0;q=Math.max(0,r2(q+d*step));$m('#mQty').value=q;refresh()};
+  $m('#mMinus').onclick=()=>bump(-1);
+  $m('#mPlus').onclick=()=>bump(1);
+  $$('[data-q]',m.el).forEach(b=>b.onclick=()=>{$m('#mQty').value=b.dataset.q;refresh()});
+  $$('.vbtn',m.el).forEach(b=>b.onclick=()=>{
+    const p=parseFloat($m('#mPrice').value), q=parseFloat($m('#mQty').value);
+    if(!(p>0&&q>0))return;
+    const nl={
+      id:line?line.id:uid(),itemId:item.id,
+      name:custom?($m('#mName').value.trim()||'Custom item'):st.name,
+      unit:unit(),price:p,qty:q,mode:b.dataset.mode
+    };
+    if(line)cart=cart.map(x=>x.id===line.id?nl:x);else cart.push(nl);
+    logAct('Bill',(line?'Edited ':'Added ')+nl.name+' – '+nl.qty+' '+us(nl.unit)+' at AED '+fmt(nl.price)+' ('+(nl.mode==='incl'?'incl. VAT':'excl. VAT')+')');
+    saveCart();renderCart();m.close();
+    toast(line?'Line updated':'Added to bill');
+  });
+  refresh();
+  setTimeout(()=>{const f=custom&&!line?$m('#mName'):$m('#mPrice');f.focus();if(f.select)f.select()},30);
+}
+
+/* ---------- cart ---------- */
+function renderCart(){
+  const t=totals();
+  $('#lines').innerHTML=cart.length?cart.map(l=>{
+    const c=calcLine(l);
+    return '<div class="cl" data-id="'+l.id+'" tabindex="0" role="button" aria-label="Edit '+esc(l.name)+'"><div><b>'+esc(l.name)+'</b><small class="num">'+l.qty+' '+us(l.unit)+' × '+fmt(l.price)+'<em>'+(l.mode==='incl'?'incl. VAT':'excl. VAT')+'</em></small></div><div class="cl-amt num">'+fmt(c.gross)+'</div><button class="x" data-del="'+l.id+'" aria-label="Remove '+esc(l.name)+'">×</button></div>';
+  }).join(''):'<div class="cart-empty">Tap a fabric to start a bill.</div>';
+  $('#tItems').textContent=fmt(t.sumGross);
+  $('#rDisc').hidden=!(t.disc>0);
+  $('#tDisc').textContent='− '+fmt(t.disc);
+  $('#tNet').textContent=fmt(t.net);
+  $('#vatLbl').textContent='VAT '+settings.vat+'%';
+  $('#tVat').textContent=fmt(t.vat);
+  $('#tTotal').textContent='AED '+fmt(t.total);
+  $('#btnPay').disabled=!(t.count&&t.total>0);
+  $('#cbCount').textContent=t.count?t.count+(t.count===1?' line':' lines')+' – view bill':'Bill is empty';
+  $('#cbTotal').textContent='AED '+fmt(t.total);
+  $('#discVal').value=discount.value;
+  $$('#discType button').forEach(b=>b.classList.toggle('on',b.dataset.t===discount.type));
+}
+$('#lines').addEventListener('click',e=>{
+  const d=e.target.closest('[data-del]');
+  if(d){const rl=cart.find(l=>l.id===d.dataset.del);if(rl)logAct('Bill','Removed '+rl.name+' from bill');cart=cart.filter(l=>l.id!==d.dataset.del);saveCart();renderCart();return}
+  const row=e.target.closest('.cl');if(!row)return;
+  const l=cart.find(x=>x.id===row.dataset.id);if(!l)return;
+  const item=l.itemId==='custom'?CUSTOM:(items.find(i=>i.id===l.itemId)||{id:l.itemId,name:l.name,unit:l.unit,color:'#5B6390',cat:'other'});
+  itemModal(item,l);
+});
+$('#lines').addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.classList.contains('cl')){e.preventDefault();e.target.click()}});
+$('#discVal').addEventListener('input',e=>{discount.value=e.target.value;saveCart();const keep=e.target.value;renderCart();$('#discVal').value=keep});
+$('#discType').addEventListener('click',e=>{const b=e.target.closest('[data-t]');if(!b)return;discount.type=b.dataset.t;saveCart();renderCart()});
+$('#btnClear').onclick=async()=>{
+  if(!cart.length)return;
+  if(await askConfirm('Clear this bill?','All lines will be removed.','Clear bill',true)){logAct('Bill','Bill cleared ('+cart.length+(cart.length===1?' line':' lines')+')');cart=[];discount={type:'pct',value:''};saveCart();renderCart()}
+};
+$('#cartbar').onclick=()=>document.body.classList.add('cart-open');
+$('#btnBack').onclick=()=>document.body.classList.remove('cart-open');
+
+/* ---------- payment ---------- */
+function payModal(){
+  const t=totals();
+  if(!t.count||t.total<=0)return;
+  let method='cash';
+  const cands=[...new Set([5,10,50,100,500].map(x=>Math.ceil(t.total/x)*x))].filter(v=>v>t.total).slice(0,4);
+  const m=modal(
+    '<h2>Take payment</h2><p class="sub">Choose how the customer is paying.</p>'+
+    '<div class="paytotal"><span>Amount due</span><b class="num">AED '+fmt(t.total)+'</b></div>'+
+    '<div class="seg big" id="pm"><button data-m="cash" class="on">Cash</button><button data-m="card">Card</button></div>'+
+    '<div id="cashPane"><label class="fld"><span>Cash received</span><div class="money"><i>AED</i><input id="tend" class="num" inputmode="decimal" placeholder="0.00"></div></label>'+
+    '<div class="quick"><button data-amt="'+t.total+'">Exact</button>'+cands.map(v=>'<button data-amt="'+v+'">'+v+'</button>').join('')+'</div>'+
+    '<div class="change" id="chg"><span>Change to give</span><b class="num">AED 0.00</b></div></div>'+
+    '<div id="cardPane" hidden><p class="sub" style="margin-bottom:12px">Take the payment on the card machine, then confirm here once it is approved.</p>'+
+    '<label class="fld"><span>Approval or reference no. (optional)</span><input id="ref" placeholder="e.g. 483920"></label></div>'+
+    '<div class="actions"><button class="ghost" id="payCancel">Cancel</button><button class="primary" id="payGo" disabled>Complete sale</button></div>'
+  );
+  const $m=s=>$(s,m.el);
+  function upd(){
+    if(method==='cash'){
+      const v=parseFloat($m('#tend').value)||0;
+      const ch=r2(v-t.total);
+      const box=$m('#chg');
+      box.className='change '+(v===0?'':(ch>=0?'ok':'bad'));
+      box.innerHTML='<span>'+(ch>=0||v===0?'Change to give':'Still to collect')+'</span><b class="num">AED '+fmt(v===0?0:Math.abs(ch))+'</b>';
+      $m('#payGo').disabled=!(v>0&&ch>=0);
+      $m('#payGo').textContent='Complete sale';
+    }else{
+      $m('#payGo').disabled=false;
+      $m('#payGo').textContent='Card approved – complete sale';
+    }
+  }
+  $m('#tend').addEventListener('input',upd);
+  $$('[data-amt]',m.el).forEach(b=>b.onclick=()=>{$m('#tend').value=b.dataset.amt;upd()});
+  $$('#pm button',m.el).forEach(b=>b.onclick=()=>{
+    method=b.dataset.m;
+    $$('#pm button',m.el).forEach(x=>x.classList.toggle('on',x===b));
+    $m('#cashPane').hidden=method!=='cash';
+    $m('#cardPane').hidden=method!=='card';
+    upd();
+    if(method==='cash')$m('#tend').focus();
+  });
+  $m('#payCancel').onclick=()=>m.close();
+  $m('#payGo').onclick=()=>{
+    const tendered=method==='cash'?parseFloat($m('#tend').value)||0:t.total;
+    const sale={
+      id:uid(),no:'INV-'+String(seq).padStart(6,'0'),ts:Date.now(),
+      lines:cart.map(l=>Object.assign({},l,calcLine(l))),
+      discount:{type:discount.type,value:parseFloat(discount.value)||0},
+      sumGross:t.sumGross,disc:t.disc,net:t.net,vat:t.vat,total:t.total,vatRate:settings.vat,
+      method,tendered,change:method==='cash'?r2(tendered-t.total):0,
+      ref:method==='card'?$m('#ref').value.trim():'',status:'paid'
+    };
+    seq++;sales.unshift(sale);saveSales();logAct('Sale',sale.no+' – AED '+fmt(sale.total)+' paid by '+sale.method+' ('+sale.lines.length+(sale.lines.length===1?' line':' lines')+')');
+    cart=[];discount={type:'pct',value:''};saveCart();renderCart();
+    m.close();
+    document.body.classList.remove('cart-open');
+    receiptModal(sale);
+  };
+  setTimeout(()=>$m('#tend').focus(),30);
+  upd();
+}
+$('#btnPay').onclick=payModal;
+
+/* ---------- receipt ---------- */
+function receiptHTML(s){
+  const taxInv=!!settings.trn;
+  const rows=s.lines.map(l=>'<div class="rl"><div>'+esc(l.name)+'</div><div class="rq"><span>'+l.qty+' '+us(l.unit)+' × '+fmt(l.price)+' ('+(l.mode==='incl'?'incl. VAT':'excl. VAT')+')</span><b>'+fmt(l.gross)+'</b></div></div>').join('');
+  return '<div class="rc">'+
+    '<div class="c"><h3>'+esc(settings.name)+'</h3><div class="ar">'+esc(settings.nameAr)+'</div>'+
+    (settings.address?'<div class="fine">'+esc(settings.address)+'</div>':'')+
+    (settings.phone?'<div class="fine">Tel: '+esc(settings.phone)+'</div>':'')+
+    (taxInv?'<div class="fine">TRN: '+esc(settings.trn)+'</div>':'')+'</div>'+
+    '<hr><div class="c"><b>'+(taxInv?'TAX INVOICE – فاتورة ضريبية':'RECEIPT – إيصال')+'</b></div><hr>'+
+    '<div class="kv"><span>No.</span><b>'+esc(s.no)+'</b></div><div class="kv"><span>Date</span><span>'+fmtDate(s.ts)+'</span></div><hr>'+
+    rows+'<hr>'+
+    '<div class="kv"><span>Items (incl. VAT)</span><span>'+fmt(s.sumGross)+'</span></div>'+
+    (s.disc>0?'<div class="kv"><span>Discount'+(s.discount.type==='pct'?' ('+s.discount.value+'%)':'')+'</span><span>− '+fmt(s.disc)+'</span></div>':'')+
+    '<div class="kv"><span>Amount excl. VAT</span><span>'+fmt(s.net)+'</span></div>'+
+    '<div class="kv"><span>VAT '+s.vatRate+'%</span><span>'+fmt(s.vat)+'</span></div>'+
+    '<div class="kv t"><span>TOTAL (AED)</span><span>'+fmt(s.total)+'</span></div><hr>'+
+    '<div class="kv"><span>Paid by</span><b>'+(s.method==='cash'?'Cash':'Card')+'</b></div>'+
+    (s.method==='cash'?'<div class="kv"><span>Cash received</span><span>'+fmt(s.tendered)+'</span></div><div class="kv"><span>Change</span><span>'+fmt(s.change)+'</span></div>':(s.ref?'<div class="kv"><span>Card ref.</span><span>'+esc(s.ref)+'</span></div>':''))+
+    (s.status==='void'?'<hr><div class="c"><b>*** VOIDED ***</b></div>':'')+
+    '<hr><div class="c fine">'+esc(settings.footer)+'<br>'+esc(settings.footerAr)+'</div></div>';
+}
+function doPrint(html,paper){
+  let st=document.getElementById('pageStyle');
+  if(!st){st=document.createElement('style');st.id='pageStyle';document.head.appendChild(st)}
+  st.textContent=paper==='a4'?'@media print{@page{size:A4;margin:12mm}}':'@media print{@page{size:80mm auto;margin:4mm}}';
+  $('#printArea').innerHTML=html;
+  try{window.print()}catch(e){toast('Printing is not available here')}
+}
+function receiptModal(s){
+  const m=modal('<h2>Sale complete</h2><p class="sub">'+esc(s.no)+' – AED '+fmt(s.total)+' paid by '+(s.method==='cash'?'cash':'card')+'.</p>'+
+    (s.method==='cash'&&s.change>0?'<div class="paytotal"><span>Give change</span><b class="num">AED '+fmt(s.change)+'</b></div>':'')+
+    '<div class="paper">'+receiptHTML(s)+'</div>'+
+    '<div class="actions"><button class="ghost" id="rPrint">Print receipt</button><button class="primary" id="rDone">New sale</button></div>');
+  $('#rPrint',m.el).onclick=()=>doPrint(receiptHTML(s));
+  $('#rDone',m.el).onclick=()=>m.close();
+  $('#rDone',m.el).focus();
+}
+
+/* ---------- sales history ---------- */
+function viewSale(s){
+  const m=modal('<div class="paper">'+receiptHTML(s)+'</div><div class="actions"><button class="ghost" id="vp">Print</button><button class="primary" id="vc">Close</button></div>');
+  $('#vp',m.el).onclick=()=>doPrint(receiptHTML(s));
+  $('#vc',m.el).onclick=()=>m.close();
+}
+/* ---------- reports ---------- */
+const EMIRATES=['Abu Dhabi','Dubai','Sharjah','Ajman','Umm Al Quwain','Ras Al Khaimah','Fujairah'];
+const pad2=n=>String(n).padStart(2,'0');
+const ymd=ts=>{const d=new Date(ts);return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())};
+const dayStart=y=>new Date(y+'T00:00:00').getTime();
+const dayEnd=y=>new Date(y+'T23:59:59.999').getTime();
+const nice=y=>new Date(y+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+const fmtFull=ts=>new Date(ts).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+function quickRange(n,full){
+  const t=new Date(),y=t.getFullYear(),mo=t.getMonth();
+  const f=(a,b)=>[ymd(a),ymd(b)];
+  if(n==='month')return f(new Date(y,mo,1),full?new Date(y,mo+1,0):t);
+  if(n==='lastmonth')return f(new Date(y,mo-1,1),new Date(y,mo,0));
+  const q=Math.floor(mo/3)*3;
+  if(n==='quarter')return f(new Date(y,q,1),full?new Date(y,q+3,0):t);
+  if(n==='lastquarter')return f(new Date(y,q-3,1),new Date(y,q,0));
+  return f(t,t);
+}
+function agg(list){
+  const paid=list.filter(s=>s.status!=='void'),voids=list.filter(s=>s.status==='void');
+  const sum=(a,f)=>r2(a.reduce((x,s)=>x+f(s),0));
+  const cash=paid.filter(s=>s.method==='cash'),card=paid.filter(s=>s.method==='card');
+  return {bills:paid.length,gross:sum(paid,s=>s.sumGross),disc:sum(paid,s=>s.disc),net:sum(paid,s=>s.net),vat:sum(paid,s=>s.vat),total:sum(paid,s=>s.total),
+    cash:sum(cash,s=>s.total),card:sum(card,s=>s.total),cashN:cash.length,cardN:card.length,voidN:voids.length,voidTotal:sum(voids,s=>s.total)};
+}
+function byItem(list){
+  const map={};
+  list.filter(s=>s.status!=='void').forEach(s=>{
+    const f=s.sumGross>0?s.total/s.sumGross:0;
+    s.lines.forEach(l=>{
+      const k=l.name+'|'+l.unit;
+      const o=map[k]||(map[k]={name:l.name,unit:l.unit,qty:0,net:0,vat:0,total:0});
+      o.qty=r2(o.qty+(+l.qty));o.net=r2(o.net+r2(l.net*f));o.total=r2(o.total+r2(l.gross*f));o.vat=r2(o.total-o.net);
+    });
+  });
+  return Object.values(map).sort((a,b)=>b.total-a.total);
+}
+function tbl(head,rows,foot){
+  return '<div class="tw"><table class="tbl"><thead><tr>'+head.map(h=>'<th'+(h[1]?' class="r"':'')+'>'+h[0]+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody>'+(foot?'<tfoot>'+foot+'</tfoot>':'')+'</table></div>';
+}
+const trow=(cells,pat,cls)=>'<tr'+(cls?' class="'+cls+'"':'')+'>'+cells.map((c,i)=>'<td'+(pat[i]==='r'?' class="r num"':'')+'>'+c+'</td>').join('')+'</tr>';
+const statBox=(l,v)=>'<div class="stat"><span>'+l+'</span><b class="num">'+v+'</b></div>';
+const aed=v=>'AED '+fmt(v);
+
+function billsBlock(list,actions){
+  const a=agg(list);
+  const head=[['Invoice'],['Date & time'],['Payment'],['Excl. VAT',1],['VAT',1],['Total',1],['Status']].concat(actions?[['']]:[]);
+  const rows=list.map(s=>trow([esc(s.no),fmtDate(s.ts),s.method==='cash'?'Cash':'Card',fmt(s.net),fmt(s.vat),fmt(s.total),s.status==='void'?'Void':'Paid']
+    .concat(actions?['<button class="mini" data-v="'+s.id+'">View</button> '+(s.status!=='void'?'<button class="mini" data-x="'+s.id+'">Void</button>':'')]:[]),
+    'lllrrrl'+(actions?'l':''),s.status==='void'?'void':''));
+  return list.length?tbl(head,rows,trow(['Total ('+a.bills+' paid bills)','','',fmt(a.net),fmt(a.vat),fmt(a.total),''].concat(actions?['']:[]),'lllrrrl'+(actions?'l':''),'sum')):'<p class="none">No invoices for this selection.</p>';
+}
+function itemsBlock(list){
+  const its=byItem(list),a=agg(list);
+  if(!its.length)return '<p class="none">No items sold in this period.</p>';
+  return tbl([['Fabric'],['Quantity',1],['Excl. VAT',1],['VAT',1],['Total',1]],
+    its.map(i=>trow([esc(i.name),i.qty+' '+us(i.unit),fmt(i.net),fmt(i.vat),fmt(i.total)],'lrrrr')),
+    trow(['Total','',fmt(a.net),fmt(a.vat),fmt(a.total)],'lrrrr','sum'));
+}
+function dailyBody(day){
+  const list=sales.filter(s=>ymd(s.ts)===day).sort((a,b)=>a.ts-b.ts),a=agg(list);
+  return '<div class="stats">'+statBox('Bills',a.bills)+statBox('Net sales excl. VAT',aed(a.net))+statBox('VAT collected',aed(a.vat))+statBox('Total sales',aed(a.total))+
+    statBox('Cash ('+a.cashN+' bills)',aed(a.cash))+statBox('Card ('+a.cardN+' bills)',aed(a.card))+statBox('Discounts given',aed(a.disc))+statBox('Voided ('+a.voidN+')',aed(a.voidTotal))+'</div>'+
+    '<h3 class="rs">Sales by fabric</h3>'+itemsBlock(list)+'<h3 class="rs">Bills</h3>'+billsBlock(list,false);
+}
+function vatCalc(from,to){
+  const a=agg(sales.filter(s=>s.ts>=dayStart(from)&&s.ts<=dayEnd(to)));
+  const vi=store.get('sk_vatin',{})[from+'_'+to]||{amt:'',vat:''};
+  const exp=r2(parseFloat(vi.amt)||0),expVat=r2(parseFloat(vi.vat)||0);
+  const em=Math.max(0,EMIRATES.indexOf(settings.emirate));
+  return {a,vi,exp,expVat,em,due:a.vat,rec:expVat,pay:r2(a.vat-expVat)};
+}
+function vatBody(from,to,edit){
+  const c=vatCalc(from,to),z='0.00',L='abcdefg';
+  const R=(box,label,x,y,j,cls)=>'<tr'+(cls?' class="'+cls+'"':'')+'><td class="bx">'+box+'</td><td>'+label+'</td><td class="r num">'+x+'</td><td class="r num">'+y+'</td><td class="r num">'+j+'</td></tr>';
+  const SH=t=>'<tr class="sh"><td colspan="5">'+t+'</td></tr>';
+  let o='<div class="tw"><table class="tbl vt"><thead><tr><th>Box</th><th>Description</th><th class="r">Amount (AED)</th><th class="r">VAT (AED)</th><th class="r">Adjustment (AED)</th></tr></thead><tbody>';
+  o+=SH('VAT on sales and all other outputs');
+  EMIRATES.forEach((e,i)=>{const on=i===c.em;o+=R('1'+L[i],'Standard rated supplies – '+e,on?fmt(c.a.net):z,on?fmt(c.a.vat):z,z)});
+  o+=R('2','Tax refunds provided to tourists under the Tax Refund for Tourists Scheme',z,z,z);
+  o+=R('3','Supplies subject to the reverse charge provisions',z,z,'');
+  o+=R('4','Zero rated supplies',z,'',''); 
+  o+=R('5','Exempt supplies',z,'','');
+  o+=R('6','Goods imported into the UAE',z,z,'');
+  o+=R('7','Adjustments to goods imported into the UAE',z,z,'');
+  o+=R('8','Totals',fmt(c.a.net),fmt(c.a.vat),z,'sum');
+  o+=SH('VAT on expenses and all other inputs');
+  const inA=edit?'<input id="vAmt" class="vin num" inputmode="decimal" placeholder="0.00" value="'+esc(c.vi.amt)+'" aria-label="Standard rated expenses amount">':fmt(c.exp);
+  const inV=edit?'<input id="vVat" class="vin num" inputmode="decimal" placeholder="0.00" value="'+esc(c.vi.vat)+'" aria-label="Recoverable VAT on expenses">':fmt(c.expVat);
+  o+='<tr><td class="bx">9</td><td>Standard rated expenses</td><td class="r">'+inA+'</td><td class="r">'+inV+'</td><td class="r num">'+z+'</td></tr>';
+  o+=R('10','Supplies subject to the reverse charge provisions',z,z,'');
+  o+='<tr class="sum"><td class="bx">11</td><td>Totals</td><td class="r num" id="v11a">'+fmt(c.exp)+'</td><td class="r num" id="v11v">'+fmt(c.expVat)+'</td><td class="r num">'+z+'</td></tr>';
+  o+=SH('Net VAT due');
+  o+=R('12','Total value of due tax for the period','',fmt(c.due),'');
+  o+='<tr><td class="bx">13</td><td>Total value of recoverable tax for the period</td><td></td><td class="r num" id="v13">'+fmt(c.rec)+'</td><td></td></tr>';
+  o+='<tr class="sum"><td class="bx">14</td><td>Payable tax for the period</td><td></td><td class="r num" id="v14">'+fmt(c.pay)+(c.pay<0?' (refundable)':'')+'</td><td></td></tr>';
+  o+='</tbody></table></div>';
+  o+='<p class="note">Based on '+c.a.bills+' paid bills from this POS (voided bills left out). All POS sales are treated as standard rated at '+settings.vat+'% in '+esc(EMIRATES[c.em])+'. Boxes 2 to 7 and 10 are zero. Enter purchases in box 9. Check every figure against your records before filing the VAT 201 on the FTA portal.</p>';
+  return o;
+}
+function logBody(type,limit){
+  const list=actlog.filter(e=>type==='all'||e.type===type).slice(0,limit);
+  if(!list.length)return '<p class="none">No activity recorded yet.</p>';
+  return tbl([['Date & time'],['Type'],['Details']],list.map(e=>trow([fmtFull(e.ts),'<span class="tag">'+esc(e.type)+'</span>',esc(e.text)],'lll')));
+}
+function reportDoc(title,period,inner){
+  return '<div class="rpt"><div class="rh"><div><h1>'+esc(settings.name)+'</h1><div>'+esc(settings.address)+(settings.trn?' – TRN '+esc(settings.trn):'')+'</div></div><div class="rt"><b>'+esc(title)+'</b><div>'+esc(period)+'</div><div>Printed '+fmtDate(Date.now())+'</div></div></div>'+inner+'</div>';
+}
+function csvOf(rows){return rows.map(r=>r.map(c=>{c=String(c);return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c}).join(',')).join('\n')}
+function copyText(t){
+  const fallback=()=>{const ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand('copy')}catch(e){}ta.remove();toast(ok?'Copied – paste into Excel':'Copy not available here')};
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(()=>toast('Copied – paste into Excel'),fallback);else fallback();
+}
+
+function reportsModal(tab){
+  const now=Date.now(),q1=quickRange('month'),vq=quickRange('quarter',true);
+  const R={tab:tab||'daily',day:ymd(now),from:q1[0],to:q1[1],method:'all',status:'all',vf:vq[0],vt:vq[1],act:'all'};
+  const m=modal('<div id="rBody"></div>',{wide:true,xl:true});
+  const dateF=(l,f)=>'<label class="fld sm"><span>'+l+'</span><input type="date" data-f="'+f+'" value="'+R[f]+'"></label>';
+  const selF=(l,f,opts)=>'<label class="fld sm"><span>'+l+'</span><select data-f="'+f+'">'+opts.map(o=>'<option value="'+o[0]+'"'+(R[f]===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+'</select></label>';
+  const quick=(att,names)=>names.map(n=>'<button class="mini" '+att+'="'+n[0]+'">'+n[1]+'</button>').join('');
+  const invList=()=>sales.filter(s=>s.ts>=dayStart(R.from)&&s.ts<=dayEnd(R.to)&&(R.method==='all'||s.method===R.method)&&(R.status==='all'||(R.status==='void')===(s.status==='void'))).sort((a,b)=>a.ts-b.ts);
+  const rangeList=()=>sales.filter(s=>s.ts>=dayStart(R.from)&&s.ts<=dayEnd(R.to)).sort((a,b)=>a.ts-b.ts);
+  function draw(){
+    const T=[['daily','Daily sales'],['inv','Invoices'],['vat','VAT 201'],['items','Items sold'],['log','Activity log']];
+    let filt='',body='',title='',period='',pbody='',csv=null;
+    const rng=()=>nice(R.from)+' to '+nice(R.to);
+    if(R.tab==='daily'){
+      filt='<div class="filters"><button class="mini" data-day="-1">‹ Prev</button>'+dateF('Date','day')+'<button class="mini" data-day="1">Next ›</button><button class="mini" data-day="0">Today</button></div>';
+      title='Daily sales report';period=nice(R.day);body=pbody=dailyBody(R.day);
+    }else if(R.tab==='inv'){
+      const list=invList();
+      filt='<div class="filters">'+dateF('From','from')+dateF('To','to')+selF('Payment','method',[['all','All'],['cash','Cash'],['card','Card']])+selF('Status','status',[['all','All'],['paid','Paid'],['void','Void']])+'<div class="qk">'+quick('data-q',[['month','This month'],['lastmonth','Last month'],['today','Today']])+'</div></div>';
+      title='Invoices report';period=rng();body=billsBlock(list,true);pbody=billsBlock(list,false);
+      csv=csvOf([['Invoice','Date','Time','Payment','Excl VAT','VAT','Total','Status','Card ref']].concat(list.map(s=>[s.no,ymd(s.ts),fmtTime(s.ts),s.method,s.net.toFixed(2),s.vat.toFixed(2),s.total.toFixed(2),s.status==='void'?'void':'paid',s.ref||''])));
+    }else if(R.tab==='vat'){
+      filt='<div class="filters">'+dateF('Period from','vf')+dateF('Period to','vt')+'<div class="qk">'+quick('data-vq',[['month','This month'],['lastmonth','Last month'],['quarter','This quarter'],['lastquarter','Last quarter']])+'</div></div>';
+      title='VAT 201 return – working';period=nice(R.vf)+' to '+nice(R.vt);body=vatBody(R.vf,R.vt,true);pbody=vatBody(R.vf,R.vt,false);
+    }else if(R.tab==='items'){
+      const list=rangeList();
+      filt='<div class="filters">'+dateF('From','from')+dateF('To','to')+'<div class="qk">'+quick('data-q',[['month','This month'],['lastmonth','Last month'],['today','Today']])+'</div></div>';
+      title='Items sold report';period=rng();body=pbody=itemsBlock(list);
+      csv=csvOf([['Fabric','Unit','Quantity','Excl VAT','VAT','Total']].concat(byItem(list).map(i=>[i.name,i.unit,i.qty,i.net.toFixed(2),i.vat.toFixed(2),i.total.toFixed(2)])));
+    }else{
+      filt='<div class="filters">'+selF('Show','act',[['all','Everything'],['Sale','Sales'],['Void','Voids'],['Bill','Bill changes'],['Item','Items'],['Settings','Settings'],['Report','Reports'],['Data','Data']])+'</div>';
+      title='Activity log';period='Latest entries';body=logBody(R.act,200);pbody=logBody(R.act,500);
+    }
+    $('#rBody',m.el).innerHTML='<div class="rhead"><h2>Reports</h2><button class="ghost" id="rClose">Close</button></div>'+
+      '<div class="rtabs">'+T.map(t=>'<button data-t="'+t[0]+'" class="'+(R.tab===t[0]?'on':'')+'">'+t[1]+'</button>').join('')+'</div>'+filt+'<div>'+body+'</div>'+
+      '<div class="actions">'+(csv?'<button class="ghost" id="rCopy">Copy for Excel</button>':'')+'<button class="primary" id="rPrint">Print report</button></div>';
+    const $m=s=>$(s,m.el);
+    $m('#rClose').onclick=()=>m.close();
+    $$('[data-t]',m.el).forEach(b=>b.onclick=()=>{R.tab=b.dataset.t;draw()});
+    $$('[data-f]',m.el).forEach(i=>i.onchange=()=>{if(!i.value)return;R[i.dataset.f]=i.value;draw()});
+    $$('[data-day]',m.el).forEach(b=>b.onclick=()=>{const d=+b.dataset.day;R.day=d===0?ymd(Date.now()):ymd(new Date(R.day+'T12:00:00').getTime()+d*864e5);draw()});
+    $$('[data-q]',m.el).forEach(b=>b.onclick=()=>{const r=quickRange(b.dataset.q);R.from=r[0];R.to=r[1];draw()});
+    $$('[data-vq]',m.el).forEach(b=>b.onclick=()=>{const r=quickRange(b.dataset.vq,true);R.vf=r[0];R.vt=r[1];draw()});
+    $$('[data-v]',m.el).forEach(b=>b.onclick=()=>{const s=sales.find(x=>x.id===b.dataset.v);if(s)viewSale(s)});
+    $$('[data-x]',m.el).forEach(b=>b.onclick=async()=>{
+      const s=sales.find(x=>x.id===b.dataset.x);if(!s)return;
+      if(await askConfirm('Void '+s.no+'?','This sale will be removed from all report totals. It stays in the list marked as void.','Void sale',true)){s.status='void';s.voidedAt=Date.now();saveSales();logAct('Void',s.no+' voided (AED '+fmt(s.total)+', '+s.method+')');draw()}
+    });
+    const va=$m('#vAmt'),vv=$m('#vVat');
+    if(va&&vv){
+      const upd=()=>{
+        const all=store.get('sk_vatin',{});all[R.vf+'_'+R.vt]={amt:va.value,vat:vv.value};store.set('sk_vatin',all);
+        const c=vatCalc(R.vf,R.vt);
+        $m('#v11a').textContent=fmt(c.exp);$m('#v11v').textContent=fmt(c.expVat);$m('#v13').textContent=fmt(c.rec);
+        $m('#v14').textContent=fmt(c.pay)+(c.pay<0?' (refundable)':'');
+      };
+      va.oninput=upd;vv.oninput=upd;
+    }
+    if(csv)$m('#rCopy').onclick=()=>{copyText(csv);logAct('Report','Copied '+title+' ('+period+')')};
+    $m('#rPrint').onclick=()=>{doPrint(reportDoc(title,period,pbody),'a4');logAct('Report','Printed '+title+' ('+period+')')};
+  }
+  draw();
+}
+$('#btnSales').onclick=()=>reportsModal();
+
+
+/* ---------- items manager ---------- */
+function itemsModal(){
+  const m=modal('<div id="itemsBody"></div>',{wide:true});
+  function draw(){
+    $('#itemsBody',m.el).innerHTML='<h2>Items</h2><p class="sub">Rename a fabric or set a usual price. Leave the price empty to type it in at the till.</p>'+
+      '<div class="list">'+items.map(i=>'<div class="li"><div><b>'+esc(i.name)+'</b><br><small>'+esc((CATS.find(c=>c.id===i.cat)||{}).label||'')+' – '+UNITS[i.unit].per+(i.price?' – AED '+fmt(+i.price):'')+'</small></div><div class="sw '+weaveOf(i.cat)+'" style="--c:'+esc(i.color)+';width:34px;height:34px;border-radius:8px"></div><button class="mini" data-e="'+i.id+'">Edit</button></div>').join('')+'</div>'+
+      '<div class="actions" style="margin-top:14px"><button class="primary" id="iClose">Done</button></div>';
+    $('#iClose',m.el).onclick=()=>m.close();
+    $$('[data-e]',m.el).forEach(b=>b.onclick=()=>itemForm(items.find(i=>i.id===b.dataset.e),draw));
+  }
+  draw();
+}
+function itemForm(item,done){
+  const isNew=!item;
+  const st=item?Object.assign({},item):{id:'i'+uid(),name:'',cat:'everyday',color:COLORS[0],unit:'m',price:''};
+  const m=modal('<h2>'+(isNew?'Add item':'Edit item')+'</h2><p class="sub">&nbsp;</p>'+
+    '<label class="fld"><span>Name</span><input id="fName" value="'+esc(st.name)+'"></label>'+
+    '<div class="two-f"><label class="fld"><span>Group</span><select id="fCat">'+CATS.map(c=>'<option value="'+c.id+'"'+(st.cat===c.id?' selected':'')+'>'+c.label+'</option>').join('')+'</select></label>'+
+    '<label class="fld"><span>Sold by</span><select id="fUnit">'+Object.keys(UNITS).map(k=>'<option value="'+k+'"'+(st.unit===k?' selected':'')+'>'+UNITS[k].name+'</option>').join('')+'</select></label></div>'+
+    '<label class="fld"><span>Usual price in AED (optional)</span><input id="fPrice" class="num" inputmode="decimal" value="'+esc(st.price)+'"></label>'+
+    '<div class="fld"><span>Swatch colour</span><div class="sw-pick" id="fCol">'+COLORS.map(c=>'<button type="button" style="--c:'+c+'" data-c="'+c+'" class="'+(st.color===c?'on':'')+'" aria-label="Colour '+c+'"></button>').join('')+'</div></div>'+
+    '<div class="actions">'+'<button class="ghost" id="fCancel">Cancel</button><button class="primary" id="fSave">Save</button></div>');
+  const $m=s=>$(s,m.el);
+  $m('#fCol').onclick=e=>{const b=e.target.closest('[data-c]');if(!b)return;st.color=b.dataset.c;$$('#fCol button',m.el).forEach(x=>x.classList.toggle('on',x===b))};
+  $m('#fCancel').onclick=()=>m.close();
+  $m('#fSave').onclick=()=>{
+    const name=$m('#fName').value.trim();
+    if(!name){$m('#fName').focus();return}
+    st.name=name;st.cat=$m('#fCat').value;st.unit=$m('#fUnit').value;
+    const p=parseFloat($m('#fPrice').value);st.price=p>0?String(p):'';
+    if(isNew)items.push(st);else items=items.map(i=>i.id===st.id?st:i);
+    saveItems();logAct('Item','Fabric "'+st.name+'" updated'+(st.price?' (usual price AED '+fmt(+st.price)+')':''));renderGrid();m.close();done&&done();
+  };
+  setTimeout(()=>$m('#fName').focus(),30);
+}
+$('#btnItems').onclick=itemsModal;
+
+/* ---------- settings ---------- */
+function settingsModal(){
+  const s=settings;
+  const m=modal('<h2>Settings</h2><p class="sub">Shown on every receipt.</p>'+
+    '<div class="two-f"><label class="fld"><span>Shop name</span><input id="sName" value="'+esc(s.name)+'"></label><label class="fld"><span>Name in Arabic</span><input id="sAr" dir="rtl" value="'+esc(s.nameAr)+'"></label></div>'+
+    '<div class="two-f"><label class="fld"><span>Tax Registration Number (TRN)</span><input id="sTrn" inputmode="numeric" placeholder="15 digits" value="'+esc(s.trn)+'"></label><label class="fld"><span>VAT rate (%)</span><input id="sVat" class="num" inputmode="decimal" value="'+esc(s.vat)+'"></label></div>'+
+    '<label class="fld"><span>Address</span><input id="sAddr" value="'+esc(s.address)+'"></label>'+
+    '<div class="two-f"><label class="fld"><span>Phone</span><input id="sPhone" value="'+esc(s.phone)+'"></label><label class="fld"><span>Emirate (for VAT 201)</span><select id="sEm">'+EMIRATES.map(e=>'<option'+(s.emirate===e?' selected':'')+'>'+e+'</option>').join('')+'</select></label></div>'+
+    '<div class="two-f"><label class="fld"><span>Receipt footer</span><input id="sFoot" value="'+esc(s.footer)+'"></label><label class="fld"><span>Footer in Arabic</span><input id="sFootAr" dir="rtl" value="'+esc(s.footerAr)+'"></label></div>'+
+    '<div class="actions"><button class="ghost" id="sReset" style="margin-right:auto;color:var(--danger)">Erase all sales</button><button class="ghost" id="sCancel">Cancel</button><button class="primary" id="sSave">Save</button></div>');
+  const $m=x=>$(x,m.el);
+  $m('#sCancel').onclick=()=>m.close();
+  $m('#sSave').onclick=()=>{
+    const vat=parseFloat($m('#sVat').value);
+    settings=Object.assign(settings,{
+      name:$m('#sName').value.trim()||'SHEIKHA TEXTILES',nameAr:$m('#sAr').value.trim(),
+      trn:$m('#sTrn').value.trim(),vat:(vat>=0&&vat<100)?vat:5,
+      address:$m('#sAddr').value.trim(),phone:$m('#sPhone').value.trim(),emirate:$m('#sEm').value,
+      footer:$m('#sFoot').value.trim(),footerAr:$m('#sFootAr').value.trim()
+    });
+    saveSettings();logAct('Settings','Shop settings updated');brand();renderCart();m.close();toast('Settings saved');
+  };
+  $m('#sReset').onclick=async()=>{
+    if(await askConfirm('Erase all sales?','Every saved sale and the invoice numbering will be reset. This cannot be undone.','Erase everything',true)){sales=[];seq=1;saveSales();logAct('Data','All sales erased and invoice numbering reset');toast('Sales erased')}
+  };
+}
+$('#btnSet').onclick=settingsModal;
+
+/* ---------- misc ---------- */
+function applyTheme(){document.documentElement.removeAttribute('data-theme')}
+function brand(){$('.brand h1').textContent=settings.name;$('#brandAr').textContent=settings.nameAr;document.title=settings.name+' – Point of Sale'}
+function tick(){$('#clock').textContent=new Date().toLocaleString('en-GB',{weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}
+
+applyTheme();brand();renderGrid();renderCart();tick();setInterval(tick,30000);
+})();
+</script>
+</body>
+</html>
