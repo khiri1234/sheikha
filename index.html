@@ -251,16 +251,34 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
 .stat b{color:var(--ink)}
 .rpt .stat{border-top:1px solid #ddd}
 .prod-card:hover{box-shadow:0 6px 16px rgba(225,85,12,.15)}
+/* Hold bill */
+.hold-btn{display:block;margin:0 18px 16px;width:calc(100% - 36px);padding:10px;border-radius:9px;border:1.5px dashed var(--till);background:#FDF1EA;color:var(--till-dark);font-weight:700;font-size:13px}
+.hold-btn:hover:not(:disabled){background:#FBE3D4}
+.hold-btn:disabled{opacity:.4;cursor:not-allowed}
+.nav-count{margin-left:auto;min-width:22px;padding:1px 7px;border-radius:999px;background:var(--till);color:#fff;font-family:var(--mono);font-size:11px;text-align:center}
+.nav-btn.active .nav-count{background:#fff;color:var(--till-dark)}
+.held-card{background:#fff;border:1px solid var(--line);border-left:4px solid var(--till);border-radius:12px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+.held-card .ht{font-weight:700}
+.held-card .hs{color:var(--text-dim);font-size:12.5px;margin-top:2px}
+.held-card .ha{display:flex;gap:8px;align-items:center}
+.held-card .amt{font-family:var(--mono);font-weight:700;color:var(--till-dark);margin-right:6px}
+.btn.danger{background:#fff;color:var(--red);border:1px solid #EBC9C0}
+
 /* Responsive */
 @media (max-width:1100px){.sale-layout{grid-template-columns:1fr 360px}}
 @media (max-width:900px){
-  .app{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  .app{grid-template-columns:minmax(0,1fr);grid-template-rows:auto 1fr}
   .sidebar{position:sticky;top:0;z-index:30;height:auto;flex-direction:row;align-items:center;gap:8px;padding:10px 12px;padding-top:calc(10px + env(safe-area-inset-top,0px))}
-  .brand{border:0;margin:0;padding:0 4px;flex:1;min-width:0}
+  .brand{border:0;margin:0;padding:0 2px;flex:1;min-width:0}
+  .brand span{font-size:14px}
+  .brand>div{min-width:0}
+  .brand small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .brand span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .nav{flex-direction:row;gap:2px}
-  .nav-btn{padding:9px 10px;font-size:0;gap:0}
+  .nav-btn{padding:9px 7px;font-size:0;gap:0}
   .nav-btn .ic{font-size:17px;width:auto}
+  .nav-btn{position:relative}
+  .nav-count{position:absolute;top:2px;right:0;min-width:16px;padding:0 4px;font-size:10px;line-height:16px}
   .side-foot{display:none}
   main{padding:16px 14px 90px}
   .topbar .pill{display:none}
@@ -293,6 +311,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
     <div class="brand"><div class="dot"></div><div><span id="brandName">SHEIKHA TEXTILES</span><small id="brandAr">الشيخة للأقمشة</small></div></div>
     <nav class="nav" aria-label="Main">
       <button class="nav-btn active" data-view="sale"><span class="ic">🧾</span>Sale</button>
+      <button class="nav-btn" data-view="held"><span class="ic">⏸️</span>Held Bills<span class="nav-count" id="heldCount" hidden></span></button>
       <button class="nav-btn" data-view="items"><span class="ic">🧵</span>Items</button>
       <button class="nav-btn" data-view="reports"><span class="ic">📊</span>Reports</button>
       <button class="nav-btn" data-view="settings"><span class="ic">⚙️</span>Settings</button>
@@ -332,11 +351,20 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
               <button class="pay-btn cash" id="btnCash" disabled>💵 Cash</button>
               <button class="pay-btn card" id="btnCard" disabled>💳 Card</button>
             </div>
+            <button class="hold-btn" id="btnHold" disabled>⏸️ Hold this bill</button>
             <div class="perf"></div>
           </div>
         </div>
       </div>
       <button class="cartbar" id="cartbar" aria-label="Open bill"><span id="cbCount">Bill is empty</span><span class="num" id="cbTotal">AED 0.00</span></button>
+    </section>
+
+    <!-- HELD BILLS VIEW -->
+    <section id="view-held" hidden>
+      <div class="topbar">
+        <div><h1>Held Bills</h1><div class="sub">Parked bills waiting to be resumed</div></div>
+      </div>
+      <div id="heldList"></div>
     </section>
 
     <!-- ITEMS VIEW -->
@@ -410,6 +438,9 @@ let items=store.get('sk_items3',null)||DEFAULT_ITEMS;
 let sales=store.get('sk_sales',[]);
 let seq=store.get('sk_seq',1);
 let actlog=store.get('sk_log',[]);
+let held=store.get('sk_held',[]);
+let heldSeq=store.get('sk_heldseq',1);
+const saveHeld=()=>{store.set('sk_held',held);store.set('sk_heldseq',heldSeq)};
 function logAct(type,text){actlog.unshift({ts:Date.now(),type:type,text:text});if(actlog.length>1000)actlog.length=1000;store.set('sk_log',actlog)}
 const saved=store.get('sk_cart',{cart:[],discount:{type:'pct',value:''}});
 let cart=saved.cart||[];
@@ -560,7 +591,7 @@ function renderCart(){
   $('#tVat').textContent='AED '+fmt(t.vat);
   $('#tTotal').textContent='AED '+fmt(t.total);
   const canPay=!!(t.count&&t.total>0);
-  $('#btnCash').disabled=!canPay;$('#btnCard').disabled=!canPay;
+  $('#btnCash').disabled=!canPay;$('#btnCard').disabled=!canPay;$('#btnHold').disabled=!cart.length;
   sideToday();
   $('#cbCount').textContent=t.count?t.count+(t.count===1?' line':' lines')+' – view bill':'Bill is empty';
   $('#cbTotal').textContent='AED '+fmt(t.total);
@@ -584,6 +615,39 @@ $('#btnClear').onclick=async()=>{
 };
 $('#cartbar').onclick=()=>document.body.classList.add('cart-open');
 $('#btnBack').onclick=()=>document.body.classList.remove('cart-open');
+
+/* ---------- held bills ---------- */
+function holdCurrent(){
+  if(!cart.length)return null;
+  const h={id:uid(),no:heldSeq++,ts:Date.now(),cart:JSON.parse(JSON.stringify(cart)),discount:Object.assign({},discount),total:totals().total};
+  held.push(h);saveHeld();
+  logAct('Bill','Held bill #'+h.no+' – AED '+fmt(h.total)+' ('+h.cart.length+(h.cart.length===1?' line':' lines')+')');
+  cart=[];discount={type:'pct',value:''};saveCart();renderCart();renderHeld();
+  return h;
+}
+$('#btnHold').onclick=()=>{const h=holdCurrent();if(h){document.body.classList.remove('cart-open');toast('Bill held as #'+h.no)}};
+function renderHeld(){
+  const n=held.length;
+  $('#heldCount').hidden=!n;$('#heldCount').textContent=n;
+  $('#heldList').innerHTML=n?held.slice().sort((a,b)=>b.ts-a.ts).map(h=>'<div class="held-card"><div><div class="ht">Held bill #'+h.no+'</div><div class="hs">'+esc(h.cart.map(l=>l.name).join(', '))+' · '+h.cart.length+(h.cart.length===1?' line':' lines')+' · '+fmtDate(h.ts)+'</div></div><div class="ha"><span class="amt">AED '+fmt(h.total)+'</span><button class="btn primary" data-resume="'+h.id+'">Resume</button><button class="btn danger" data-hdel="'+h.id+'">Delete</button></div></div>').join(''):'<div class="card none">No held bills. Use “Hold this bill” on the sale screen to park a bill for later.</div>';
+}
+$('#heldList').addEventListener('click',async e=>{
+  const r=e.target.closest('[data-resume]'),d=e.target.closest('[data-hdel]');
+  if(r){
+    const h=held.find(x=>x.id===r.dataset.resume);if(!h)return;
+    const swapped=cart.length?holdCurrent():null;
+    held=held.filter(x=>x.id!==h.id);saveHeld();
+    cart=h.cart;discount=h.discount||{type:'pct',value:''};saveCart();
+    logAct('Bill','Resumed held bill #'+h.no);
+    go('sale');renderCart();renderHeld();
+    toast(swapped?'Resumed #'+h.no+' – previous bill held as #'+swapped.no:'Resumed held bill #'+h.no);
+  }else if(d){
+    const h=held.find(x=>x.id===d.dataset.hdel);if(!h)return;
+    if(await askConfirm('Delete held bill #'+h.no+'?','This parked bill (AED '+fmt(h.total)+') will be removed. This cannot be undone.','Delete',true)){
+      held=held.filter(x=>x.id!==h.id);saveHeld();logAct('Bill','Deleted held bill #'+h.no);renderHeld();
+    }
+  }
+});
 
 /* ---------- payment ---------- */
 function payModal(startMethod){
@@ -940,7 +1004,7 @@ function settingsModal(){
 function applyTheme(){document.documentElement.removeAttribute('data-theme')}
 function brand(){$('#brandName').textContent=settings.name;$('#brandAr').textContent=settings.nameAr;$('#sideVat').textContent=settings.vat;document.title=settings.name+' – Point of Sale'}
 function sideToday(){$('#sideToday').textContent='AED '+fmt(agg(sales.filter(s=>isToday(s.ts))).total)}
-const VIEWS={sale:null,items:itemsModal,reports:()=>reportsModal(),settings:settingsModal};
+const VIEWS={sale:null,held:()=>renderHeld(),items:itemsModal,reports:()=>reportsModal(),settings:settingsModal};
 function go(v){
   if(!(v in VIEWS))v='sale';
   Object.keys(VIEWS).forEach(k=>{$('#view-'+k).hidden=k!==v});
@@ -954,7 +1018,7 @@ function go(v){
 $$('.nav-btn').forEach(b=>b.onclick=()=>go(b.dataset.view));
 function tick(){$('#clock').textContent=new Date().toLocaleString('en-GB',{weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}
 
-applyTheme();brand();renderGrid();renderCart();tick();setInterval(tick,30000);
+applyTheme();brand();renderGrid();renderCart();renderHeld();tick();setInterval(tick,30000);
 })();
 </script>
 </body>
