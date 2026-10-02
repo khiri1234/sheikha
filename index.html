@@ -499,7 +499,7 @@ function itemModal(item,line){
     '<h2>'+esc(custom?'Custom item':item.name)+'</h2>'+
     '<p class="sub" id="mSub"></p>'+
     (custom?'<div class="two-f"><label class="fld"><span>Item name</span><input id="mName" placeholder="e.g. Buttons" value="'+esc(st.name)+'"></label><label class="fld"><span>Sold by</span><select id="mUnit">'+Object.keys(UNITS).map(k=>'<option value="'+k+'"'+(st.unit===k?' selected':'')+'>'+UNITS[k].name+'</option>').join('')+'</select></label></div>':'')+
-    '<label class="fld"><span id="mPriceLbl">Price</span><div class="money"><i>AED</i><input id="mPrice" class="num" inputmode="decimal" placeholder="0.00" value="'+esc(st.price)+'"></div></label>'+
+    '<label class="fld"><div class="money"><i>AED</i><input id="mPrice" class="num" inputmode="decimal" aria-label="Price" placeholder="0.00" value="'+esc(st.price)+'"></div></label>'+
     '<div class="fld"><span id="mQtyLbl">Quantity</span><div class="step"><button type="button" id="mMinus" aria-label="Less">−</button><input id="mQty" class="num" inputmode="decimal" value="'+esc(st.qty)+'"><button type="button" id="mPlus" aria-label="More">+</button></div><div class="qchips">'+[1,2,3,5,10].map(n=>'<button type="button" data-q="'+n+'">'+n+'</button>').join('')+'</div></div>'+
     '<div class="ask">Is the price you entered including VAT?</div>'+
     '<div class="two"><button class="vbtn" data-mode="incl"><strong>Includes VAT</strong><span class="tot num"></span><small class="num"></small></button><button class="vbtn" data-mode="excl"><strong>Excludes VAT</strong><span class="tot num"></span><small class="num"></small></button></div>'
@@ -509,7 +509,6 @@ function itemModal(item,line){
   function refresh(){
     const u=UNITS[unit()]||UNITS.m;
     $m('#mSub').textContent=line?'Editing this line':u.per.charAt(0).toUpperCase()+u.per.slice(1);
-    $m('#mPriceLbl').textContent='Price '+u.per;
     $m('#mQtyLbl').textContent='Quantity ('+u.name.toLowerCase()+'s)';
     const p=parseFloat($m('#mPrice').value), q=parseFloat($m('#mQty').value);
     const ok=p>0&&q>0;
