@@ -267,6 +267,19 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
 .sync-note{font-weight:600}
 .sync-note.on{color:var(--ok)}
 .sync-note.error{color:var(--red)}
+/* Search + sort */
+.catalog-col{min-width:0}
+.scan-row{display:flex;gap:10px;margin-bottom:12px}
+.scan-row input{flex:1;min-width:0;padding:13px 16px;border-radius:10px;border:2px solid var(--till);font-size:15px;font-family:var(--mono);background:#fff;outline:none}
+.scan-row input:focus{box-shadow:0 0 0 3px rgba(225,85,12,.18)}
+.scan-row .btn{padding:0 22px;font-size:14px}
+.sort-row{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.sort-row>span{font-size:12px;font-weight:700;color:var(--text-dim)}
+.sort-chip{padding:6px 14px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:12px;font-weight:600;color:var(--text-dim)}
+.sort-chip:hover{border-color:var(--till);color:var(--till-dark)}
+.sort-chip.active{border-color:var(--till);background:var(--till);color:#fff}
+.sort-ind{font-style:normal;font-family:var(--mono);display:inline-block;min-width:10px;margin-left:3px}
+.prod-card mark{background:#FBE3D4;color:inherit;border-radius:3px}
 /* Responsive */
 @media (min-width:1200px){
   .prod-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
@@ -307,7 +320,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
   .ticket-foot{padding-bottom:env(safe-area-inset-bottom,0px)}
   .toast{left:50%;right:auto;translate:-50% 0;bottom:calc(84px + env(safe-area-inset-bottom,0px))}
 }
-@media (max-width:480px){.two,.two-f{grid-template-columns:1fr}.topbar{flex-wrap:wrap}}
+@media (max-width:480px){.two,.two-f{grid-template-columns:1fr}.topbar{flex-wrap:wrap}.scan-row input{font-size:12.5px;padding:12px}.scan-row .btn{padding:0 16px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 @media print{
   html,body{height:auto;background:#fff}
@@ -335,11 +348,23 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
     <!-- SALE VIEW -->
     <section id="view-sale">
       <div class="topbar">
-        <div><h1>New Sale</h1><div class="sub">Tap a fabric, enter the price, then choose with or without VAT</div></div>
+        <div><h1>New Sale</h1><div class="sub">Scan a barcode, search below, or tap a fabric – then enter the price and choose with or without VAT</div></div>
         <div class="pill clock-pill"><i class="dot"></i><span id="clock"></span></div>
       </div>
       <div class="sale-layout">
-        <div class="prod-grid" id="grid"></div>
+        <div class="catalog-col">
+          <form class="scan-row" id="scanForm" autocomplete="off">
+            <input id="scanInput" type="search" placeholder="Scan barcode or type fabric name, then Enter…" aria-label="Scan barcode or search fabrics" enterkeyhint="go">
+            <button class="btn primary" type="submit">Add</button>
+          </form>
+          <div class="sort-row" id="sortRow">
+            <span>Sort:</span>
+            <button type="button" class="sort-chip" data-sort="name">Name<i class="sort-ind"></i></button>
+            <button type="button" class="sort-chip" data-sort="price">Price<i class="sort-ind"></i></button>
+            <button type="button" class="sort-chip" data-sort="cat">Category<i class="sort-ind"></i></button>
+          </div>
+          <div class="prod-grid" id="grid"></div>
+        </div>
         <div class="ticket" aria-label="Current bill">
           <div class="ticket-head">
             <div style="display:flex;align-items:center;gap:8px"><button class="ghost back" id="btnBack" aria-label="Back to fabrics">‹ Back</button><b>Current Bill</b></div>
@@ -521,9 +546,43 @@ function fmtTime(ts){return new Date(ts).toLocaleTimeString('en-GB',{hour:'2-dig
 const isToday=ts=>new Date(ts).toDateString()===new Date().toDateString();
 
 /* ---------- catalog ---------- */
-function renderGrid(){
-  $('#grid').innerHTML=items.map(i=>'<button class="prod-card" data-id="'+esc(i.id)+'"><div class="sw '+weaveOf(i.cat)+'" style="--c:'+esc(i.color)+'"></div><div class="pb"><div class="nm">'+esc(i.name)+'</div>'+(i.price?'<div class="pr">AED '+fmt(+i.price)+'</div><div class="st">'+UNITS[i.unit].per+'</div>':'<div class="st">Price entered at sale</div>')+'</div></button>').join('')||'<div class="empty-cart">No items yet – add one under Items.</div>';
+let gridSort=store.get('sk_sort',{f:'',dir:1});
+let gridQuery='';
+function gridItems(){
+  const q=gridQuery.trim().toLowerCase();
+  let list=items.filter(i=>!q||i.name.toLowerCase().includes(q)||String(i.barcode||'').toLowerCase().includes(q));
+  const f=gridSort.f,d=gridSort.dir;
+  if(f){
+    const catIx=c=>{const k=CATS.findIndex(x=>x.id===c);return k<0?99:k};
+    const byName=(a,b)=>a.name.localeCompare(b.name);
+    list=list.slice().sort((a,b)=>{
+      if(f==='price'){const pa=+a.price||0,pb=+b.price||0;if(!pa!==!pb)return pa?-1:1;return (pa-pb)*d||byName(a,b)}
+      if(f==='cat')return (catIx(a.cat)-catIx(b.cat))*d||byName(a,b);
+      return byName(a,b)*d;
+    });
+  }
+  return list;
 }
+function renderGrid(){
+  $$('#sortRow [data-sort]').forEach(b=>{const on=b.dataset.sort===gridSort.f;b.classList.toggle('active',on);$('.sort-ind',b).textContent=on?(gridSort.dir>0?'▲':'▼'):''});
+  const list=gridItems();
+  $('#grid').innerHTML=list.map(i=>'<button class="prod-card" data-id="'+esc(i.id)+'"><div class="sw '+weaveOf(i.cat)+'" style="--c:'+esc(i.color)+'"></div><div class="pb"><div class="nm">'+esc(i.name)+'</div>'+(i.price?'<div class="pr">AED '+fmt(+i.price)+'</div><div class="st">'+UNITS[i.unit].per+'</div>':'<div class="st">Price entered at sale</div>')+'</div></button>').join('')||'<div class="empty-cart">'+(items.length?'No fabric matches “'+esc(gridQuery)+'”.':'No items yet – add one under Items.')+'</div>';
+}
+$('#sortRow').addEventListener('click',e=>{
+  const b=e.target.closest('[data-sort]');if(!b)return;
+  gridSort=gridSort.f===b.dataset.sort?{f:gridSort.f,dir:-gridSort.dir}:{f:b.dataset.sort,dir:1};
+  store.set('sk_sort',gridSort);renderGrid();
+});
+$('#scanInput').addEventListener('input',e=>{gridQuery=e.target.value;renderGrid()});
+$('#scanForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const raw=$('#scanInput').value.trim();if(!raw)return;
+  const q=raw.toLowerCase();
+  const item=items.find(i=>i.barcode&&String(i.barcode).toLowerCase()===q)||items.find(i=>i.name.toLowerCase()===q)||gridItems()[0];
+  if(!item){toast('No fabric found for “'+raw+'”');$('#scanInput').select();return}
+  $('#scanInput').value='';gridQuery='';renderGrid();
+  itemModal(item,null);
+});
 $('#grid').addEventListener('click',e=>{
   const t=e.target.closest('.prod-card');if(!t)return;
   const item=t.dataset.id==='custom'?CUSTOM:items.find(i=>i.id===t.dataset.id);
@@ -1015,7 +1074,7 @@ function reportsModal(tab){
 function itemsModal(){
   const m=modal('<div id="itemsBody"></div>',{page:'#itemsPage'});
   function draw(){
-    $('#itemsBody',m.el).innerHTML='<div class="list">'+items.map(i=>'<div class="li"><div class="sw '+weaveOf(i.cat)+'" style="--c:'+esc(i.color)+';width:34px;height:34px;border-radius:8px"></div><div><b>'+esc(i.name)+'</b><br><small>'+esc((CATS.find(c=>c.id===i.cat)||{}).label||'')+' – '+UNITS[i.unit].per+(i.price?' – <span class="num">AED '+fmt(+i.price)+'</span>':'')+'</small></div><button class="mini" data-e="'+i.id+'">Edit</button></div>').join('')+'</div>';
+    $('#itemsBody',m.el).innerHTML='<div class="list">'+items.map(i=>'<div class="li"><div class="sw '+weaveOf(i.cat)+'" style="--c:'+esc(i.color)+';width:34px;height:34px;border-radius:8px"></div><div><b>'+esc(i.name)+'</b><br><small>'+esc((CATS.find(c=>c.id===i.cat)||{}).label||'')+' – '+UNITS[i.unit].per+(i.price?' – <span class="num">AED '+fmt(+i.price)+'</span>':'')+(i.barcode?' – <span class="num">'+esc(i.barcode)+'</span>':'')+'</small></div><button class="mini" data-e="'+i.id+'">Edit</button></div>').join('')+'</div>';
     $$('[data-e]',m.el).forEach(b=>b.onclick=()=>itemForm(items.find(i=>i.id===b.dataset.e),draw));
   }
   draw();
@@ -1027,7 +1086,8 @@ function itemForm(item,done){
     '<label class="fld"><span>Name</span><input id="fName" value="'+esc(st.name)+'"></label>'+
     '<div class="two-f"><label class="fld"><span>Group</span><select id="fCat">'+CATS.map(c=>'<option value="'+c.id+'"'+(st.cat===c.id?' selected':'')+'>'+c.label+'</option>').join('')+'</select></label>'+
     '<label class="fld"><span>Sold by</span><select id="fUnit">'+Object.keys(UNITS).map(k=>'<option value="'+k+'"'+(st.unit===k?' selected':'')+'>'+UNITS[k].name+'</option>').join('')+'</select></label></div>'+
-    '<label class="fld"><span>Usual price in AED (optional)</span><input id="fPrice" class="num" inputmode="decimal" value="'+esc(st.price)+'"></label>'+
+    '<div class="two-f"><label class="fld"><span>Usual price in AED (optional)</span><input id="fPrice" class="num" inputmode="decimal" value="'+esc(st.price)+'"></label>'+
+    '<label class="fld"><span>Barcode (optional)</span><input id="fCode" class="num" placeholder="Scan or type" value="'+esc(st.barcode||'')+'"></label></div>'+
     '<div class="fld"><span>Swatch colour</span><div class="sw-pick" id="fCol">'+COLORS.map(c=>'<button type="button" style="--c:'+c+'" data-c="'+c+'" class="'+(st.color===c?'on':'')+'" aria-label="Colour '+c+'"></button>').join('')+'</div></div>'+
     '<div class="actions">'+'<button class="ghost" id="fCancel">Cancel</button><button class="primary" id="fSave">Save</button></div>');
   const $m=s=>$(s,m.el);
@@ -1038,6 +1098,9 @@ function itemForm(item,done){
     if(!name){$m('#fName').focus();return}
     st.name=name;st.cat=$m('#fCat').value;st.unit=$m('#fUnit').value;
     const p=parseFloat($m('#fPrice').value);st.price=p>0?String(p):'';
+    const code=$m('#fCode').value.trim();
+    if(code&&items.some(i=>i.id!==st.id&&String(i.barcode||'')===code)){toast('Another fabric already uses this barcode');$m('#fCode').focus();return}
+    st.barcode=code;
     if(isNew)items.push(st);else items=items.map(i=>i.id===st.id?st:i);
     saveItems();logAct('Item','Fabric "'+st.name+'" updated'+(st.price?' (usual price AED '+fmt(+st.price)+')':''));renderGrid();m.close();done&&done();
   };
@@ -1083,7 +1146,7 @@ function go(v){
   $$('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
   document.body.classList.remove('cart-open');
   if(VIEWS[v])VIEWS[v]();
-  if(v==='sale')renderGrid();
+  if(v==='sale'){renderGrid();if(innerWidth>900)setTimeout(()=>$('#scanInput').focus(),0)}
   sideToday();
   window.scrollTo(0,0);
 }
