@@ -1,0 +1,14 @@
+{
+  "name": "Sheikha Textiles POS",
+  "short_name": "Sheikha POS",
+  "description": "Point of sale for Sheikha Textiles branches",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EDEFF2",
+  "theme_color": "#1E2228",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ]
+}
