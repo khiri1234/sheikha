@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Sheikha Textiles – Point of Sale</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icon-192.png">
+<meta name="theme-color" content="#1E2228">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -291,6 +294,27 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
 .backup-nag{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#FDF1EA;border:1px solid #F6CDB5;border-left:4px solid var(--till);border-radius:10px;padding:10px 14px;margin:-4px 0 14px;font-size:13px;font-weight:600;color:var(--till-dark)}
 .backup-nag span{flex:1;min-width:200px}
 .backup-nag .btn{padding:7px 14px}
+/* Sign-in gate + branches */
+.gate{position:fixed;inset:0;z-index:90;background:#1E2228;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto}
+.gate-box{background:#fff;border-radius:16px;padding:28px 26px;width:380px;max-width:100%;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.gate-box .gb{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+.gate-box .gb .dot{width:12px;height:12px;border-radius:50%;background:var(--till);box-shadow:0 0 0 4px rgba(225,85,12,.2)}
+.gate-box .gb b{font-family:var(--display);font-size:18px;display:block}
+.gate-box .gb small{color:var(--text-dim)}
+.gate-box h2{margin:0 0 4px;font-family:var(--display);font-size:20px}
+.gate-box p{margin:0 0 16px;color:var(--text-dim);font-size:13px}
+.gate-box .primary{width:100%;margin-top:4px}
+.gate-err{color:var(--red);font-size:13px;font-weight:600;min-height:18px;margin:-4px 0 8px}
+.gate-spin{width:28px;height:28px;border-radius:50%;border:3px solid #F6CDB5;border-top-color:var(--till);animation:spin .8s linear infinite;margin:6px auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.brand .brand-branch{color:#FF8A4C;font-weight:700;margin-top:3px}
+.who{margin-top:10px;padding-top:10px;border-top:1px solid #2F343C;display:flex;flex-direction:column;gap:3px;font-size:11px;color:#9AA0AA;word-break:break-all}
+.who .net{font-weight:700}
+.who .net.on{color:#4ADE80}
+.who .net.off{color:#FBBF24}
+.lock-link{background:none;border:0;padding:0;color:#C9CDD4;text-decoration:underline;font-size:11px;text-align:left;cursor:pointer}
+.bcode{min-width:46px;height:34px;padding:0 8px;border-radius:8px;background:#FDF1EA;color:var(--till-dark);font-family:var(--mono);font-weight:700;display:grid;place-items:center}
+.loading{color:var(--text-dim);padding:20px 4px}
 /* Responsive */
 @media (min-width:1200px){
   .prod-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
@@ -342,17 +366,21 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
 </style>
 </head>
 <body>
+<div class="gate" id="gate" hidden><div class="gate-box" id="gateBox"></div></div>
 <div class="app" id="app">
   <div class="sidebar">
-    <div class="brand"><div class="dot"></div><div><span id="brandName">SHEIKHA TEXTILES</span><small id="brandAr">الشيخة للأقمشة</small></div></div>
+    <div class="brand"><div class="dot"></div><div><span id="brandName">SHEIKHA TEXTILES</span><small id="brandAr">الشيخة للأقمشة</small><small class="brand-branch" id="brandBranch" hidden></small></div></div>
     <nav class="nav" aria-label="Main">
       <button class="nav-btn active" data-view="sale"><span class="ic">🧾</span>Sale</button>
       <button class="nav-btn" data-view="held"><span class="ic">⏸️</span>Held Bills<span class="nav-count" id="heldCount" hidden></span></button>
       <button class="nav-btn" data-view="items"><span class="ic">🧵</span>Items</button>
       <button class="nav-btn" data-view="reports"><span class="ic">📊</span>Reports</button>
+      <button class="nav-btn" data-view="branches" hidden><span class="ic">🏬</span>Branches</button>
       <button class="nav-btn" data-view="settings"><span class="ic">⚙️</span>Settings</button>
     </nav>
-    <div class="side-foot">VAT <span id="sideVat">5</span>% · Today's sales<br><b id="sideToday">AED 0.00</b></div>
+    <div class="side-foot">VAT <span id="sideVat">5</span>% · <span id="sideTodayLbl">Today's sales</span><br><b id="sideToday">AED 0.00</b>
+      <div class="who" id="who" hidden><span class="net" id="netState"></span><span id="whoEmail"></span><button class="lock-link" id="btnSignOut" type="button">Sign out</button></div>
+    </div>
   </div>
 
   <main>
@@ -437,6 +465,15 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
       <div class="page-body card" id="reportsPage"></div>
     </section>
 
+    <!-- BRANCHES VIEW (head office) -->
+    <section id="view-branches" hidden>
+      <div class="topbar">
+        <div><h1>Branches</h1><div class="sub">Each branch signs in with its own login and sees only its own sales</div></div>
+        <button class="btn primary" id="btnAddBranch">+ Add branch</button>
+      </div>
+      <div id="branchesPage"></div>
+    </section>
+
     <!-- SETTINGS VIEW -->
     <section id="view-settings" hidden>
       <div class="topbar">
@@ -484,18 +521,41 @@ const DEFAULT_ITEMS=[
 ];
 const CUSTOM={id:'custom',name:'Custom item',cat:'other',color:'#5B6390',unit:'m',custom:true};
 
-let settings=Object.assign({
-  name:'SHEIKHA TEXTILES',nameAr:'الشيخة للأقمشة',trn:'',address:'Dubai, United Arab Emirates',phone:'',emirate:'Dubai',vat:5,
+/* ---------- cloud config ----------
+   Fill in FIREBASE_CONFIG (Firebase console → Project settings → Your apps)
+   and HQ_EMAIL (the head-office login) to run every branch from one shared
+   database. Left as null, the POS keeps everything on this device only. */
+const FIREBASE_CONFIG=null;
+const HQ_EMAIL='';
+const CLOUD=!!FIREBASE_CONFIG;
+const DEFAULT_SETTINGS={
+  name:'SHEIKHA TEXTILES',nameAr:'الشيخة للأقمشة',trn:'',address:'Abu Dhabi, United Arab Emirates',phone:'',emirate:'Abu Dhabi',vat:5,
   footer:'Thank you for shopping at Sheikha Textiles.',footerAr:'شكراً لتسوقكم معنا'
-},store.get('sk_settings',{}));
-let items=store.get('sk_items3',null)||DEFAULT_ITEMS;
-let sales=store.get('sk_sales',[]);
+};
+let settings=Object.assign({},DEFAULT_SETTINGS,CLOUD?{}:store.get('sk_settings',{}));
+let items=CLOUD?[]:(store.get('sk_items3',null)||DEFAULT_ITEMS);
+let sales=CLOUD?[]:store.get('sk_sales',[]);
 let seq=store.get('sk_seq',1);
-let actlog=store.get('sk_log',[]);
-let held=store.get('sk_held',[]);
+let actlog=CLOUD?[]:store.get('sk_log',[]);
+let held=CLOUD?[]:store.get('sk_held',[]);
+let vatin=CLOUD?{}:store.get('sk_vatin',{});
+// cloud session: role is 'hq' (head office) or 'branch'
+const C={db:null,auth:null,role:null,branch:null,email:'',unsubs:[],todayUnsubs:[],branches:[],today:{}};
+const isHQ=()=>C.role==='hq';
+const isBranchUser=()=>C.role==='branch';
+const branchById=id=>C.branches.find(b=>b.id===id);
+const brName=id=>id==='hq'?'Head office':((branchById(id)||{}).name||id||'');
 let heldSeq=store.get('sk_heldseq',1);
 const saveHeld=()=>{store.set('sk_held',held);store.set('sk_heldseq',heldSeq)};
-function logAct(type,text){actlog.unshift({ts:Date.now(),type:type,text:text});if(actlog.length>1000)actlog.length=1000;store.set('sk_log',actlog)}
+function logAct(type,text){
+  if(CLOUD){
+    if(!C.role)return;
+    const b=isHQ()?'hq':C.branch;
+    logsCol(b).add({ts:Date.now(),type:type,text:text,by:C.email,branch:b}).catch(e=>console.warn('Log not saved',e));
+    return;
+  }
+  actlog.unshift({ts:Date.now(),type:type,text:text});if(actlog.length>1000)actlog.length=1000;store.set('sk_log',actlog);
+}
 const saved=store.get('sk_cart',{cart:[],discount:{type:'pct',value:''}});
 let cart=saved.cart||[];
 let discount=saved.discount||{type:'pct',value:''};
@@ -583,7 +643,7 @@ function gridItems(){
 function renderGrid(){
   $$('#sortRow [data-sort]').forEach(b=>{const on=b.dataset.sort===gridSort.f;b.classList.toggle('active',on);$('.sort-ind',b).textContent=on?(gridSort.dir>0?'▲':'▼'):''});
   const list=gridItems();
-  $('#grid').innerHTML=list.map(i=>'<button class="prod-card" data-id="'+esc(i.id)+'"><div class="sw '+weaveOf(i.cat)+'" style="--c:'+esc(i.color)+'"></div><div class="pb"><div class="nm">'+esc(i.name)+'</div>'+(i.price?'<div class="pr">AED '+fmt(+i.price)+'</div><div class="st">'+UNITS[i.unit].per+'</div>':'<div class="st">Price entered at sale</div>')+'</div></button>').join('')||'<div class="empty-cart">'+(items.length?'No fabric matches “'+esc(gridQuery)+'”.':'No items yet – add one under Items.')+'</div>';
+  $('#grid').innerHTML=list.map(i=>'<button class="prod-card" data-id="'+esc(i.id)+'"><div class="sw '+weaveOf(i.cat)+'" style="--c:'+esc(i.color)+'"></div><div class="pb"><div class="nm">'+esc(i.name)+'</div>'+(i.price?'<div class="pr">AED '+fmt(+i.price)+'</div><div class="st">'+UNITS[i.unit].per+'</div>':'<div class="st">Price entered at sale</div>')+'</div></button>').join('')||'<div class="empty-cart">'+(items.length?'No fabric matches “'+esc(gridQuery)+'”.':CLOUD?'No fabrics yet – head office adds them under Items.':'No items yet – add one under Items.')+'</div>';
 }
 $('#sortRow').addEventListener('click',e=>{
   const b=e.target.closest('[data-sort]');if(!b)return;
@@ -704,55 +764,188 @@ $('#btnClear').onclick=async()=>{
 $('#cartbar').onclick=()=>document.body.classList.add('cart-open');
 $('#btnBack').onclick=()=>document.body.classList.remove('cart-open');
 
-/* ---------- held bills ---------- */
-/* Held bills sync across devices through Firebase (Firestore) once
-   FIREBASE_CONFIG below is filled in. Each held bill is its own document
-   in "held_bills"; bill numbers come from a shared counter (meta/counters)
-   so two tills can't hand out the same number. Without a config, or if
-   Firebase can't be reached, held bills are kept on this device only. */
-const FIREBASE_CONFIG=null;
+/* ---------- cloud (Firebase) ----------
+   Shared:      config/shop, config/vatin, items/*        (head office writes)
+   Per branch:  branches/{id}            branch details   (head office writes)
+                branches/{id}/sales/*    one doc per sale (create; void only)
+                branches/{id}/held/*     held bills
+                branches/{id}/logs/*     activity log
+                branches/{id}/meta/counters  invoice + held-bill numbers
+   Logins:      branchLogins/{email} -> {branch}; HQ_EMAIL is head office.
+   Firestore's offline cache keeps a till selling without internet; writes
+   upload when the connection returns. Invoice numbers are reserved 100 at a
+   time per computer, so they never clash and work offline. */
 const FB_SDK='https://www.gstatic.com/firebasejs/10.12.2/';
-let cloud=null;
 function loadScript(src){return new Promise((res,rej)=>{const sc=document.createElement('script');sc.src=src;sc.onload=res;sc.onerror=()=>rej(new Error('Could not load '+src));document.head.appendChild(sc)})}
 const withTimeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))]);
-async function initCloud(){
-  if(!FIREBASE_CONFIG)return;
+const bref=b=>C.db.collection('branches').doc(b);
+const salesCol=b=>bref(b).collection('sales');
+const heldCol=()=>bref(C.branch).collection('held');
+const ctrRef=()=>bref(C.branch).collection('meta').doc('counters');
+const logsCol=b=>b==='hq'?C.db.collection('hqlog'):bref(b).collection('logs');
+const todayStart=()=>{const d=new Date();d.setHours(0,0,0,0);return d.getTime()};
+
+function gate(state,msg){
+  const g=$('#gate');
+  if(!state){g.hidden=true;return}
+  g.hidden=false;
+  const head='<div class="gb"><i class="dot"></i><div><b>'+esc(settings.name)+'</b><small>'+esc(settings.nameAr)+' · Point of Sale</small></div></div>';
+  if(state==='login'){
+    $('#gateBox').innerHTML=head+'<h2>Sign in</h2><p>Use your branch login, or the head-office login.</p>'+
+      '<form id="loginForm" autocomplete="on"><label class="fld"><span>Email</span><input id="lgEmail" type="email" autocomplete="username" required></label>'+
+      '<label class="fld"><span>Password</span><input id="lgPass" type="password" autocomplete="current-password" required></label>'+
+      '<div class="gate-err" id="lgErr">'+esc(msg||'')+'</div><button class="primary" id="lgGo" type="submit">Sign in</button></form>';
+    $('#lgEmail').focus();
+    $('#loginForm').onsubmit=async e=>{
+      e.preventDefault();
+      const btn=$('#lgGo');btn.disabled=true;btn.textContent='Signing in…';$('#lgErr').textContent='';
+      try{await C.auth.signInWithEmailAndPassword($('#lgEmail').value.trim(),$('#lgPass').value)}
+      catch(err){
+        const c=err.code||'';
+        $('#lgErr').textContent=/invalid-credential|wrong-password|user-not-found|invalid-email|invalid-login/.test(c)?'Wrong email or password.':
+          /network/.test(c)?'No internet connection. Connect and try again.':/too-many-requests/.test(c)?'Too many attempts. Wait a few minutes and try again.':(err.message||'Could not sign in.');
+        btn.disabled=false;btn.textContent='Sign in';
+      }
+    };
+  }else if(state==='error'){
+    $('#gateBox').innerHTML=head+'<h2>Can’t connect</h2><p>'+esc(msg||'')+'</p><button class="primary" type="button" onclick="location.reload()">Try again</button>';
+  }else{
+    $('#gateBox').innerHTML=head+'<div class="gate-spin"></div><p style="text-align:center;margin:0">'+esc(msg||'Loading…')+'</p>';
+  }
+}
+async function bootCloud(){
+  gate('loading','Connecting…');
   try{
     if(!window.firebase){for(const f of ['firebase-app-compat.js','firebase-auth-compat.js','firebase-firestore-compat.js'])await loadScript(FB_SDK+f)}
     if(!firebase.apps.length)firebase.initializeApp(FIREBASE_CONFIG);
-    const db=firebase.firestore();
-    db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
-    await firebase.auth().signInAnonymously();
-    const c={db,col:db.collection('held_bills'),ctr:db.collection('meta').doc('counters')};
-    // move bills held on this device before sync was switched on into the shared list
-    const local=held.slice();
-    for(const h of local)await c.col.doc(h.id).set(h);
-    if(local.length){
-      const top=Math.max(0,...local.map(h=>+h.no||0));
-      await c.db.runTransaction(async tx=>{const snap=await tx.get(c.ctr);const cur=(snap.exists&&snap.data().heldSeq)||0;if(top>cur)tx.set(c.ctr,{heldSeq:top},{merge:true})});
-    }
-    held=[];saveHeld();
-    cloud=c;
-    c.col.onSnapshot(snap=>{held=snap.docs.map(d=>d.data());renderHeld()},err=>{console.error('Held bills sync stopped',err);setSync('error')});
-    setSync('on');
-  }catch(e){console.error('Held bills sync unavailable',e);cloud=null;setSync('error')}
+    C.auth=firebase.auth();C.db=firebase.firestore();
+    C.db.settings({ignoreUndefinedProperties:true,merge:true});
+    if(FIREBASE_CONFIG.emulator){C.auth.useEmulator('http://'+FIREBASE_CONFIG.emulator+':9099',{disableWarnings:true});C.db.useEmulator(FIREBASE_CONFIG.emulator,8080)}
+    C.db.enablePersistence({synchronizeTabs:true}).catch(e=>console.warn('Offline cache unavailable:',e.code));
+  }catch(e){console.error(e);gate('error','The POS could not reach its server. Check the internet connection, then try again.');return}
+  let gateMsg='';
+  C.auth.onAuthStateChanged(async user=>{
+    endSession();
+    if(!user){gate('login',gateMsg);gateMsg='';return}
+    gate('loading','Signing in…');
+    try{await startSession(user)}
+    catch(e){console.error(e);gateMsg=e.message||String(e);C.auth.signOut().catch(()=>{})}
+  });
 }
-let syncState=FIREBASE_CONFIG?'connecting':'off';
-function setSync(st){syncState=st;renderHeld()}
+function listen(ref,cb){C.unsubs.push(ref.onSnapshot(cb,err=>{console.error('Sync error',err);toast('Sync problem: '+(err.code||err.message))}))}
+async function startSession(user){
+  C.email=(user.email||'').toLowerCase();
+  if(HQ_EMAIL&&C.email===HQ_EMAIL.toLowerCase()){C.role='hq';C.branch=null}
+  else{
+    const snap=await C.db.collection('branchLogins').doc(C.email).get();
+    if(!snap.exists)throw new Error('This login is not linked to a branch yet. Ask head office to add it under Branches.');
+    C.role='branch';C.branch=snap.data().branch;
+    const bs=await bref(C.branch).get();
+    C.branches=bs.exists?[bs.data()]:[];
+  }
+  listen(C.db.collection('config').doc('shop'),snap=>{settings=Object.assign({},DEFAULT_SETTINGS,snap.exists?snap.data():{});brand();renderCart()});
+  listen(C.db.collection('items'),snap=>{
+    items=snap.docs.map(d=>d.data()).sort((a,b)=>(a.order||0)-(b.order||0)||String(a.name).localeCompare(b.name));
+    renderGrid();if(curView==='items')itemsModal();
+  });
+  if(isHQ()){
+    listen(C.db.collection('branches'),snap=>{
+      C.branches=snap.docs.map(d=>d.data()).sort((a,b)=>String(a.code).localeCompare(String(b.code),undefined,{numeric:true}));
+      watchToday();if(curView==='branches')renderBranches();
+    });
+    listen(C.db.collection('config').doc('vatin'),snap=>{vatin=snap.exists?snap.data():{}});
+  }else{
+    listen(bref(C.branch),snap=>{if(snap.exists){C.branches=[snap.data()];brand()}});
+    listen(heldCol(),snap=>{held=snap.docs.map(d=>d.data());renderHeld()});
+    watchToday();
+    topUpInvoices();
+  }
+  applyRole();brand();
+  gate(null);
+  go(isHQ()?'reports':'sale');
+  offerImport();
+}
+function endSession(){
+  C.unsubs.concat(C.todayUnsubs).forEach(u=>{try{u()}catch(e){}});
+  C.unsubs=[];C.todayUnsubs=[];C.today={};
+  C.role=null;C.branch=null;C.email='';C.branches=[];held=[];
+}
+// live total of today's sales: own branch, or every branch for head office
+function watchToday(){
+  C.todayUnsubs.forEach(u=>{try{u()}catch(e){}});C.todayUnsubs=[];C.today={};
+  const ids=isHQ()?C.branches.map(b=>b.id):[C.branch];
+  ids.forEach(id=>C.todayUnsubs.push(salesCol(id).where('ts','>=',todayStart()).onSnapshot(snap=>{C.today[id]=snap.docs.map(d=>d.data());sideToday()},err=>console.error(err))));
+  sideToday();
+}
+function applyRole(){
+  const role=CLOUD?C.role:'local';
+  const allow={sale:['local','branch'],held:['local','branch'],items:['local','hq'],reports:['local','branch','hq'],branches:['hq'],settings:['local','hq']};
+  $$('.nav-btn').forEach(b=>{b.hidden=!(allow[b.dataset.view]||[]).includes(role)});
+  $('#who').hidden=!CLOUD||!C.role;
+  if(CLOUD&&C.role){$('#whoEmail').textContent=C.email;netState()}
+  $('#sideTodayLbl').textContent=isHQ()?'Today, all branches':"Today's sales";
+}
+function viewAllowed(v){const b=$('.nav-btn[data-view="'+v+'"]');return !b||!b.hidden}
+function netState(){const on=navigator.onLine;const n=$('#netState');n.textContent=on?'● Online':'● Offline – sales upload when back online';n.className='net '+(on?'on':'off')}
+addEventListener('online',()=>{if(CLOUD){netState();topUpInvoices();renderHeld()}});
+addEventListener('offline',()=>{if(CLOUD){netState();renderHeld()}});
+$('#btnSignOut').onclick=async()=>{
+  if(cart.length&&!(await askConfirm('Sign out?','The open bill stays on this computer and will be there when you sign in again.','Sign out',false)))return;
+  C.auth.signOut();
+};
+
+/* ---------- invoice numbers ---------- */
+const invKey=()=>'sk_inv_'+C.branch;
+function invLeft(){return store.get(invKey(),[]).reduce((n,b)=>n+Math.max(0,b.end-b.next+1),0)}
+function nextInvoiceNo(){
+  if(!CLOUD){const no='INV-'+String(seq).padStart(6,'0');seq++;return no}
+  const code=(branchById(C.branch)||{}).code||'B';
+  const bl=store.get(invKey(),[]).filter(b=>b.next<=b.end);
+  if(!bl.length)return code+'-X'+Date.now().toString(36).toUpperCase(); // no reserved numbers left and offline
+  const n=bl[0].next++;store.set(invKey(),bl);
+  topUpInvoices();
+  return code+'-'+String(n).padStart(6,'0');
+}
+let toppingUp=false;
+async function topUpInvoices(){
+  if(!CLOUD||!isBranchUser()||toppingUp||invLeft()>=30)return;
+  toppingUp=true;
+  try{
+    const blk=await withTimeout(C.db.runTransaction(async tx=>{
+      const snap=await tx.get(ctrRef());const start=(snap.exists&&snap.data().invNext)||1;
+      tx.set(ctrRef(),{invNext:start+100},{merge:true});return {next:start,end:start+99};
+    }),8000);
+    const bl=store.get(invKey(),[]).filter(b=>b.next<=b.end);bl.push(blk);store.set(invKey(),bl);
+  }catch(e){console.warn('Could not reserve invoice numbers yet',e)}
+  toppingUp=false;
+}
+function saveSale(sale){
+  if(!CLOUD){sales.unshift(sale);saveSales();return}
+  Object.assign(sale,{branch:C.branch,branchName:brName(C.branch),by:C.email});
+  salesCol(C.branch).doc(sale.id).set(sale).catch(e=>{console.error(e);toast('Sale '+sale.no+' was not saved online: '+(e.code||e.message))});
+}
+function voidSale(s){
+  s.status='void';s.voidedAt=Date.now();
+  if(!CLOUD){saveSales();return}
+  s.voidedBy=C.email;
+  salesCol(s.branch).doc(s.id).update({status:'void',voidedAt:s.voidedAt,voidedBy:C.email}).catch(e=>{console.error(e);toast('Void not saved: '+(e.code||e.message))});
+}
+
+/* ---------- held bills ---------- */
 async function nextHeldNo(){
-  if(cloud){
+  if(CLOUD){
     try{
-      return await withTimeout(cloud.db.runTransaction(async tx=>{const snap=await tx.get(cloud.ctr);const n=((snap.exists&&snap.data().heldSeq)||0)+1;tx.set(cloud.ctr,{heldSeq:n},{merge:true});return n}),6000);
+      return await withTimeout(C.db.runTransaction(async tx=>{const snap=await tx.get(ctrRef());const n=((snap.exists&&snap.data().heldSeq)||0)+1;tx.set(ctrRef(),{heldSeq:n},{merge:true});return n}),6000);
     }catch(e){console.warn('Could not get a shared bill number',e)}
   }
-  const n=heldSeq++;store.set('sk_heldseq',heldSeq);return cloud?'D'+n:n;
+  const n=heldSeq++;store.set('sk_heldseq',heldSeq);return CLOUD?'D'+n:n;
 }
 async function holdCurrent(){
   if(!cart.length)return null;
   const snapshot={cart:JSON.parse(JSON.stringify(cart)),discount:Object.assign({},discount),total:totals().total};
   cart=[];discount={type:'pct',value:''};saveCart();renderCart();
   const h=Object.assign({id:uid(),no:await nextHeldNo(),ts:Date.now()},snapshot);
-  if(cloud){cloud.col.doc(h.id).set(h).catch(e=>{console.error('Could not save held bill',e);toast('Held bill #'+h.no+' could not be saved online')})}
+  if(CLOUD){heldCol().doc(h.id).set(h).catch(e=>{console.error('Could not save held bill',e);toast('Held bill #'+h.no+' could not be saved online')})}
   else{held.push(h);saveHeld()}
   logAct('Bill','Held bill #'+h.no+' – AED '+fmt(h.total)+' ('+h.cart.length+(h.cart.length===1?' line':' lines')+')');
   renderHeld();
@@ -762,10 +955,10 @@ $('#btnHold').onclick=async()=>{const b=$('#btnHold');b.disabled=true;const h=aw
 // take a held bill off the shared list; returns null if another device already took it
 async function takeHeld(id){
   const local=held.find(x=>x.id===id);
-  if(!cloud){if(!local)return null;held=held.filter(x=>x.id!==id);saveHeld();return local}
-  const ref=cloud.col.doc(id);
+  if(!CLOUD){if(!local)return null;held=held.filter(x=>x.id!==id);saveHeld();return local}
+  const ref=heldCol().doc(id);
   try{
-    return await withTimeout(cloud.db.runTransaction(async tx=>{const snap=await tx.get(ref);if(!snap.exists)return null;tx.delete(ref);return snap.data()}),6000);
+    return await withTimeout(C.db.runTransaction(async tx=>{const snap=await tx.get(ref);if(!snap.exists)return null;tx.delete(ref);return snap.data()}),6000);
   }catch(e){
     console.warn('Offline – removing held bill without a check',e);
     if(!local)return null;ref.delete().catch(()=>{});return local;
@@ -774,8 +967,9 @@ async function takeHeld(id){
 function renderHeld(){
   const n=held.length;
   $('#heldCount').hidden=!n;$('#heldCount').textContent=n;
-  const note={off:'Saved on this device only',connecting:'Connecting to sync…',on:'Synced across all devices',error:'Sync unavailable – held bills on this device only'}[syncState];
-  $('#heldSync').textContent=note;$('#heldSync').className='sync-note '+syncState;
+  const st=!CLOUD?'off':navigator.onLine?'on':'error';
+  $('#heldSync').textContent={off:'Saved on this computer only',on:'Shared by every computer in this branch',error:'Offline – changes upload when the internet is back'}[st];
+  $('#heldSync').className='sync-note '+st;
   $('#heldList').innerHTML=n?held.slice().sort((a,b)=>b.ts-a.ts).map(h=>'<div class="held-card"><div><div class="ht">Held bill #'+esc(h.no)+'</div><div class="hs">'+esc(h.cart.map(l=>l.name).join(', '))+' · '+h.cart.length+(h.cart.length===1?' line':' lines')+' · '+fmtDate(h.ts)+'</div></div><div class="ha"><span class="amt">AED '+fmt(h.total)+'</span><button class="btn primary" data-resume="'+esc(h.id)+'">Resume</button><button class="btn danger" data-hdel="'+esc(h.id)+'">Delete</button></div></div>').join(''):'<div class="card none">No held bills. Use “Hold this bill” on the sale screen to park a bill for later.</div>';
 }
 $('#heldList').addEventListener('click',async e=>{
@@ -843,14 +1037,14 @@ function payModal(startMethod){
   $m('#payGo').onclick=()=>{
     const tendered=method==='cash'?parseFloat($m('#tend').value)||0:t.total;
     const sale={
-      id:uid(),no:'INV-'+String(seq).padStart(6,'0'),ts:Date.now(),
+      id:uid(),no:nextInvoiceNo(),ts:Date.now(),
       lines:cart.map(l=>Object.assign({},l,calcLine(l))),
       discount:{type:discount.type,value:parseFloat(discount.value)||0},
       sumGross:t.sumGross,disc:t.disc,net:t.net,vat:t.vat,total:t.total,vatRate:settings.vat,
       method,tendered,change:method==='cash'?r2(tendered-t.total):0,
       ref:method==='card'?$m('#ref').value.trim():'',status:'paid'
     };
-    seq++;sales.unshift(sale);saveSales();logAct('Sale',sale.no+' – AED '+fmt(sale.total)+' paid by '+sale.method+' ('+sale.lines.length+(sale.lines.length===1?' line':' lines')+')');
+    saveSale(sale);logAct('Sale',sale.no+' – AED '+fmt(sale.total)+' paid by '+sale.method+' ('+sale.lines.length+(sale.lines.length===1?' line':' lines')+')');
     cart=[];discount={type:'pct',value:''};saveCart();renderCart();
     m.close();
     document.body.classList.remove('cart-open');
@@ -867,11 +1061,14 @@ $('#btnCard').onclick=()=>payModal('card');
 /* ---------- receipt ---------- */
 function receiptHTML(s){
   const taxInv=!!settings.trn;
+  const br=s.branch?branchById(s.branch):null;
+  const addr=(br&&br.address)||settings.address,phone=(br&&br.phone)||settings.phone;
   const rows=s.lines.map(l=>'<div class="rl"><div>'+esc(l.name)+'</div><div class="rq"><span>'+l.qty+' '+us(l.unit)+' × '+fmt(l.price)+' ('+(l.mode==='incl'?'incl. VAT':'excl. VAT')+')</span><b>'+fmt(l.gross)+'</b></div></div>').join('');
   return '<div class="rc">'+
     '<div class="c"><h3>'+esc(settings.name)+'</h3><div class="ar">'+esc(settings.nameAr)+'</div>'+
-    (settings.address?'<div class="fine">'+esc(settings.address)+'</div>':'')+
-    (settings.phone?'<div class="fine">Tel: '+esc(settings.phone)+'</div>':'')+
+    (s.branchName?'<div class="fine"><b>'+esc(s.branchName)+'</b></div>':'')+
+    (addr?'<div class="fine">'+esc(addr)+'</div>':'')+
+    (phone?'<div class="fine">Tel: '+esc(phone)+'</div>':'')+
     (taxInv?'<div class="fine">TRN: '+esc(settings.trn)+'</div>':'')+'</div>'+
     '<hr><div class="c"><b>'+(taxInv?'TAX INVOICE – فاتورة ضريبية':'RECEIPT – إيصال')+'</b></div><hr>'+
     '<div class="kv"><span>No.</span><b>'+esc(s.no)+'</b></div><div class="kv"><span>Date</span><span>'+fmtDate(s.ts)+'</span></div><hr>'+
@@ -953,13 +1150,19 @@ const trow=(cells,pat,cls)=>'<tr'+(cls?' class="'+cls+'"':'')+'>'+cells.map((c,i
 const statBox=(l,v)=>'<div class="stat"><span>'+l+'</span><b class="num">'+v+'</b></div>';
 const aed=v=>'AED '+fmt(v);
 
-function billsBlock(list,actions){
+function billsBlock(list,actions,showBr){
   const a=agg(list);
-  const head=[['Invoice'],['Date & time'],['Payment'],['Excl. VAT',1],['VAT',1],['Total',1],['Status']].concat(actions?[['']]:[]);
-  const rows=list.map(s=>trow([esc(s.no),fmtDate(s.ts),s.method==='cash'?'Cash':'Card',fmt(s.net),fmt(s.vat),fmt(s.total),s.status==='void'?'Void':'Paid']
-    .concat(actions?['<button class="mini" data-v="'+s.id+'">View</button> '+(s.status!=='void'?'<button class="mini" data-x="'+s.id+'">Void</button>':'')]:[]),
-    'lllrrrl'+(actions?'l':''),s.status==='void'?'void':''));
-  return list.length?tbl(head,rows,trow(['Total ('+a.bills+' paid bills)','','',fmt(a.net),fmt(a.vat),fmt(a.total),''].concat(actions?['']:[]),'lllrrrl'+(actions?'l':''),'sum')):'<p class="none">No invoices for this selection.</p>';
+  const head=[['Invoice']].concat(showBr?[['Branch']]:[],[['Date & time'],['Payment'],['Excl. VAT',1],['VAT',1],['Total',1],['Status']],actions?[['']]:[]);
+  const pat=(showBr?'llll':'lll')+'rrrl'+(actions?'l':'');
+  const rows=list.map(s=>trow([esc(s.no)].concat(showBr?[esc(brName(s.branch))]:[],[fmtDate(s.ts),s.method==='cash'?'Cash':'Card',fmt(s.net),fmt(s.vat),fmt(s.total),s.status==='void'?'Void':'Paid'],
+    actions?['<button class="mini" data-v="'+esc(s.id)+'">View</button> '+(s.status!=='void'?'<button class="mini" data-x="'+esc(s.id)+'">Void</button>':'')]:[]),pat,s.status==='void'?'void':''));
+  return list.length?tbl(head,rows,trow(['Total ('+a.bills+' paid bills)'].concat(showBr?['']:[],['','',fmt(a.net),fmt(a.vat),fmt(a.total),''],actions?['']:[]),pat,'sum')):'<p class="none">No invoices for this selection.</p>';
+}
+function branchBlock(list){
+  const ids=[...new Set(C.branches.map(b=>b.id).concat(list.map(s=>s.branch)))];
+  const rows=ids.map(id=>{const a=agg(list.filter(s=>s.branch===id));return trow([esc(brName(id)),a.bills,fmt(a.cash),fmt(a.card),fmt(a.net),fmt(a.vat),fmt(a.total)],'lrrrrrr')});
+  const a=agg(list);
+  return tbl([['Branch'],['Bills',1],['Cash',1],['Card',1],['Excl. VAT',1],['VAT',1],['Total',1]],rows,trow(['All branches',a.bills,fmt(a.cash),fmt(a.card),fmt(a.net),fmt(a.vat),fmt(a.total)],'lrrrrrr','sum'));
 }
 function itemsBlock(list){
   const its=byItem(list),a=agg(list);
@@ -968,21 +1171,22 @@ function itemsBlock(list){
     its.map(i=>trow([esc(i.name),i.qty+' '+us(i.unit),fmt(i.net),fmt(i.vat),fmt(i.total)],'lrrrr')),
     trow(['Total','',fmt(a.net),fmt(a.vat),fmt(a.total)],'lrrrr','sum'));
 }
-function dailyBody(day){
-  const list=sales.filter(s=>ymd(s.ts)===day).sort((a,b)=>a.ts-b.ts),a=agg(list);
+function dailyBody(list,showBr){
+  const a=agg(list);
   return '<div class="stats">'+statBox('Bills',a.bills)+statBox('Net sales excl. VAT',aed(a.net))+statBox('VAT collected',aed(a.vat))+statBox('Total sales',aed(a.total))+
     statBox('Cash ('+a.cashN+' bills)',aed(a.cash))+statBox('Card ('+a.cardN+' bills)',aed(a.card))+statBox('Discounts given',aed(a.disc))+statBox('Voided ('+a.voidN+')',aed(a.voidTotal))+'</div>'+
-    '<h3 class="rs">Sales by fabric</h3>'+itemsBlock(list)+'<h3 class="rs">Bills</h3>'+billsBlock(list,false);
+    (showBr?'<h3 class="rs">Sales by branch</h3>'+branchBlock(list):'')+
+    '<h3 class="rs">Sales by fabric</h3>'+itemsBlock(list)+'<h3 class="rs">Bills</h3>'+billsBlock(list,false,showBr);
 }
-function vatCalc(from,to){
-  const a=agg(sales.filter(s=>s.ts>=dayStart(from)&&s.ts<=dayEnd(to)));
-  const vi=store.get('sk_vatin',{})[from+'_'+to]||{amt:'',vat:''};
+function vatCalc(list,from,to){
+  const a=agg(list);
+  const vi=vatin[from+'_'+to]||{amt:'',vat:''};
   const exp=r2(parseFloat(vi.amt)||0),expVat=r2(parseFloat(vi.vat)||0);
   const em=Math.max(0,EMIRATES.indexOf(settings.emirate));
   return {a,vi,exp,expVat,em,due:a.vat,rec:expVat,pay:r2(a.vat-expVat)};
 }
-function vatBody(from,to,edit){
-  const c=vatCalc(from,to),z='0.00',L='abcdefg';
+function vatBody(list,from,to,edit){
+  const c=vatCalc(list,from,to),z='0.00',L='abcdefg';
   const R=(box,label,x,y,j,cls)=>'<tr'+(cls?' class="'+cls+'"':'')+'><td class="bx">'+box+'</td><td>'+label+'</td><td class="r num">'+x+'</td><td class="r num">'+y+'</td><td class="r num">'+j+'</td></tr>';
   const SH=t=>'<tr class="sh"><td colspan="5">'+t+'</td></tr>';
   let o='<div class="tw"><table class="tbl vt"><thead><tr><th>Box</th><th>Description</th><th class="r">Amount (AED)</th><th class="r">VAT (AED)</th><th class="r">Adjustment (AED)</th></tr></thead><tbody>';
@@ -1006,16 +1210,36 @@ function vatBody(from,to,edit){
   o+='<tr><td class="bx">13</td><td>Total value of recoverable tax for the period</td><td></td><td class="r num" id="v13">'+fmt(c.rec)+'</td><td></td></tr>';
   o+='<tr class="sum"><td class="bx">14</td><td>Payable tax for the period</td><td></td><td class="r num" id="v14">'+fmt(c.pay)+(c.pay<0?' (refundable)':'')+'</td><td></td></tr>';
   o+='</tbody></table></div>';
-  o+='<p class="note">Based on '+c.a.bills+' paid bills from this POS (voided bills left out). All POS sales are treated as standard rated at '+settings.vat+'% in '+esc(EMIRATES[c.em])+'. Boxes 2 to 7 and 10 are zero. Enter purchases in box 9. Check every figure against your records before filing the VAT 201 on the FTA portal.</p>';
+  o+='<p class="note">Based on '+c.a.bills+' paid bills'+(CLOUD?' from all branches':' from this POS')+' (voided bills left out). All POS sales are treated as standard rated at '+settings.vat+'% in '+esc(EMIRATES[c.em])+'. Boxes 2 to 7 and 10 are zero. Enter purchases in box 9. Check every figure against your records before filing the VAT 201 on the FTA portal.</p>';
   return o;
 }
-function logBody(type,limit){
-  const list=actlog.filter(e=>type==='all'||e.type===type).slice(0,limit);
+function logBody(all,type,limit,showBr){
+  const list=all.filter(e=>type==='all'||e.type===type).slice(0,limit);
   if(!list.length)return '<p class="none">No activity recorded yet.</p>';
-  return tbl([['Date & time'],['Type'],['Details']],list.map(e=>trow([fmtFull(e.ts),'<span class="tag">'+esc(e.type)+'</span>',esc(e.text)],'lll')));
+  return tbl([['Date & time']].concat(showBr?[['Branch']]:[],[['Type'],['Details']]),list.map(e=>trow([fmtFull(e.ts)].concat(showBr?[esc(brName(e.branch))]:[],['<span class="tag">'+esc(e.type)+'</span>',esc(e.text)+(e.by?' <small class="none">· '+esc(e.by)+'</small>':'')]),showBr?'llll':'lll')));
+}
+// sales between two dates: this device, this branch, or (head office) one/all branches
+const salesCache=new Map();
+async function salesIn(from,to,bf){
+  const a=dayStart(from),b=dayEnd(to);
+  if(!CLOUD)return sales.filter(s=>s.ts>=a&&s.ts<=b).sort((x,y)=>x.ts-y.ts);
+  const ids=isHQ()?(bf&&bf!=='all'?[bf]:C.branches.map(x=>x.id)):[C.branch];
+  const key=from+'|'+to+'|'+ids.join(',');
+  const hit=salesCache.get(key);
+  if(hit&&Date.now()-hit.t<120000)return hit.list;
+  const parts=await Promise.all(ids.map(id=>salesCol(id).where('ts','>=',a).where('ts','<=',b).get()));
+  const list=parts.flatMap(q=>q.docs.map(d=>d.data())).sort((x,y)=>x.ts-y.ts);
+  salesCache.set(key,{t:Date.now(),list});
+  return list;
+}
+async function logsIn(bf,limit){
+  if(!CLOUD)return actlog.slice(0,limit);
+  const ids=isHQ()?(bf&&bf!=='all'?[bf]:['hq'].concat(C.branches.map(x=>x.id))):[C.branch];
+  const parts=await Promise.all(ids.map(id=>logsCol(id).orderBy('ts','desc').limit(limit).get()));
+  return parts.flatMap(q=>q.docs.map(d=>d.data())).sort((x,y)=>y.ts-x.ts).slice(0,limit);
 }
 function reportDoc(title,period,inner){
-  return '<div class="rpt"><div class="rh"><div><h1>'+esc(settings.name)+'</h1><div>'+esc(settings.address)+(settings.trn?' – TRN '+esc(settings.trn):'')+'</div></div><div class="rt"><b>'+esc(title)+'</b><div>'+esc(period)+'</div><div>Printed '+fmtDate(Date.now())+'</div></div></div>'+inner+'</div>';
+  return '<div class="rpt"><div class="rh"><div><h1>'+esc(settings.name)+'</h1><div>'+(CLOUD&&isBranchUser()?esc(brName(C.branch))+' – ':'')+esc(((CLOUD&&isBranchUser()&&(branchById(C.branch)||{}).address)||settings.address))+(settings.trn?' – TRN '+esc(settings.trn):'')+'</div></div><div class="rt"><b>'+esc(title)+'</b><div>'+esc(period)+'</div><div>Printed '+fmtDate(Date.now())+'</div></div></div>'+inner+'</div>';
 }
 function csvOf(rows){return rows.map(r=>r.map(c=>{c=String(c);return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c}).join(',')).join('\n')}
 function copyText(t){
@@ -1025,40 +1249,78 @@ function copyText(t){
 
 function reportsModal(tab){
   const now=Date.now(),q1=quickRange('month'),vq=quickRange('quarter',true);
-  const R={tab:tab||'daily',day:ymd(now),from:q1[0],to:q1[1],method:'all',status:'all',vf:vq[0],vt:vq[1],act:'all'};
+  const R={tab:tab||'daily',day:ymd(now),from:q1[0],to:q1[1],method:'all',status:'all',vf:vq[0],vt:vq[1],act:'all',br:'all'};
   const m=modal('<div id="rBody"></div>',{page:'#reportsPage'});
   const dateF=(l,f)=>'<label class="fld sm"><span>'+l+'</span><input type="date" data-f="'+f+'" value="'+R[f]+'"></label>';
-  const selF=(l,f,opts)=>'<label class="fld sm"><span>'+l+'</span><select data-f="'+f+'">'+opts.map(o=>'<option value="'+o[0]+'"'+(R[f]===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+'</select></label>';
+  const selF=(l,f,opts)=>'<label class="fld sm"><span>'+l+'</span><select data-f="'+f+'">'+opts.map(o=>'<option value="'+esc(o[0])+'"'+(R[f]===o[0]?' selected':'')+'>'+esc(o[1])+'</option>').join('')+'</select></label>';
   const quick=(att,names)=>names.map(n=>'<button class="mini" '+att+'="'+n[0]+'">'+n[1]+'</button>').join('');
-  const invList=()=>sales.filter(s=>s.ts>=dayStart(R.from)&&s.ts<=dayEnd(R.to)&&(R.method==='all'||s.method===R.method)&&(R.status==='all'||(R.status==='void')===(s.status==='void'))).sort((a,b)=>a.ts-b.ts);
-  const rangeList=()=>sales.filter(s=>s.ts>=dayStart(R.from)&&s.ts<=dayEnd(R.to)).sort((a,b)=>a.ts-b.ts);
-  function draw(){
-    const T=[['daily','Daily sales'],['inv','Invoices'],['vat','VAT 201'],['items','Items sold'],['log','Activity log']];
+  const hq=CLOUD&&isHQ();
+  const brSel=()=>hq?selF('Branch','br',[['all','All branches']].concat(C.branches.map(b=>[b.id,b.code+' · '+b.name]))):'';
+  const brLabel=()=>hq?(R.br==='all'?'All branches':brName(R.br)):(CLOUD?brName(C.branch):'');
+  let shown=[],seqNo=0;
+  async function draw(){
+    const my=++seqNo;
+    const T=[['daily','Daily sales'],['inv','Invoices']].concat(CLOUD&&!hq?[]:[['vat','VAT 201']],[['items','Items sold'],['log','Activity log']]);
+    if(!T.some(t=>t[0]===R.tab))R.tab='daily';
     let filt='',body='',title='',period='',pbody='',csv=null;
     const rng=()=>nice(R.from)+' to '+nice(R.to);
-    if(R.tab==='daily'){
-      filt='<div class="filters"><button class="mini" data-day="-1">‹ Prev</button>'+dateF('Date','day')+'<button class="mini" data-day="1">Next ›</button><button class="mini" data-day="0">Today</button></div>';
-      title='Daily sales report';period=nice(R.day);body=pbody=dailyBody(R.day);
-    }else if(R.tab==='inv'){
-      const list=invList();
-      filt='<div class="filters">'+dateF('From','from')+dateF('To','to')+selF('Payment','method',[['all','All'],['cash','Cash'],['card','Card']])+selF('Status','status',[['all','All'],['paid','Paid'],['void','Void']])+'<div class="qk">'+quick('data-q',[['month','This month'],['lastmonth','Last month'],['today','Today']])+'</div></div>';
-      title='Invoices report';period=rng();body=billsBlock(list,true);pbody=billsBlock(list,false);
-      csv=csvOf([['Invoice','Date','Time','Payment','Excl VAT','VAT','Total','Status','Card ref']].concat(list.map(s=>[s.no,ymd(s.ts),fmtTime(s.ts),s.method,s.net.toFixed(2),s.vat.toFixed(2),s.total.toFixed(2),s.status==='void'?'void':'paid',s.ref||''])));
-    }else if(R.tab==='vat'){
-      filt='<div class="filters">'+dateF('Period from','vf')+dateF('Period to','vt')+'<div class="qk">'+quick('data-vq',[['month','This month'],['lastmonth','Last month'],['quarter','This quarter'],['lastquarter','Last quarter']])+'</div></div>';
-      title='VAT 201 return – working';period=nice(R.vf)+' to '+nice(R.vt);body=vatBody(R.vf,R.vt,true);pbody=vatBody(R.vf,R.vt,false);
-    }else if(R.tab==='items'){
-      const list=rangeList();
-      filt='<div class="filters">'+dateF('From','from')+dateF('To','to')+'<div class="qk">'+quick('data-q',[['month','This month'],['lastmonth','Last month'],['today','Today']])+'</div></div>';
-      title='Items sold report';period=rng();body=pbody=itemsBlock(list);
-      csv=csvOf([['Fabric','Unit','Quantity','Excl VAT','VAT','Total']].concat(byItem(list).map(i=>[i.name,i.unit,i.qty,i.net.toFixed(2),i.vat.toFixed(2),i.total.toFixed(2)])));
-    }else{
-      filt='<div class="filters">'+selF('Show','act',[['all','Everything'],['Sale','Sales'],['Void','Voids'],['Bill','Bill changes'],['Item','Items'],['Settings','Settings'],['Report','Reports'],['Data','Data']])+'</div>';
-      title='Activity log';period='Latest entries';body=logBody(R.act,200);pbody=logBody(R.act,500);
+    const showBr=hq&&R.br==='all';
+    if(R.tab==='daily')filt='<div class="filters"><button class="mini" data-day="-1">‹ Prev</button>'+dateF('Date','day')+'<button class="mini" data-day="1">Next ›</button><button class="mini" data-day="0">Today</button>'+brSel()+'</div>';
+    else if(R.tab==='inv')filt='<div class="filters">'+dateF('From','from')+dateF('To','to')+brSel()+selF('Payment','method',[['all','All'],['cash','Cash'],['card','Card']])+selF('Status','status',[['all','All'],['paid','Paid'],['void','Void']])+'<div class="qk">'+quick('data-q',[['month','This month'],['lastmonth','Last month'],['today','Today']])+'</div></div>';
+    else if(R.tab==='vat')filt='<div class="filters">'+dateF('Period from','vf')+dateF('Period to','vt')+'<div class="qk">'+quick('data-vq',[['month','This month'],['lastmonth','Last month'],['quarter','This quarter'],['lastquarter','Last quarter']])+'</div></div>';
+    else if(R.tab==='items')filt='<div class="filters">'+dateF('From','from')+dateF('To','to')+brSel()+'<div class="qk">'+quick('data-q',[['month','This month'],['lastmonth','Last month'],['today','Today']])+'</div></div>';
+    else filt='<div class="filters">'+brSel()+selF('Show','act',[['all','Everything'],['Sale','Sales'],['Void','Voids'],['Bill','Bill changes'],['Item','Items'],['Settings','Settings'],['Report','Reports'],['Data','Data']])+'</div>';
+    const head='<div class="rhead modal-only"><h2>Reports</h2><button class="ghost" id="rClose">Close</button></div>'+
+      '<div class="rtabs">'+T.map(t=>'<button data-t="'+t[0]+'" class="'+(R.tab===t[0]?'on':'')+'">'+t[1]+'</button>').join('')+'</div>'+filt;
+    $('#rBody',m.el).innerHTML=head+'<div class="loading">Loading…</div>';
+    bind(false);
+    try{
+      if(R.tab==='daily'){
+        shown=await salesIn(R.day,R.day,R.br);
+        title='Daily sales report';period=nice(R.day);body=pbody=dailyBody(shown,showBr);
+      }else if(R.tab==='inv'){
+        shown=(await salesIn(R.from,R.to,R.br)).filter(s=>(R.method==='all'||s.method===R.method)&&(R.status==='all'||(R.status==='void')===(s.status==='void')));
+        title='Invoices report';period=rng();body=billsBlock(shown,true,showBr);pbody=billsBlock(shown,false,showBr);
+        csv=csvOf([['Invoice'].concat(hq?['Branch']:[],['Date','Time','Payment','Excl VAT','VAT','Total','Status','Card ref'])].concat(shown.map(s=>[s.no].concat(hq?[brName(s.branch)]:[],[ymd(s.ts),fmtTime(s.ts),s.method,s.net.toFixed(2),s.vat.toFixed(2),s.total.toFixed(2),s.status==='void'?'void':'paid',s.ref||'']))));
+      }else if(R.tab==='vat'){
+        shown=await salesIn(R.vf,R.vt,'all');
+        title='VAT 201 return – working';period=nice(R.vf)+' to '+nice(R.vt);body=vatBody(shown,R.vf,R.vt,true);pbody=vatBody(shown,R.vf,R.vt,false);
+      }else if(R.tab==='items'){
+        shown=await salesIn(R.from,R.to,R.br);
+        title='Items sold report';period=rng();body=pbody=itemsBlock(shown);
+        csv=csvOf([['Fabric','Unit','Quantity','Excl VAT','VAT','Total']].concat(byItem(shown).map(i=>[i.name,i.unit,i.qty,i.net.toFixed(2),i.vat.toFixed(2),i.total.toFixed(2)])));
+      }else{
+        const logs=await logsIn(R.br,500);
+        title='Activity log';period='Latest entries';body=logBody(logs,R.act,200,showBr);pbody=logBody(logs,R.act,500,showBr);
+      }
+    }catch(e){
+      console.error(e);
+      if(my!==seqNo)return;
+      $('#rBody',m.el).innerHTML=head+'<p class="none">Could not load this report: '+esc(e.code||e.message)+'. Check the internet connection and try again.</p>';bind(false);return;
     }
-    $('#rBody',m.el).innerHTML='<div class="rhead modal-only"><h2>Reports</h2><button class="ghost" id="rClose">Close</button></div>'+
-      '<div class="rtabs">'+T.map(t=>'<button data-t="'+t[0]+'" class="'+(R.tab===t[0]?'on':'')+'">'+t[1]+'</button>').join('')+'</div>'+filt+'<div>'+body+'</div>'+
-      '<div class="actions">'+(csv?'<button class="ghost" id="rCopy">Copy for Excel</button>':'')+'<button class="primary" id="rPrint">Print report</button></div>';
+    if(my!==seqNo)return;
+    if(R.tab!=='vat'&&brLabel())period+=' · '+brLabel();
+    $('#rBody',m.el).innerHTML=head+'<div>'+body+'</div>'+
+      '<div class="actions">'+(CLOUD?'<button class="ghost" id="rRefresh">↻ Refresh</button>':'')+(csv?'<button class="ghost" id="rCopy">Copy for Excel</button>':'')+'<button class="primary" id="rPrint">Print report</button></div>';
+    bind(true);
+    const $m=s=>$(s,m.el);
+    const va=$m('#vAmt'),vv=$m('#vVat');
+    if(va&&vv){
+      const upd=()=>{
+        const k=R.vf+'_'+R.vt;vatin[k]={amt:va.value,vat:vv.value};
+        if(CLOUD)C.db.collection('config').doc('vatin').set({[k]:vatin[k]},{merge:true}).catch(e=>toast('Not saved: '+(e.code||e.message)));
+        else store.set('sk_vatin',vatin);
+        const c=vatCalc(shown,R.vf,R.vt);
+        $m('#v11a').textContent=fmt(c.exp);$m('#v11v').textContent=fmt(c.expVat);$m('#v13').textContent=fmt(c.rec);
+        $m('#v14').textContent=fmt(c.pay)+(c.pay<0?' (refundable)':'');
+      };
+      va.oninput=upd;vv.oninput=upd;
+    }
+    if(csv)$m('#rCopy').onclick=()=>{copyText(csv);logAct('Report','Copied '+title+' ('+period+')')};
+    if(CLOUD)$m('#rRefresh').onclick=()=>{salesCache.clear();draw()};
+    $m('#rPrint').onclick=()=>{doPrint(reportDoc(title,period,pbody),'a4');logAct('Report','Printed '+title+' ('+period+')')};
+  }
+  function bind(full){
     const $m=s=>$(s,m.el);
     $m('#rClose').onclick=()=>m.close();
     $$('[data-t]',m.el).forEach(b=>b.onclick=()=>{R.tab=b.dataset.t;draw()});
@@ -1066,23 +1328,12 @@ function reportsModal(tab){
     $$('[data-day]',m.el).forEach(b=>b.onclick=()=>{const d=+b.dataset.day;R.day=d===0?ymd(Date.now()):ymd(new Date(R.day+'T12:00:00').getTime()+d*864e5);draw()});
     $$('[data-q]',m.el).forEach(b=>b.onclick=()=>{const r=quickRange(b.dataset.q);R.from=r[0];R.to=r[1];draw()});
     $$('[data-vq]',m.el).forEach(b=>b.onclick=()=>{const r=quickRange(b.dataset.vq,true);R.vf=r[0];R.vt=r[1];draw()});
-    $$('[data-v]',m.el).forEach(b=>b.onclick=()=>{const s=sales.find(x=>x.id===b.dataset.v);if(s)viewSale(s)});
+    if(!full)return;
+    $$('[data-v]',m.el).forEach(b=>b.onclick=()=>{const s=shown.find(x=>x.id===b.dataset.v);if(s)viewSale(s)});
     $$('[data-x]',m.el).forEach(b=>b.onclick=async()=>{
-      const s=sales.find(x=>x.id===b.dataset.x);if(!s)return;
-      if(await askConfirm('Void '+s.no+'?','This sale will be removed from all report totals. It stays in the list marked as void.','Void sale',true)){s.status='void';s.voidedAt=Date.now();saveSales();logAct('Void',s.no+' voided (AED '+fmt(s.total)+', '+s.method+')');draw()}
+      const s=shown.find(x=>x.id===b.dataset.x);if(!s)return;
+      if(await askConfirm('Void '+s.no+'?','This sale will be removed from all report totals. It stays in the list marked as void.','Void sale',true)){voidSale(s);logAct('Void',s.no+' voided (AED '+fmt(s.total)+', '+s.method+')');draw()}
     });
-    const va=$m('#vAmt'),vv=$m('#vVat');
-    if(va&&vv){
-      const upd=()=>{
-        const all=store.get('sk_vatin',{});all[R.vf+'_'+R.vt]={amt:va.value,vat:vv.value};store.set('sk_vatin',all);
-        const c=vatCalc(R.vf,R.vt);
-        $m('#v11a').textContent=fmt(c.exp);$m('#v11v').textContent=fmt(c.expVat);$m('#v13').textContent=fmt(c.rec);
-        $m('#v14').textContent=fmt(c.pay)+(c.pay<0?' (refundable)':'');
-      };
-      va.oninput=upd;vv.oninput=upd;
-    }
-    if(csv)$m('#rCopy').onclick=()=>{copyText(csv);logAct('Report','Copied '+title+' ('+period+')')};
-    $m('#rPrint').onclick=()=>{doPrint(reportDoc(title,period,pbody),'a4');logAct('Report','Printed '+title+' ('+period+')')};
   }
   draw();
 }
@@ -1119,8 +1370,11 @@ function itemForm(item,done){
     const code=$m('#fCode').value.trim();
     if(code&&items.some(i=>i.id!==st.id&&String(i.barcode||'')===code)){toast('Another fabric already uses this barcode');$m('#fCode').focus();return}
     st.barcode=code;
-    if(isNew)items.push(st);else items=items.map(i=>i.id===st.id?st:i);
-    saveItems();logAct('Item','Fabric "'+st.name+'" updated'+(st.price?' (usual price AED '+fmt(+st.price)+')':''));renderGrid();m.close();done&&done();
+    if(CLOUD){
+      if(st.order==null)st.order=Date.now();
+      C.db.collection('items').doc(st.id).set(st).catch(e=>toast('Not saved: '+(e.code||e.message)));
+    }else{if(isNew)items.push(st);else items=items.map(i=>i.id===st.id?st:i);saveItems()}
+    logAct('Item','Fabric "'+st.name+'" updated'+(st.price?' (usual price AED '+fmt(+st.price)+')':''));renderGrid();m.close();done&&done();
   };
   setTimeout(()=>$m('#fName').focus(),30);
 }
@@ -1135,7 +1389,7 @@ function settingsModal(){
     '<label class="fld"><span>Address</span><input id="sAddr" value="'+esc(s.address)+'"></label>'+
     '<div class="two-f"><label class="fld"><span>Phone</span><input id="sPhone" value="'+esc(s.phone)+'"></label><label class="fld"><span>Emirate (for VAT 201)</span><select id="sEm">'+EMIRATES.map(e=>'<option'+(s.emirate===e?' selected':'')+'>'+e+'</option>').join('')+'</select></label></div>'+
     '<div class="two-f"><label class="fld"><span>Receipt footer</span><input id="sFoot" value="'+esc(s.footer)+'"></label><label class="fld"><span>Footer in Arabic</span><input id="sFootAr" dir="rtl" value="'+esc(s.footerAr)+'"></label></div>'+
-    '<div class="actions"><button class="ghost" id="sReset" style="margin-right:auto;color:var(--danger)">Erase all sales</button><button class="ghost" id="sCancel">Cancel</button><button class="primary" id="sSave">Save</button></div>',{page:'#settingsPage'});
+    '<div class="actions">'+(CLOUD?'':'<button class="ghost" id="sReset" style="margin-right:auto;color:var(--danger)">Erase all sales</button>')+'<button class="ghost" id="sCancel">Cancel</button><button class="primary" id="sSave">Save</button></div>',{page:'#settingsPage'});
   const $m=x=>$(x,m.el);
   $m('#sCancel').onclick=()=>m.close();
   $m('#sSave').onclick=()=>{
@@ -1146,11 +1400,81 @@ function settingsModal(){
       address:$m('#sAddr').value.trim(),phone:$m('#sPhone').value.trim(),emirate:$m('#sEm').value,
       footer:$m('#sFoot').value.trim(),footerAr:$m('#sFootAr').value.trim()
     });
-    saveSettings();logAct('Settings','Shop settings updated');brand();renderCart();m.close();toast('Settings saved');
+    if(CLOUD)C.db.collection('config').doc('shop').set(Object.assign({},settings),{merge:true}).catch(e=>toast('Not saved: '+(e.code||e.message)));
+    else saveSettings();
+    logAct('Settings','Shop settings updated');brand();renderCart();m.close();toast('Settings saved');
   };
-  $m('#sReset').onclick=async()=>{
+  if(!CLOUD)$m('#sReset').onclick=async()=>{
     if(await askConfirm('Erase all sales?','Every saved sale and the invoice numbering will be reset. This cannot be undone.','Erase everything',true)){sales=[];seq=1;saveSales();logAct('Data','All sales erased and invoice numbering reset');sideToday();toast('Sales erased')}
   };
+}
+
+/* ---------- branches (head office) ---------- */
+function renderBranches(){
+  $('#branchesPage').innerHTML=C.branches.length?'<div class="list">'+C.branches.map(b=>'<div class="li"><div class="bcode">'+esc(b.code)+'</div><div><b>'+esc(b.name)+'</b><br><small>'+esc(b.address||'No address')+(b.phone?' · '+esc(b.phone):'')+' · login: <span class="num">'+esc(b.email||'none')+'</span></small></div><button class="mini" data-be="'+esc(b.id)+'">Edit</button></div>').join('')+'</div>':
+    '<div class="card none">No branches yet. Add each shop with “+ Add branch”, using the login email you created for it in Firebase.</div>';
+  $$('[data-be]').forEach(x=>x.onclick=()=>branchForm(branchById(x.dataset.be)));
+}
+function branchForm(b){
+  const isNew=!b;
+  const st=b?Object.assign({},b):{id:'b'+uid(),code:'B'+(C.branches.length+1),name:'',address:'',phone:'',email:''};
+  const m=modal('<h2>'+(isNew?'Add branch':'Edit branch')+'</h2><p class="sub">The code starts every invoice number from this branch, e.g. '+esc(st.code)+'-000001.</p>'+
+    '<div class="two-f"><label class="fld"><span>Code</span><input id="bCode" maxlength="6" value="'+esc(st.code)+'"></label><label class="fld"><span>Branch name</span><input id="bName" placeholder="e.g. Baniyas City" value="'+esc(st.name)+'"></label></div>'+
+    '<label class="fld"><span>Address (printed on receipts)</span><input id="bAddr" value="'+esc(st.address)+'"></label>'+
+    '<div class="two-f"><label class="fld"><span>Phone</span><input id="bPhone" value="'+esc(st.phone)+'"></label><label class="fld"><span>Branch login email</span><input id="bEmail" type="email" placeholder="created in Firebase" value="'+esc(st.email)+'"></label></div>'+
+    '<div class="actions"><button class="ghost" id="bCancel">Cancel</button><button class="primary" id="bSave">Save</button></div>');
+  const $m=x=>$(x,m.el);
+  $m('#bCancel').onclick=()=>m.close();
+  $m('#bSave').onclick=async()=>{
+    const code=$m('#bCode').value.trim().toUpperCase(),name=$m('#bName').value.trim(),email=$m('#bEmail').value.trim().toLowerCase();
+    if(!/^[A-Z0-9]{1,6}$/.test(code)){toast('Code: 1–6 letters or digits');$m('#bCode').focus();return}
+    if(!name){$m('#bName').focus();return}
+    if(C.branches.some(x=>x.id!==st.id&&x.code===code)){toast('Another branch already uses code '+code);return}
+    if(email&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){toast('That email does not look right');$m('#bEmail').focus();return}
+    if(email&&(email===HQ_EMAIL.toLowerCase()||C.branches.some(x=>x.id!==st.id&&x.email===email))){toast('That login is already used');return}
+    const old=b&&b.email;
+    Object.assign(st,{code,name,address:$m('#bAddr').value.trim(),phone:$m('#bPhone').value.trim(),email});
+    const bt=C.db.batch();
+    bt.set(bref(st.id),st);
+    if(old&&old!==email)bt.delete(C.db.collection('branchLogins').doc(old));
+    if(email)bt.set(C.db.collection('branchLogins').doc(email),{branch:st.id});
+    $m('#bSave').disabled=true;
+    try{await bt.commit()}catch(e){toast('Not saved: '+(e.code||e.message));$m('#bSave').disabled=false;return}
+    logAct('Settings','Branch '+code+' ('+name+') '+(isNew?'added':'updated'));
+    m.close();toast('Branch saved');
+  };
+  setTimeout(()=>$m(isNew?'#bName':'#bCode').focus(),30);
+}
+$('#btnAddBranch').onclick=()=>branchForm(null);
+
+/* ---------- moving data from before the branch system ---------- */
+async function offerImport(){
+  try{
+    if(isBranchUser()){
+      const ls=store.get('sk_sales',[]),lh=store.get('sk_held',[]);
+      const done='sk_uploaded_'+C.branch;
+      if(!(ls.length||lh.length)||store.get(done,0)||Date.now()<store.get('sk_import_later',0))return;
+      const ok=await askConfirm('Upload sales from this computer?','This computer has '+plural(ls.length,'sale')+' and '+plural(lh.length,'held bill')+' from before the branch system. Upload them to '+brName(C.branch)+' so head office sees them in reports? This is done once; the copy on this computer is kept.','Upload',false);
+      if(!ok){store.set('sk_import_later',Date.now()+7*864e5);return}
+      const docs=ls.map(x=>[salesCol(C.branch).doc(x.id),Object.assign({},x,{branch:C.branch,branchName:brName(C.branch),imported:true})])
+        .concat(lh.map(x=>[heldCol().doc(x.id),x]));
+      for(let i=0;i<docs.length;i+=400){const bt=C.db.batch();docs.slice(i,i+400).forEach(d=>bt.set(d[0],d[1]));await bt.commit()}
+      store.set(done,Date.now());salesCache.clear();
+      logAct('Data','Uploaded '+plural(ls.length,'sale')+' and '+plural(lh.length,'held bill')+' from this computer');
+      toast('Uploaded '+plural(ls.length,'sale'));
+    }else if(isHQ()){
+      const [cfg,its]=await Promise.all([C.db.collection('config').doc('shop').get(),C.db.collection('items').limit(1).get()]);
+      if(cfg.exists||!its.empty)return;
+      const li=store.get('sk_items3',null)||DEFAULT_ITEMS,lset=Object.assign({},DEFAULT_SETTINGS,store.get('sk_settings',{}));
+      const ok=await askConfirm('Set up the shared fabric list?','The cloud has no fabrics or shop settings yet. Copy the '+plural(li.length,'fabric')+' and the shop settings (name, TRN, receipt text) from this computer? Every branch will use them.','Copy to cloud',false);
+      if(!ok)return;
+      const bt=C.db.batch();
+      li.forEach((it,i)=>bt.set(C.db.collection('items').doc(it.id),Object.assign({},it,{order:i})));
+      bt.set(C.db.collection('config').doc('shop'),lset);
+      await bt.commit();
+      logAct('Data','Copied '+plural(li.length,'fabric')+' and shop settings to the cloud');toast('Fabric list and settings copied');
+    }
+  }catch(e){console.error(e);toast('Could not copy data: '+(e.code||e.message))}
 }
 
 /* ---------- backup & restore ---------- */
@@ -1177,7 +1501,33 @@ function downloadBackup(tag){
   renderBackup();checkBackupNag();
   return b;
 }
+async function cloudBackup(){
+  const btn=$('#bkSave');btn.disabled=true;btn.textContent='Preparing…';
+  try{
+    const db=C.db,[cfg,vi,its,brs]=await Promise.all([db.collection('config').doc('shop').get(),db.collection('config').doc('vatin').get(),db.collection('items').get(),db.collection('branches').get()]);
+    const out={config:cfg.exists?cfg.data():null,vatin:vi.exists?vi.data():null,items:its.docs.map(d=>d.data()),branches:brs.docs.map(d=>d.data()),sales:{},held:{}};
+    let n=0;
+    for(const d of brs.docs){
+      const [sq,hq]=await Promise.all([salesCol(d.id).get(),bref(d.id).collection('held').get()]);
+      out.sales[d.id]=sq.docs.map(x=>x.data());out.held[d.id]=hq.docs.map(x=>x.data());n+=sq.size;
+    }
+    const b={app:'sheikha-pos-cloud',version:1,created:new Date().toISOString(),shop:settings.name,counts:{branches:brs.size,sales:n,items:its.size},data:out};
+    const dt=new Date(),stamp=ymd(dt.getTime())+'-'+pad2(dt.getHours())+pad2(dt.getMinutes());
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(b)],{type:'application/json'}));a.download='sheikha-all-branches-'+stamp+'.json';
+    document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+    store.set('sk_lastbackup',Date.now());logAct('Data','Full backup downloaded ('+plural(n,'sale')+', '+plural(brs.size,'branch').replace('branchs','branches')+')');
+    toast('Backup saved to your Downloads');
+  }catch(e){console.error(e);toast('Backup failed: '+(e.code||e.message))}
+  renderBackup();
+}
 function renderBackup(){
+  if(CLOUD){
+    const last=store.get('sk_lastbackup',0);
+    $('#backupCard').innerHTML='<h2>Backup</h2><p class="sub">Download a copy of everything in the cloud: every branch’s sales and held bills, the fabric list and settings. Keep it somewhere safe. Also turn on daily backups in the Firebase console.</p>'+
+      '<div class="bk-row"><button class="btn primary" id="bkSave" type="button">⬇️ Download full backup</button></div><div class="bk-last">Last download on this computer: <b>'+(last?fmtDate(last):'never')+'</b></div>';
+    $('#bkSave').onclick=cloudBackup;
+    return;
+  }
   const last=store.get('sk_lastbackup',0);
   const old=!last||Date.now()-last>BACKUP_DAYS*864e5;
   $('#backupCard').innerHTML='<h2>Backup &amp; restore</h2><p class="sub">Save all sales, items, settings and held bills on this device to a file. Keep it somewhere safe, such as iCloud Drive or a USB stick. Restore loads a backup file back in.</p>'+
@@ -1204,6 +1554,7 @@ async function restoreFrom(file){
   location.reload();
 }
 function checkBackupNag(){
+  if(CLOUD){$('#backupNag').hidden=true;return}
   const last=store.get('sk_lastbackup',0),snooze=store.get('sk_backupsnooze',0);
   const due=sales.length>0&&(!last||Date.now()-last>BACKUP_DAYS*864e5)&&Date.now()>snooze;
   $('#backupNag').hidden=!due;
@@ -1214,11 +1565,21 @@ $('#nagLater').onclick=()=>{store.set('sk_backupsnooze',Date.now()+864e5);checkB
 
 /* ---------- misc ---------- */
 function applyTheme(){document.documentElement.removeAttribute('data-theme')}
-function brand(){$('#brandName').textContent=settings.name;$('#brandAr').textContent=settings.nameAr;$('#sideVat').textContent=settings.vat;document.title=settings.name+' – Point of Sale'}
-function sideToday(){$('#sideToday').textContent='AED '+fmt(agg(sales.filter(s=>isToday(s.ts))).total)}
-const VIEWS={sale:null,held:()=>renderHeld(),items:itemsModal,reports:()=>reportsModal(),settings:()=>{settingsModal();renderBackup()}};
+function brand(){
+  $('#brandName').textContent=settings.name;$('#brandAr').textContent=settings.nameAr;$('#sideVat').textContent=settings.vat;
+  const sub=CLOUD&&C.role?(isHQ()?'Head office':brName(C.branch)):'';
+  $('#brandBranch').hidden=!sub;$('#brandBranch').textContent=sub;
+  document.title=settings.name+(sub?' – '+sub:'')+' – Point of Sale';
+}
+function sideToday(){
+  const list=CLOUD?Object.values(C.today).flat().filter(s=>isToday(s.ts)):sales.filter(s=>isToday(s.ts));
+  $('#sideToday').textContent='AED '+fmt(agg(list).total);
+}
+let curView='sale';
+const VIEWS={sale:null,held:()=>renderHeld(),items:itemsModal,reports:()=>reportsModal(),branches:()=>renderBranches(),settings:()=>{settingsModal();renderBackup()}};
 function go(v){
-  if(!(v in VIEWS))v='sale';
+  if(!(v in VIEWS)||!viewAllowed(v))v=CLOUD&&isHQ()?'reports':'sale';
+  curView=v;
   Object.keys(VIEWS).forEach(k=>{$('#view-'+k).hidden=k!==v});
   $$('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
   document.body.classList.remove('cart-open');
@@ -1230,7 +1591,10 @@ function go(v){
 $$('.nav-btn').forEach(b=>b.onclick=()=>go(b.dataset.view));
 function tick(){$('#clock').textContent=new Date().toLocaleString('en-GB',{weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}
 
-applyTheme();brand();renderGrid();renderCart();renderHeld();checkBackupNag();initCloud();tick();setInterval(tick,30000);
+applyTheme();applyRole();brand();renderGrid();renderCart();renderHeld();checkBackupNag();tick();setInterval(tick,30000);
+if(CLOUD)bootCloud();
+// keep the app on this computer so it opens without internet (and can be installed)
+if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))navigator.serviceWorker.register('sw.js').catch(e=>console.warn('Offline support unavailable',e));
 })();
 </script>
 </body>

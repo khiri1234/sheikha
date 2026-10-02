@@ -1,0 +1,76 @@
+rules_version = '2';
+
+// Sheikha Textiles POS – Firestore security rules.
+// Replace hq@example.com below with the head-office login email
+// (the same value as HQ_EMAIL in index.html), then publish these rules in
+// Firebase console → Firestore Database → Rules.
+//
+// Who can do what:
+//   head office  – everything: settings, fabrics, branches, all branches' data
+//   branch login – read settings and fabrics; read and add its own branch's
+//                  sales, held bills and log; void (not edit or delete) its sales
+//   anyone else  – nothing
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null && request.auth.token.email != null; }
+    function email() { return request.auth.token.email.lower(); }
+    function isHQ() { return signedIn() && email() == 'hq@example.com'; }
+    function loginDoc() { return /databases/$(database)/documents/branchLogins/$(email()); }
+    function isBranch(b) { return signedIn() && exists(loginDoc()) && get(loginDoc()).data.branch == b; }
+    function isStaff() { return isHQ() || (signedIn() && exists(loginDoc())); }
+
+    // shop settings (config/shop) and VAT 201 inputs (config/vatin)
+    match /config/{doc} {
+      allow read: if isStaff();
+      allow write: if isHQ();
+    }
+
+    // shared fabric list
+    match /items/{id} {
+      allow read: if isStaff();
+      allow write: if isHQ();
+    }
+
+    // which branch each login belongs to
+    match /branchLogins/{em} {
+      allow read: if isHQ() || (signedIn() && email() == em);
+      allow write: if isHQ();
+    }
+
+    // head office activity log
+    match /hqlog/{id} {
+      allow read, create: if isHQ();
+    }
+
+    match /branches/{b} {
+      allow read: if isHQ() || isBranch(b);
+      allow write: if isHQ();
+
+      // sales can be added and voided, never edited or deleted
+      match /sales/{id} {
+        allow read: if isHQ() || isBranch(b);
+        allow create: if isBranch(b) && request.resource.data.branch == b;
+        allow update: if (isHQ() || isBranch(b))
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'voidedAt', 'voidedBy'])
+          && request.resource.data.status == 'void';
+      }
+
+      match /held/{id} {
+        allow read: if isHQ() || isBranch(b);
+        allow write: if isBranch(b);
+      }
+
+      match /logs/{id} {
+        allow read: if isHQ() || isBranch(b);
+        allow create: if isBranch(b);
+      }
+
+      // invoice and held-bill counters
+      match /meta/{id} {
+        allow read: if isHQ() || isBranch(b);
+        allow write: if isBranch(b);
+      }
+    }
+  }
+}
