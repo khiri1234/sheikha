@@ -264,6 +264,9 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
 .held-card .amt{font-family:var(--mono);font-weight:700;color:var(--till-dark);margin-right:6px}
 .btn.danger{background:#fff;color:var(--red);border:1px solid #EBC9C0}
 
+.sync-note{font-weight:600}
+.sync-note.on{color:var(--ok)}
+.sync-note.error{color:var(--red)}
 /* Responsive */
 @media (min-width:1200px){
   .prod-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
@@ -371,7 +374,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
     <!-- HELD BILLS VIEW -->
     <section id="view-held" hidden>
       <div class="topbar">
-        <div><h1>Held Bills</h1><div class="sub">Parked bills waiting to be resumed</div></div>
+        <div><h1>Held Bills</h1><div class="sub">Parked bills waiting to be resumed · <span id="heldSync" class="sync-note"></span></div></div>
       </div>
       <div id="heldList"></div>
     </section>
@@ -626,34 +629,94 @@ $('#cartbar').onclick=()=>document.body.classList.add('cart-open');
 $('#btnBack').onclick=()=>document.body.classList.remove('cart-open');
 
 /* ---------- held bills ---------- */
-function holdCurrent(){
+/* Held bills sync across devices through Firebase (Firestore) once
+   FIREBASE_CONFIG below is filled in. Each held bill is its own document
+   in "held_bills"; bill numbers come from a shared counter (meta/counters)
+   so two tills can't hand out the same number. Without a config, or if
+   Firebase can't be reached, held bills are kept on this device only. */
+const FIREBASE_CONFIG=null;
+const FB_SDK='https://www.gstatic.com/firebasejs/10.12.2/';
+let cloud=null;
+function loadScript(src){return new Promise((res,rej)=>{const sc=document.createElement('script');sc.src=src;sc.onload=res;sc.onerror=()=>rej(new Error('Could not load '+src));document.head.appendChild(sc)})}
+const withTimeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))]);
+async function initCloud(){
+  if(!FIREBASE_CONFIG)return;
+  try{
+    if(!window.firebase){for(const f of ['firebase-app-compat.js','firebase-auth-compat.js','firebase-firestore-compat.js'])await loadScript(FB_SDK+f)}
+    if(!firebase.apps.length)firebase.initializeApp(FIREBASE_CONFIG);
+    const db=firebase.firestore();
+    db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+    await firebase.auth().signInAnonymously();
+    const c={db,col:db.collection('held_bills'),ctr:db.collection('meta').doc('counters')};
+    // move bills held on this device before sync was switched on into the shared list
+    const local=held.slice();
+    for(const h of local)await c.col.doc(h.id).set(h);
+    if(local.length){
+      const top=Math.max(0,...local.map(h=>+h.no||0));
+      await c.db.runTransaction(async tx=>{const snap=await tx.get(c.ctr);const cur=(snap.exists&&snap.data().heldSeq)||0;if(top>cur)tx.set(c.ctr,{heldSeq:top},{merge:true})});
+    }
+    held=[];saveHeld();
+    cloud=c;
+    c.col.onSnapshot(snap=>{held=snap.docs.map(d=>d.data());renderHeld()},err=>{console.error('Held bills sync stopped',err);setSync('error')});
+    setSync('on');
+  }catch(e){console.error('Held bills sync unavailable',e);cloud=null;setSync('error')}
+}
+let syncState=FIREBASE_CONFIG?'connecting':'off';
+function setSync(st){syncState=st;renderHeld()}
+async function nextHeldNo(){
+  if(cloud){
+    try{
+      return await withTimeout(cloud.db.runTransaction(async tx=>{const snap=await tx.get(cloud.ctr);const n=((snap.exists&&snap.data().heldSeq)||0)+1;tx.set(cloud.ctr,{heldSeq:n},{merge:true});return n}),6000);
+    }catch(e){console.warn('Could not get a shared bill number',e)}
+  }
+  const n=heldSeq++;store.set('sk_heldseq',heldSeq);return cloud?'D'+n:n;
+}
+async function holdCurrent(){
   if(!cart.length)return null;
-  const h={id:uid(),no:heldSeq++,ts:Date.now(),cart:JSON.parse(JSON.stringify(cart)),discount:Object.assign({},discount),total:totals().total};
-  held.push(h);saveHeld();
+  const snapshot={cart:JSON.parse(JSON.stringify(cart)),discount:Object.assign({},discount),total:totals().total};
+  cart=[];discount={type:'pct',value:''};saveCart();renderCart();
+  const h=Object.assign({id:uid(),no:await nextHeldNo(),ts:Date.now()},snapshot);
+  if(cloud){cloud.col.doc(h.id).set(h).catch(e=>{console.error('Could not save held bill',e);toast('Held bill #'+h.no+' could not be saved online')})}
+  else{held.push(h);saveHeld()}
   logAct('Bill','Held bill #'+h.no+' – AED '+fmt(h.total)+' ('+h.cart.length+(h.cart.length===1?' line':' lines')+')');
-  cart=[];discount={type:'pct',value:''};saveCart();renderCart();renderHeld();
+  renderHeld();
   return h;
 }
-$('#btnHold').onclick=()=>{const h=holdCurrent();if(h){document.body.classList.remove('cart-open');toast('Bill held as #'+h.no)}};
+$('#btnHold').onclick=async()=>{const b=$('#btnHold');b.disabled=true;const h=await holdCurrent();if(h){document.body.classList.remove('cart-open');toast('Bill held as #'+h.no)}};
+// take a held bill off the shared list; returns null if another device already took it
+async function takeHeld(id){
+  const local=held.find(x=>x.id===id);
+  if(!cloud){if(!local)return null;held=held.filter(x=>x.id!==id);saveHeld();return local}
+  const ref=cloud.col.doc(id);
+  try{
+    return await withTimeout(cloud.db.runTransaction(async tx=>{const snap=await tx.get(ref);if(!snap.exists)return null;tx.delete(ref);return snap.data()}),6000);
+  }catch(e){
+    console.warn('Offline – removing held bill without a check',e);
+    if(!local)return null;ref.delete().catch(()=>{});return local;
+  }
+}
 function renderHeld(){
   const n=held.length;
   $('#heldCount').hidden=!n;$('#heldCount').textContent=n;
-  $('#heldList').innerHTML=n?held.slice().sort((a,b)=>b.ts-a.ts).map(h=>'<div class="held-card"><div><div class="ht">Held bill #'+h.no+'</div><div class="hs">'+esc(h.cart.map(l=>l.name).join(', '))+' · '+h.cart.length+(h.cart.length===1?' line':' lines')+' · '+fmtDate(h.ts)+'</div></div><div class="ha"><span class="amt">AED '+fmt(h.total)+'</span><button class="btn primary" data-resume="'+h.id+'">Resume</button><button class="btn danger" data-hdel="'+h.id+'">Delete</button></div></div>').join(''):'<div class="card none">No held bills. Use “Hold this bill” on the sale screen to park a bill for later.</div>';
+  const note={off:'Saved on this device only',connecting:'Connecting to sync…',on:'Synced across all devices',error:'Sync unavailable – held bills on this device only'}[syncState];
+  $('#heldSync').textContent=note;$('#heldSync').className='sync-note '+syncState;
+  $('#heldList').innerHTML=n?held.slice().sort((a,b)=>b.ts-a.ts).map(h=>'<div class="held-card"><div><div class="ht">Held bill #'+esc(h.no)+'</div><div class="hs">'+esc(h.cart.map(l=>l.name).join(', '))+' · '+h.cart.length+(h.cart.length===1?' line':' lines')+' · '+fmtDate(h.ts)+'</div></div><div class="ha"><span class="amt">AED '+fmt(h.total)+'</span><button class="btn primary" data-resume="'+esc(h.id)+'">Resume</button><button class="btn danger" data-hdel="'+esc(h.id)+'">Delete</button></div></div>').join(''):'<div class="card none">No held bills. Use “Hold this bill” on the sale screen to park a bill for later.</div>';
 }
 $('#heldList').addEventListener('click',async e=>{
   const r=e.target.closest('[data-resume]'),d=e.target.closest('[data-hdel]');
   if(r){
-    const h=held.find(x=>x.id===r.dataset.resume);if(!h)return;
-    const swapped=cart.length?holdCurrent():null;
-    held=held.filter(x=>x.id!==h.id);saveHeld();
+    r.disabled=true;
+    const h=await takeHeld(r.dataset.resume);
+    if(!h){toast('That bill was already resumed or deleted on another device');renderHeld();return}
+    const swapped=cart.length?await holdCurrent():null;
     cart=h.cart;discount=h.discount||{type:'pct',value:''};saveCart();
     logAct('Bill','Resumed held bill #'+h.no);
     go('sale');renderCart();renderHeld();
     toast(swapped?'Resumed #'+h.no+' – previous bill held as #'+swapped.no:'Resumed held bill #'+h.no);
   }else if(d){
     const h=held.find(x=>x.id===d.dataset.hdel);if(!h)return;
-    if(await askConfirm('Delete held bill #'+h.no+'?','This parked bill (AED '+fmt(h.total)+') will be removed. This cannot be undone.','Delete',true)){
-      held=held.filter(x=>x.id!==h.id);saveHeld();logAct('Bill','Deleted held bill #'+h.no);renderHeld();
+    if(await askConfirm('Delete held bill #'+h.no+'?','This parked bill (AED '+fmt(h.total)+') will be removed from every device. This cannot be undone.','Delete',true)){
+      await takeHeld(h.id);logAct('Bill','Deleted held bill #'+h.no);renderHeld();
     }
   }
 });
@@ -1027,7 +1090,7 @@ function go(v){
 $$('.nav-btn').forEach(b=>b.onclick=()=>go(b.dataset.view));
 function tick(){$('#clock').textContent=new Date().toLocaleString('en-GB',{weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}
 
-applyTheme();brand();renderGrid();renderCart();renderHeld();tick();setInterval(tick,30000);
+applyTheme();brand();renderGrid();renderCart();renderHeld();initCloud();tick();setInterval(tick,30000);
 })();
 </script>
 </body>
