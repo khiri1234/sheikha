@@ -280,6 +280,17 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
 .sort-chip.active{border-color:var(--till);background:var(--till);color:#fff}
 .sort-ind{font-style:normal;font-family:var(--mono);display:inline-block;min-width:10px;margin-left:3px}
 .prod-card mark{background:#FBE3D4;color:inherit;border-radius:3px}
+/* Backup */
+.backup-card{margin-top:16px}
+.backup-card h2{margin:0 0 2px;font-family:var(--display);font-size:20px}
+.backup-card .sub{margin:0 0 14px;color:var(--text-dim);font-size:13px}
+.backup-card .bk-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.backup-card .bk-last{margin-top:12px;font-size:12.5px;color:var(--text-dim)}
+.backup-card .bk-last b{color:var(--text)}
+.backup-card .bk-last.old b{color:var(--red)}
+.backup-nag{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#FDF1EA;border:1px solid #F6CDB5;border-left:4px solid var(--till);border-radius:10px;padding:10px 14px;margin:-4px 0 14px;font-size:13px;font-weight:600;color:var(--till-dark)}
+.backup-nag span{flex:1;min-width:200px}
+.backup-nag .btn{padding:7px 14px}
 /* Responsive */
 @media (min-width:1200px){
   .prod-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
@@ -350,6 +361,11 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
       <div class="topbar">
         <div><h1>New Sale</h1><div class="sub">Scan a barcode, search below, or tap a fabric – then enter the price and choose with or without VAT</div></div>
         <div class="pill clock-pill"><i class="dot"></i><span id="clock"></span></div>
+      </div>
+      <div class="backup-nag" id="backupNag" hidden>
+        <span id="backupNagText"></span>
+        <button class="btn primary" id="nagBackup" type="button">Back up now</button>
+        <button class="link" id="nagLater" type="button">Later</button>
       </div>
       <div class="sale-layout">
         <div class="catalog-col">
@@ -427,6 +443,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
         <div><h1>Settings</h1><div class="sub">Shop details shown on every receipt</div></div>
       </div>
       <div class="page-body card" id="settingsPage" style="max-width:760px"></div>
+      <div class="card backup-card" id="backupCard" style="max-width:760px"></div>
     </section>
   </main>
 </div>
@@ -837,6 +854,7 @@ function payModal(startMethod){
     cart=[];discount={type:'pct',value:''};saveCart();renderCart();
     m.close();
     document.body.classList.remove('cart-open');
+    checkBackupNag();
     receiptModal(sale);
   };
   setTimeout(()=>$m('#tend').focus(),30);
@@ -1135,25 +1153,84 @@ function settingsModal(){
   };
 }
 
+/* ---------- backup & restore ---------- */
+const plural=(n,w)=>n+' '+w+(n===1?'':'s');
+const BACKUP_SKIP=['sk_lastbackup','sk_backupsnooze'];
+const BACKUP_DAYS=7;
+function backupKeys(){const out=[];try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('sk_')&&!BACKUP_SKIP.includes(k))out.push(k)}}catch(e){}return out}
+function backupData(){
+  const data={};
+  backupKeys().forEach(k=>{data[k]=store.get(k,null)});
+  // held bills may live in the cloud rather than on this device – include what's on screen
+  Object.assign(data,{sk_settings:settings,sk_items3:items,sk_sales:sales,sk_seq:seq,sk_log:actlog,sk_held:held});
+  return {app:'sheikha-pos',version:1,created:new Date().toISOString(),shop:settings.name,counts:{sales:sales.length,items:items.length,held:held.length},data};
+}
+function downloadBackup(tag){
+  const b=backupData();
+  const d=new Date(),stamp=ymd(d.getTime())+'-'+pad2(d.getHours())+pad2(d.getMinutes());
+  const blob=new Blob([JSON.stringify(b,null,1)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download='sheikha-backup-'+stamp+(tag?'-'+tag:'')+'.json';
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  if(!tag){store.set('sk_lastbackup',Date.now());logAct('Data','Backup saved ('+b.counts.sales+' sales, '+b.counts.items+' items)')}
+  renderBackup();checkBackupNag();
+  return b;
+}
+function renderBackup(){
+  const last=store.get('sk_lastbackup',0);
+  const old=!last||Date.now()-last>BACKUP_DAYS*864e5;
+  $('#backupCard').innerHTML='<h2>Backup &amp; restore</h2><p class="sub">Save all sales, items, settings and held bills on this device to a file. Keep it somewhere safe, such as iCloud Drive or a USB stick. Restore loads a backup file back in.</p>'+
+    '<div class="bk-row"><button class="btn primary" id="bkSave" type="button">⬇️ Back up now</button><button class="btn" id="bkLoad" type="button">⬆️ Restore from file…</button><input type="file" id="bkFile" accept=".json,application/json" hidden></div>'+
+    '<div class="bk-last'+(old&&sales.length?' old':'')+'">Last backup: <b>'+(last?fmtDate(last):'never')+'</b> · '+sales.length+(sales.length===1?' sale':' sales')+', '+items.length+(items.length===1?' item':' items')+' on this device</div>';
+  $('#bkSave').onclick=()=>{downloadBackup();toast('Backup saved to your Downloads')};
+  $('#bkLoad').onclick=()=>$('#bkFile').click();
+  $('#bkFile').onchange=e=>{const f=e.target.files&&e.target.files[0];e.target.value='';if(f)restoreFrom(f)};
+}
+async function restoreFrom(file){
+  let b;
+  try{b=JSON.parse(await file.text())}catch(e){toast('That file is not a Sheikha backup');return}
+  if(!b||b.app!=='sheikha-pos'||!b.data||typeof b.data!=='object'||!Array.isArray(b.data.sk_sales||[])){toast('That file is not a Sheikha backup');return}
+  const c=b.counts||{},when=b.created?fmtDate(Date.parse(b.created)):'unknown date';
+  const ok=await askConfirm('Restore this backup?','Backup from '+when+(b.shop?' ('+b.shop+')':'')+': '+plural(c.sales||0,'sale')+', '+plural(c.items||0,'item')+', '+plural(c.held||0,'held bill')+'. It replaces everything on this device. A copy of the current data is downloaded first, just in case.','Restore',true);
+  if(!ok)return;
+  downloadBackup('before-restore');
+  try{
+    backupKeys().forEach(k=>localStorage.removeItem(k));
+    Object.keys(b.data).forEach(k=>{if(k.startsWith('sk_')&&!BACKUP_SKIP.includes(k)&&b.data[k]!==null)localStorage.setItem(k,JSON.stringify(b.data[k]))});
+    store.set('sk_lastbackup',Date.now());
+    const log=store.get('sk_log',[]);log.unshift({ts:Date.now(),type:'Data',text:'Restored backup from '+when+' ('+(c.sales||0)+' sales)'});store.set('sk_log',log);
+  }catch(e){toast('Restore failed: '+e.message);return}
+  location.reload();
+}
+function checkBackupNag(){
+  const last=store.get('sk_lastbackup',0),snooze=store.get('sk_backupsnooze',0);
+  const due=sales.length>0&&(!last||Date.now()-last>BACKUP_DAYS*864e5)&&Date.now()>snooze;
+  $('#backupNag').hidden=!due;
+  if(due)$('#backupNagText').textContent=last?'Your last backup was '+Math.floor((Date.now()-last)/864e5)+' days ago. Save a new one to keep your sales safe.':'You have '+sales.length+(sales.length===1?' sale':' sales')+' and no backup yet. Save one to keep your sales safe.';
+}
+$('#nagBackup').onclick=()=>{downloadBackup();toast('Backup saved to your Downloads')};
+$('#nagLater').onclick=()=>{store.set('sk_backupsnooze',Date.now()+864e5);checkBackupNag()};
+
 /* ---------- misc ---------- */
 function applyTheme(){document.documentElement.removeAttribute('data-theme')}
 function brand(){$('#brandName').textContent=settings.name;$('#brandAr').textContent=settings.nameAr;$('#sideVat').textContent=settings.vat;document.title=settings.name+' – Point of Sale'}
 function sideToday(){$('#sideToday').textContent='AED '+fmt(agg(sales.filter(s=>isToday(s.ts))).total)}
-const VIEWS={sale:null,held:()=>renderHeld(),items:itemsModal,reports:()=>reportsModal(),settings:settingsModal};
+const VIEWS={sale:null,held:()=>renderHeld(),items:itemsModal,reports:()=>reportsModal(),settings:()=>{settingsModal();renderBackup()}};
 function go(v){
   if(!(v in VIEWS))v='sale';
   Object.keys(VIEWS).forEach(k=>{$('#view-'+k).hidden=k!==v});
   $$('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
   document.body.classList.remove('cart-open');
   if(VIEWS[v])VIEWS[v]();
-  if(v==='sale'){renderGrid();if(innerWidth>900)setTimeout(()=>$('#scanInput').focus(),0)}
+  if(v==='sale'){renderGrid();checkBackupNag();if(innerWidth>900)setTimeout(()=>$('#scanInput').focus(),0)}
   sideToday();
   window.scrollTo(0,0);
 }
 $$('.nav-btn').forEach(b=>b.onclick=()=>go(b.dataset.view));
 function tick(){$('#clock').textContent=new Date().toLocaleString('en-GB',{weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}
 
-applyTheme();brand();renderGrid();renderCart();renderHeld();initCloud();tick();setInterval(tick,30000);
+applyTheme();brand();renderGrid();renderCart();renderHeld();checkBackupNag();initCloud();tick();setInterval(tick,30000);
 })();
 </script>
 </body>
