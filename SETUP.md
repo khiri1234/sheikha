@@ -46,8 +46,8 @@ Only you can add logins from now on.
 1. **Firestore Database → Rules** tab.
 2. Delete everything there and paste the contents of
    [`firestore.rules`](firestore.rules) from this repository.
-3. On the line `email() == 'hq@example.com'`, replace `hq@example.com`
-   with your head-office login email from step 3 (lower case).
+3. Check the line `email() == '…'` shows your head-office login email
+   (it is already set to `sheikhatextiles@gmail.com`).
 4. Click **Publish**.
 
 These rules mean: head office can see and manage everything; each branch login

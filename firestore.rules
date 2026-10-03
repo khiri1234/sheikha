@@ -1,9 +1,8 @@
 rules_version = '2';
 
 // Sheikha Textiles POS – Firestore security rules.
-// Replace hq@example.com below with the head-office login email
-// (the same value as HQ_EMAIL in index.html), then publish these rules in
-// Firebase console → Firestore Database → Rules.
+// The head-office login below must match HQ_EMAIL in index.html.
+// Publish these rules in Firebase console → Firestore Database → Rules.
 //
 // Who can do what:
 //   head office  – everything: settings, fabrics, branches, all branches' data
@@ -15,7 +14,7 @@ service cloud.firestore {
 
     function signedIn() { return request.auth != null && request.auth.token.email != null; }
     function email() { return request.auth.token.email.lower(); }
-    function isHQ() { return signedIn() && email() == 'hq@example.com'; }
+    function isHQ() { return signedIn() && email() == 'sheikhatextiles@gmail.com'; }
     function loginDoc() { return /databases/$(database)/documents/branchLogins/$(email()); }
     function isBranch(b) { return signedIn() && exists(loginDoc()) && get(loginDoc()).data.branch == b; }
     function isStaff() { return isHQ() || (signedIn() && exists(loginDoc())); }
