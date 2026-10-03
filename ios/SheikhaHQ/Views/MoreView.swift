@@ -12,6 +12,9 @@ struct MoreView: View {
 
     var body: some View {
         List {
+            Section {
+                NavigationLink { NotificationsView() } label: { Label("Notifications", systemImage: "bell.badge") }
+            }
             Section("Shop") {
                 NavigationLink { FabricsView() } label: { Label("Fabric prices", systemImage: "tag") }
                 LabeledContent("Name", value: store.settings.name)

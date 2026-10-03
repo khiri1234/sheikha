@@ -3,6 +3,7 @@ import FirebaseCore
 
 @main
 struct SheikhaHQApp: App {
+    @UIApplicationDelegateAdaptor(PushManager.self) private var push
     @State private var store: HQStore
     @AppStorage("appearance") private var appearance = Appearance.system.rawValue
 

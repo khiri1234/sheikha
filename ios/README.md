@@ -75,6 +75,15 @@ same build for review from App Store Connect (Apple may ask for a demo login).
 After changes to the code: `git pull`, run `xcodegen` again, then **Run** (or Archive and
 upload a new TestFlight build – increase `CURRENT_PROJECT_VERSION` in `project.yml` first).
 
+## Push notifications
+The app alerts head office when a shift is closed, cash is short or over, a sale is voided,
+a large payout is made, and with a daily summary at 11 pm. One-time setup (Apple push key,
+uploading it to Firebase, `firebase deploy --only functions`) is in
+[SETUP.md, step 14](../SETUP.md#14-push-notifications-on-the-head-office-iphone).
+After running `xcodegen`, check **Signing & Capabilities** shows **Push Notifications** and
+**Background Modes → Remote notifications**. Push notifications only work on a real iPhone,
+not in the Simulator.
+
 ## Notes
 - Only the head-office login can use the app; branch logins are refused.
 - Cashier PINs set here are hashed exactly like the web POS

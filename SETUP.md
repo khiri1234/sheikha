@@ -155,3 +155,45 @@ same from **Reports → Shifts (Z)**.
 
 **Head office:** the dashboard's **💬 Share summary** sends the selected period's
 totals, branch ranking and anything needing attention by WhatsApp or email.
+
+### 14. Push notifications on the head-office iPhone
+The **Sheikha HQ** iPhone app can alert head office when a shift is closed (Z
+report), when the cash is short or over, when a sale is voided, when a large petty
+cash payout is made, and with a daily sales summary at 11 pm. A small program in
+Firebase (*Cloud Functions*, in the [`functions`](functions) folder) watches the
+database and sends the alerts. It needs to be set up once:
+
+1. **Blaze plan** – Cloud Functions need the Blaze plan from step 7. At this shop's
+   size the cost stays within the free allowance.
+2. **Apple push key** – on https://developer.apple.com/account → **Certificates,
+   IDs & Profiles → Keys → +**: name it `Sheikha push`, tick **Apple Push
+   Notifications service (APNs)** → **Continue → Register → Download** the `.p8`
+   file (it can only be downloaded once – keep it safe). Note the **Key ID** and
+   your **Team ID** (top right of the page).
+3. **Give the key to Firebase** – **Project settings → Cloud Messaging → Apple app
+   configuration** → under the *Sheikha HQ* iOS app, **APNs Authentication Key →
+   Upload**: choose the `.p8` file and enter the Key ID and Team ID.
+4. **Install the notification program** – on the Mac, in Terminal:
+   ```sh
+   cd ~/sheikha && git pull
+   brew install node            # once
+   npm install -g firebase-tools # once
+   firebase login               # once, with the company Google account
+   cd functions && npm install && cd ..
+   firebase deploy --only functions
+   ```
+   It finishes with *Deploy complete!*. The program runs in **me-central1 (Doha)**,
+   the same place as the database. If your database is in another location, change
+   `REGION` at the top of `functions/index.js` to match before deploying.
+5. **Update the iPhone app** – see *Updating the app* in [`ios/README.md`](ios/README.md):
+   `cd ios && xcodegen`, then **Run** in Xcode.
+6. **Turn it on** – in the app, **More → Notifications → Allow notifications**, then
+   tap **Send test notification**. A "Push notifications are working ✓" alert
+   should arrive within a few seconds.
+
+On that screen head office chooses which alerts to receive and the minimum amounts
+(for example, only cash differences from AED 5 and payouts from AED 100). Every
+iPhone signed in with the head-office login receives the alerts; signing out of
+the app stops them on that phone.
+
+Nothing changes at the branches, and the database rules don't need updating.
