@@ -109,3 +109,31 @@ email. (Never send passwords.)
 - If a branch login is lost or a staff member leaves: change that login's
   password in **Firebase → Authentication → Users**, then sign in again on the
   branch PC.
+
+### 12. Cashiers, shifts and Z reports
+**One-time:** the database rules gained a section for shifts. Copy the whole of
+[`firestore.rules`](firestore.rules) again into **Firebase → Firestore Database →
+Rules** and click **Publish**. Until then, branches show a yellow note and keep
+selling without shifts.
+
+**Head office – add cashiers:** **Branches → Cashiers** on each branch → enter the
+cashier's name and a 4-digit PIN → **Add cashier**. Each PIN must be different
+within the branch. **Remove** stops a cashier signing in (their past sales keep
+their name); **New PIN** changes it. A branch with no cashiers sells without PINs.
+
+**At the branch, every day:**
+1. The cashier enters their PIN (**Who's on the till?**). Sales, held bills and
+   voids record who made them. At a handover, click **Switch cashier** in the
+   sidebar and the next person enters their PIN.
+2. First thing in the morning: count the cash in the drawer and **Open shift**
+   with that amount as the float. Selling starts once a shift is open.
+3. Any time: **Shift → Print X report** for the shift so far.
+4. At closing: **Shift → Close shift & Z report**, count the cash and enter it.
+   The POS shows the expected cash (float + cash sales) and whether the drawer is
+   **short** or **over**, then prints the numbered Z report (e.g. `B1-Z0001`) with
+   lines for the cashier's and manager's signatures. A closed Z report can't be
+   changed.
+
+**Head office:** **Reports → Shifts (Z)** lists every branch's shifts with expected
+cash, counted cash and over/short; **View** reprints a Z report. The dashboard
+flags cash differences and shifts left open for more than 14 hours.
