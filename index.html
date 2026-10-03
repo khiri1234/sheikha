@@ -525,8 +525,15 @@ const CUSTOM={id:'custom',name:'Custom item',cat:'other',color:'#5B6390',unit:'m
    Fill in FIREBASE_CONFIG (Firebase console → Project settings → Your apps)
    and HQ_EMAIL (the head-office login) to run every branch from one shared
    database. Left as null, the POS keeps everything on this device only. */
-const FIREBASE_CONFIG=null;
-const HQ_EMAIL='';
+const FIREBASE_CONFIG={
+  apiKey:'AIzaSyBZ6PvnpK2Zo7U0FTrmFMqEhTFmy4kO76w',
+  authDomain:'sheikha-pos.firebaseapp.com',
+  projectId:'sheikha-pos',
+  storageBucket:'sheikha-pos.firebasestorage.app',
+  messagingSenderId:'367772378238',
+  appId:'1:367772378238:web:294bc05a973622cfa8642f'
+};
+const HQ_EMAIL='sheikhatextiles@gmail.com';
 const CLOUD=!!FIREBASE_CONFIG;
 const DEFAULT_SETTINGS={
   name:'SHEIKHA TEXTILES',nameAr:'الشيخة للأقمشة',trn:'',address:'Abu Dhabi, United Arab Emirates',phone:'',emirate:'Abu Dhabi',vat:5,
