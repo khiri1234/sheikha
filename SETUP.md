@@ -197,3 +197,17 @@ iPhone signed in with the head-office login receives the alerts; signing out of
 the app stops them on that phone.
 
 Nothing changes at the branches, and the database rules don't need updating.
+
+**If the test notification doesn't arrive**, look at **More → Notifications**:
+
+- **This iPhone** shows three ticks: *Registered with Apple*, *Firebase push token*,
+  and *Saved for Sheikha's server*. An item that stays grey or red names the
+  problem. If *Registered with Apple* never ticks, check **Signing & Capabilities →
+  Push Notifications** in Xcode.
+- After **Send test notification**, the server's answer appears under the button.
+  - *"Apple rejected Firebase's push key"* means step 3 needs redoing. Upload the
+    `.p8` file again with the right Key ID and Team ID.
+  - *"No iPhone is registered"* means the third tick above is missing.
+  - If no answer appears at all, the Cloud Functions aren't deployed. Run step 4
+    again.
+- For more detail, run `firebase functions:log --only notifyTest` in Terminal.

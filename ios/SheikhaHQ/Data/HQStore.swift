@@ -29,7 +29,10 @@ final class HQStore {
     @ObservationIgnored private var todayListeners: [ListenerRegistration] = []
     @ObservationIgnored private var authHandle: AuthStateDidChangeListenerHandle?
     @ObservationIgnored private var tokenObserver: NSObjectProtocol?
-    @ObservationIgnored private var savedToken: String?
+    private var savedToken: String?
+    /// Error from saving this iPhone's push token, shown in More → Notifications.
+    var tokenError: String?
+    var tokenSaved: Bool { savedToken != nil && savedToken == PushManager.token }
 
     init() {
         tokenObserver = NotificationCenter.default.addObserver(forName: PushManager.tokenChanged, object: nil, queue: .main) { [weak self] _ in
@@ -77,9 +80,18 @@ final class HQStore {
     func saveDeviceToken() {
         guard phase == .ready, let t = PushManager.token, t != savedToken else { return }
         savedToken = t
+        tokenError = nil
         db.collection("config").document("devices").setData([
             "tokens": [t: ["ts": Fmt.ms(Date()), "device": UIDevice.current.name]]
-        ], merge: true)
+        ], merge: true) { [weak self] error in
+            guard let error else { return }
+            let message = error.localizedDescription
+            Task { @MainActor in
+                // forget it so the next attempt tries again
+                if self?.savedToken == t { self?.savedToken = nil }
+                self?.tokenError = message
+            }
+        }
     }
 
     func saveNotify(_ values: [String: Any]) async throws {
