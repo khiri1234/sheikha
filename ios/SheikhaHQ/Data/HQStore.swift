@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import Observation
 import CryptoKit
 import FirebaseAuth
@@ -20,13 +21,20 @@ final class HQStore {
     /// Today's sales per branch, live.
     var today: [String: [Sale]] = [:]
     var lastError: String?
+    /// config/notify – which push notifications head office receives
+    var notify: [String: Any] = [:]
 
     @ObservationIgnored private let db = Firestore.firestore()
     @ObservationIgnored private var listeners: [ListenerRegistration] = []
     @ObservationIgnored private var todayListeners: [ListenerRegistration] = []
     @ObservationIgnored private var authHandle: AuthStateDidChangeListenerHandle?
+    @ObservationIgnored private var tokenObserver: NSObjectProtocol?
+    @ObservationIgnored private var savedToken: String?
 
     init() {
+        tokenObserver = NotificationCenter.default.addObserver(forName: PushManager.tokenChanged, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.saveDeviceToken() }
+        }
         authHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             Task { @MainActor in self?.authChanged(user) }
         }
@@ -46,13 +54,42 @@ final class HQStore {
         email = mail
         start()
         phase = .ready
+        PushManager.requestPermission()
+        saveDeviceToken()
     }
 
     func signIn(email: String, password: String) async throws {
         _ = try await Auth.auth().signIn(withEmail: email.trimmingCharacters(in: .whitespaces), password: password)
     }
 
-    func signOut() { try? Auth.auth().signOut() }
+    func signOut() {
+        // stop notifications to this phone before signing out
+        if let t = savedToken {
+            db.collection("config").document("devices").updateData([FieldPath(["tokens", t]): FieldValue.delete()])
+            savedToken = nil
+        }
+        try? Auth.auth().signOut()
+    }
+
+    // MARK: push notifications
+
+    /// Store this iPhone's push token so the Cloud Functions can reach it.
+    func saveDeviceToken() {
+        guard phase == .ready, let t = PushManager.token, t != savedToken else { return }
+        savedToken = t
+        db.collection("config").document("devices").setData([
+            "tokens": [t: ["ts": Fmt.ms(Date()), "device": UIDevice.current.name]]
+        ], merge: true)
+    }
+
+    func saveNotify(_ values: [String: Any]) async throws {
+        try await db.collection("config").document("notify").setData(values, merge: true)
+    }
+
+    /// The test is sent by the notifyTest Cloud Function when testAt changes.
+    func sendTestNotification() async throws {
+        try await saveNotify(["testAt": Fmt.ms(Date())])
+    }
 
     // MARK: live data
 
@@ -72,6 +109,10 @@ final class HQStore {
         listeners.append(db.collection("config").document("shop").addSnapshotListener { [weak self] snap, _ in
             let s = ShopSettings(snap?.data() ?? [:])
             Task { @MainActor in self?.settings = s }
+        })
+        listeners.append(db.collection("config").document("notify").addSnapshotListener { [weak self] snap, _ in
+            let d = snap?.data() ?? [:]
+            Task { @MainActor in self?.notify = d }
         })
         listeners.append(db.collection("items").addSnapshotListener { [weak self] snap, _ in
             let list = (snap?.documents ?? []).map { Fabric($0.data()) }

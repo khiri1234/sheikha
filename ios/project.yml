@@ -21,6 +21,12 @@ targets:
         product: FirebaseAuth
       - package: Firebase
         product: FirebaseFirestore
+      - package: Firebase
+        product: FirebaseMessaging
+    entitlements:
+      path: SheikhaHQ/SheikhaHQ.entitlements
+      properties:
+        aps-environment: development
     info:
       path: SheikhaHQ/Info.plist
       properties:
@@ -39,6 +45,8 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
         LSApplicationQueriesSchemes:
           - whatsapp
+        UIBackgroundModes:
+          - remote-notification
         ITSAppUsesNonExemptEncryption: false
     settings:
       base:
