@@ -137,3 +137,21 @@ their name); **New PIN** changes it. A branch with no cashiers sells without PIN
 **Head office:** **Reports → Shifts (Z)** lists every branch's shifts with expected
 cash, counted cash and over/short; **View** reprints a Z report. The dashboard
 flags cash differences and shifts left open for more than 14 hours.
+
+### 13. Petty cash and sending Z reports
+**Head office, once:** **Settings** → *Head office WhatsApp (for Z reports)*
+(for example `971501234567`) and *Email for Z reports* → **Save**.
+
+**During the shift:** **Shift → ➖ Pay out** when cash leaves the drawer (delivery
+charge, cleaning, tea…): amount and reason, then print the **petty cash voucher**
+for the receiver to sign. **➕ Pay in** when cash is added (e.g. change from the
+bank). Expected cash at closing = float + cash sales + paid in − paid out, and
+every payout and pay-in is listed on the X and Z reports.
+
+**After closing:** on the Z report, tap **💬 WhatsApp** (opens WhatsApp with the
+report addressed to head office – press send) or **✉️ Email**. Old Z reports can be
+sent again from **Shift → Recent Z reports → View**, and head office can do the
+same from **Reports → Shifts (Z)**.
+
+**Head office:** the dashboard's **💬 Share summary** sends the selected period's
+totals, branch ranking and anything needing attention by WhatsApp or email.
