@@ -3,6 +3,7 @@ import SwiftUI
 struct MoreView: View {
     @Environment(HQStore.self) private var store
     @AppStorage("faceIDLock") private var faceIDLock = false
+    @AppStorage("appearance") private var appearance = Appearance.system.rawValue
     @State private var wa = ""
     @State private var mail = ""
     @State private var saved = false
@@ -31,6 +32,16 @@ struct MoreView: View {
                 Text("Where branches send Z reports")
             } footer: {
                 Text("Branches tap WhatsApp or Email on the Z report after closing a shift.")
+            }
+            Section {
+                Picker("Appearance", selection: $appearance) {
+                    ForEach(Appearance.allCases) { Text($0.label).tag($0.rawValue) }
+                }
+                .pickerStyle(.segmented)
+            } header: {
+                Text("Appearance")
+            } footer: {
+                Text("Automatic follows the iPhone's light or dark setting.")
             }
             Section {
                 Toggle("Lock with Face ID", isOn: $faceIDLock)

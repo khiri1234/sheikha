@@ -4,6 +4,7 @@ import FirebaseCore
 @main
 struct SheikhaHQApp: App {
     @State private var store: HQStore
+    @AppStorage("appearance") private var appearance = Appearance.system.rawValue
 
     init() {
         // Firebase must be configured before the store touches Auth or Firestore.
@@ -17,6 +18,7 @@ struct SheikhaHQApp: App {
             RootView()
                 .environment(store)
                 .tint(Brand.orange)
+                .preferredColorScheme((Appearance(rawValue: appearance) ?? .system).scheme)
         }
     }
 }
