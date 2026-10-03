@@ -315,6 +315,70 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
 .lock-link{background:none;border:0;padding:0;color:#C9CDD4;text-decoration:underline;font-size:11px;text-align:left;cursor:pointer}
 .bcode{min-width:46px;height:34px;padding:0 8px;border-radius:8px;background:#FDF1EA;color:var(--till-dark);font-family:var(--mono);font-weight:700;display:grid;place-items:center}
 .loading{color:var(--text-dim);padding:20px 4px}
+/* Dashboard */
+.dash-filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+.dash-seg{display:inline-flex;background:#fff;border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px;flex-wrap:wrap}
+.dash-seg button{border:0;background:transparent;padding:8px 14px;border-radius:7px;font-weight:600;font-size:13px;color:var(--text-dim)}
+.dash-seg button:hover{color:var(--till-dark)}
+.dash-seg button.on{background:var(--till);color:#fff}
+#dashBody.busy{opacity:.55;transition:opacity .15s}
+.dash-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px}
+.dash-card{grid-column:span 12;background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px}
+.dash-card.half{grid-column:span 6}
+.dash-card h3{margin:0 0 2px;font-family:var(--display);font-size:16px}
+.dash-card .cap{margin:0 0 14px;color:var(--text-dim);font-size:12.5px}
+.hero{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 28px}
+.hero .lbl{font-size:12px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em}
+.hero .big{font-size:48px;font-weight:700;line-height:1.05;letter-spacing:-.02em;color:var(--ink)}
+.hero .big small{font-size:20px;font-weight:600;color:var(--text-dim);margin-right:6px;letter-spacing:0}
+.delta{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.delta.up{background:#E7F6EF;color:#0B6B4F}
+.delta.down{background:#FDECEA;color:#A8322A}
+.delta.flat{background:var(--soft);color:var(--text-dim)}
+.delta-note{color:var(--text-dim);font-size:12.5px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:18px}
+.kpi{border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.kpi span{display:block;font-size:12px;color:var(--text-dim);font-weight:600}
+.kpi b{display:block;font-size:20px;font-weight:700;margin:3px 0 4px;font-family:var(--mono)}
+.kpi .delta{font-size:11.5px;padding:2px 7px}
+.kpi small{color:var(--text-dim);font-size:12px}
+.blist{display:flex;flex-direction:column}
+.brow{display:grid;grid-template-columns:minmax(120px,190px) minmax(0,1fr) 70px 90px 92px;gap:12px;align-items:center;padding:9px 6px;border-bottom:1px solid var(--soft);border-radius:8px}
+.brow:hover{background:#FDF6F1}
+.brow.head{font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;padding-top:0}
+.brow.head:hover{background:none}
+.brow .bn{font-weight:600;display:flex;gap:8px;align-items:center;min-width:0}
+.brow .bn i{font-style:normal;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--till-dark);background:#FDF1EA;border-radius:5px;padding:1px 5px}
+.brow .bn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btrack{display:flex;align-items:center;gap:8px;min-width:0}
+.bbar{height:14px;background:var(--till);border-radius:0 4px 4px 0;min-width:2px;flex:none}
+.btrack em{font-style:normal;font-family:var(--mono);font-size:12.5px;font-weight:700;white-space:nowrap}
+.brow .r{text-align:right;font-family:var(--mono);font-size:12.5px}
+.brow .delta{justify-self:end;font-size:11.5px;padding:2px 7px}
+.chart-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text-dim);margin:-6px 0 8px}
+.chart-legend span{display:inline-flex;align-items:center;gap:6px}
+.chart-legend .sw-col{width:10px;height:10px;border-radius:2px;background:var(--till)}
+.chart-legend .sw-line{width:16px;height:2px;background:#6E747E;border-radius:1px}
+.trend svg{display:block;width:100%;height:auto;overflow:visible}
+.trend .slot{cursor:default}
+.trend .slot:hover rect.col,.trend .slot:focus rect.col{fill:#F07A3E}
+.trend .slot:focus{outline:none}
+.dash-tip{position:fixed;z-index:70;pointer-events:none;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:9px 11px;font-size:12px;min-width:150px}
+.dash-tip .tt{font-weight:700;color:var(--text-dim);margin-bottom:4px}
+.dash-tip .tr{display:flex;align-items:center;gap:8px;justify-content:space-between}
+.dash-tip .tr b{font-family:var(--mono);font-size:13px;color:var(--ink)}
+.dash-tip .tr span{display:inline-flex;align-items:center;gap:6px;color:var(--text-dim)}
+.dash-tip .k{width:12px;height:2px;border-radius:1px;display:inline-block}
+.alerts{list-style:none;margin:0;padding:0}
+.alerts li{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--soft);font-size:13px}
+.alerts li:last-child{border-bottom:0}
+.alerts .ai{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:800}
+.alerts .warn .ai{background:#FFF4DB;color:#8A5B00}
+.alerts .bad .ai{background:#FDECEA;color:#A8322A}
+.alerts .ok .ai{background:#E7F6EF;color:#0B6B4F}
+.alerts small{display:block;color:var(--text-dim)}
+@media (max-width:1100px){.dash-card.half{grid-column:span 12}}
+@media (max-width:640px){.brow{grid-template-columns:minmax(0,1fr) 84px;row-gap:4px}.brow .btrack{grid-column:1/-1;order:3}.brow .r.bills,.brow .r.avg,.brow.head .r{display:none}.hero .big{font-size:38px}}
 /* Responsive */
 @media (min-width:1200px){
   .prod-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
@@ -371,6 +435,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
   <div class="sidebar">
     <div class="brand"><div class="dot"></div><div><span id="brandName">SHEIKHA TEXTILES</span><small id="brandAr">الشيخة للأقمشة</small><small class="brand-branch" id="brandBranch" hidden></small></div></div>
     <nav class="nav" aria-label="Main">
+      <button class="nav-btn" data-view="dashboard" hidden><span class="ic">📈</span>Dashboard</button>
       <button class="nav-btn active" data-view="sale"><span class="ic">🧾</span>Sale</button>
       <button class="nav-btn" data-view="held"><span class="ic">⏸️</span>Held Bills<span class="nav-count" id="heldCount" hidden></span></button>
       <button class="nav-btn" data-view="items"><span class="ic">🧵</span>Items</button>
@@ -463,6 +528,22 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
         <div><h1>Reports</h1><div class="sub">Daily sales, invoices, VAT 201, items sold and the activity log</div></div>
       </div>
       <div class="page-body card" id="reportsPage"></div>
+    </section>
+
+    <!-- DASHBOARD VIEW (head office) -->
+    <section id="view-dashboard" hidden>
+      <div class="topbar">
+        <div><h1>Dashboard</h1><div class="sub">All branches at a glance · <span id="dashUpdated"></span></div></div>
+        <div class="pill clock-pill"><i class="dot"></i><span id="dashClock"></span></div>
+      </div>
+      <div class="dash-filters" id="dashFilters">
+        <div class="dash-seg" role="tablist" aria-label="Period">
+          <button type="button" data-p="today">Today</button><button type="button" data-p="yesterday">Yesterday</button><button type="button" data-p="month">This month</button><button type="button" data-p="lastmonth">Last month</button>
+        </div>
+        <button class="btn" type="button" id="dashRefresh">↻ Refresh</button>
+      </div>
+      <div id="dashBody"></div>
+      <div class="dash-tip" id="dashTip" hidden></div>
     </section>
 
     <!-- BRANCHES VIEW (head office) -->
@@ -842,7 +923,12 @@ async function bootCloud(){
 function listen(ref,cb){C.unsubs.push(ref.onSnapshot(cb,err=>{console.error('Sync error',err);toast('Sync problem: '+(err.code||err.message))}))}
 async function startSession(user){
   C.email=(user.email||'').toLowerCase();
-  if(HQ_EMAIL&&C.email===HQ_EMAIL.toLowerCase()){C.role='hq';C.branch=null}
+  const byCode=(a,b)=>String(a.code).localeCompare(String(b.code),undefined,{numeric:true});
+  if(HQ_EMAIL&&C.email===HQ_EMAIL.toLowerCase()){
+    C.role='hq';C.branch=null;
+    // load the branch list before the first screen, so reports and the dashboard include every branch
+    const bs=await C.db.collection('branches').get();C.branches=bs.docs.map(d=>d.data()).sort(byCode);
+  }
   else{
     const snap=await C.db.collection('branchLogins').doc(C.email).get();
     if(!snap.exists)throw new Error('This login is not linked to a branch yet. Ask head office to add it under Branches.');
@@ -857,8 +943,10 @@ async function startSession(user){
   });
   if(isHQ()){
     listen(C.db.collection('branches'),snap=>{
-      C.branches=snap.docs.map(d=>d.data()).sort((a,b)=>String(a.code).localeCompare(String(b.code),undefined,{numeric:true}));
+      const ids=C.branches.map(b=>b.id).join();
+      C.branches=snap.docs.map(d=>d.data()).sort(byCode);
       watchToday();if(curView==='branches')renderBranches();
+      if(ids!==C.branches.map(b=>b.id).join()){salesCache.clear();if(curView==='dashboard')renderDashboard(true)}
     });
     listen(C.db.collection('config').doc('vatin'),snap=>{vatin=snap.exists?snap.data():{}});
   }else{
@@ -869,7 +957,7 @@ async function startSession(user){
   }
   applyRole();brand();
   gate(null);
-  go(isHQ()?'reports':'sale');
+  go(isHQ()?'dashboard':'sale');
   offerImport();
 }
 function endSession(){
@@ -881,12 +969,12 @@ function endSession(){
 function watchToday(){
   C.todayUnsubs.forEach(u=>{try{u()}catch(e){}});C.todayUnsubs=[];C.today={};
   const ids=isHQ()?C.branches.map(b=>b.id):[C.branch];
-  ids.forEach(id=>C.todayUnsubs.push(salesCol(id).where('ts','>=',todayStart()).onSnapshot(snap=>{C.today[id]=snap.docs.map(d=>d.data());sideToday()},err=>console.error(err))));
+  ids.forEach(id=>C.todayUnsubs.push(salesCol(id).where('ts','>=',todayStart()).onSnapshot(snap=>{C.today[id]=snap.docs.map(d=>d.data());sideToday();dashLive()},err=>console.error(err))));
   sideToday();
 }
 function applyRole(){
   const role=CLOUD?C.role:'local';
-  const allow={sale:['local','branch'],held:['local','branch'],items:['local','hq'],reports:['local','branch','hq'],branches:['hq'],settings:['local','hq']};
+  const allow={dashboard:['hq'],sale:['local','branch'],held:['local','branch'],items:['local','hq'],reports:['local','branch','hq'],branches:['hq'],settings:['local','hq']};
   $$('.nav-btn').forEach(b=>{b.hidden=!(allow[b.dataset.view]||[]).includes(role)});
   $('#who').hidden=!CLOUD||!C.role;
   if(CLOUD&&C.role){$('#whoEmail').textContent=C.email;netState()}
@@ -1416,6 +1504,158 @@ function settingsModal(){
   };
 }
 
+/* ---------- dashboard (head office) ----------
+   One period filter scopes everything: headline total, KPIs, branch league,
+   sales-over-time chart (hourly for a day, daily for a month), top fabrics
+   and the attention list. "Today" is live from the branch listeners; the
+   comparison period is fetched (and cached by salesIn). */
+let dashPeriod=store.get('sk_dash','today');
+const DAY=864e5;
+const compact=n=>{const a=Math.abs(n);return a>=1e6?(n/1e6).toFixed(a>=1e7?0:1)+'M':a>=1e4?(n/1e3).toFixed(a>=1e5?0:1)+'K':fmt0(n)};
+const fmt0=n=>Math.round(n).toLocaleString('en-US');
+function periodInfo(p){
+  const t=new Date();t.setHours(0,0,0,0);
+  const y=t.getFullYear(),m=t.getMonth(),D=d=>ymd(d.getTime());
+  if(p==='yesterday'){const a=new Date(t.getTime()-DAY),b=new Date(t.getTime()-2*DAY);return {from:D(a),to:D(a),cf:D(b),ct:D(b),label:'Yesterday',cmp:'the day before',unit:'hour'}}
+  if(p==='month'){const a=new Date(y,m,1),pa=new Date(y,m-1,1),pe=new Date(y,m,0);const pt=new Date(y,m-1,Math.min(t.getDate(),pe.getDate()));return {from:D(a),to:D(t),cf:D(pa),ct:D(pt),label:'This month',cmp:'the same days last month',unit:'day',days:new Date(y,m+1,0).getDate()}}
+  if(p==='lastmonth'){const a=new Date(y,m-1,1),e=new Date(y,m,0),pa=new Date(y,m-2,1),pe=new Date(y,m-1,0);return {from:D(a),to:D(e),cf:D(pa),ct:D(pe),label:a.toLocaleDateString('en-GB',{month:'long',year:'numeric'}),cmp:pa.toLocaleDateString('en-GB',{month:'long'}),unit:'day',days:e.getDate()}}
+  return {from:D(t),to:D(t),cf:D(new Date(t.getTime()-DAY)),ct:D(new Date(t.getTime()-DAY)),cut:Date.now()-DAY,label:'Today',cmp:'yesterday by this time',unit:'hour',live:true};
+}
+function deltaPill(cur,prev,cmpLabel,goodUp){
+  if(!prev&&!cur)return '<span class="delta flat">– no change</span>';
+  if(!prev)return '<span class="delta flat" title="Nothing to compare with">new</span>';
+  const pc=(cur-prev)/prev*100,up=pc>=0,good=goodUp===false?!up:up;
+  if(Math.abs(pc)<0.5)return '<span class="delta flat">– same as '+esc(cmpLabel||'before')+'</span>';
+  return '<span class="delta '+(good?'up':'down')+'">'+(up?'▲':'▼')+' '+Math.abs(pc).toFixed(Math.abs(pc)<10?1:0)+'%'+(cmpLabel?' vs '+esc(cmpLabel):'')+'</span>';
+}
+let dashTimer=null;
+function dashLive(){if(curView==='dashboard'&&dashPeriod==='today'){clearTimeout(dashTimer);dashTimer=setTimeout(()=>renderDashboard(true),800)}}
+async function heldAll(){
+  try{const qs=await Promise.all(C.branches.map(b=>bref(b.id).collection('held').get()));return qs.flatMap((q,i)=>q.docs.map(d=>Object.assign({branch:C.branches[i].id},d.data())))}
+  catch(e){console.warn(e);return []}
+}
+let dashSeq=0;
+async function renderDashboard(quiet){
+  const my=++dashSeq,P=periodInfo(dashPeriod);
+  $$('#dashFilters [data-p]').forEach(b=>{b.classList.toggle('on',b.dataset.p===dashPeriod);b.setAttribute('aria-selected',b.dataset.p===dashPeriod)});
+  $('#dashClock').textContent=P.label+(P.unit==='day'?' · '+nice(P.from).replace(/^\w+, /,'')+' – '+nice(P.to).replace(/^\w+, /,''):' · '+nice(P.from));
+  const body=$('#dashBody');
+  if(!body.innerHTML)body.innerHTML='<div class="loading">Loading…</div>';else if(!quiet)body.classList.add('busy');
+  let cur,prev,held;
+  try{
+    cur=P.live?Object.values(C.today).flat().filter(x=>isToday(x.ts)):await salesIn(P.from,P.to,'all');
+    prev=await salesIn(P.cf,P.ct,'all');if(P.cut)prev=prev.filter(x=>x.ts<=P.cut);
+    held=await heldAll();
+  }catch(e){
+    if(my!==dashSeq)return;
+    body.classList.remove('busy');body.innerHTML='<div class="card none">Could not load the dashboard: '+esc(e.code||e.message)+'. Check the internet connection and press Refresh.</div>';return;
+  }
+  if(my!==dashSeq)return;
+  body.classList.remove('busy');
+  $('#dashUpdated').textContent='updated '+fmtTime(Date.now())+(P.live?' · live':'');
+  const a=agg(cur),b=agg(prev);
+  const avg=x=>x.bills?x.total/x.bills:0;
+  // headline + KPIs
+  let h='<div class="dash-grid"><div class="dash-card"><div class="hero"><div><div class="lbl">Total sales · '+esc(P.label)+'</div><div class="big"><small>AED</small>'+fmt(a.total)+'</div></div><div>'+deltaPill(a.total,b.total,P.cmp)+'<div class="delta-note" style="margin-top:6px">'+esc(P.cmp.charAt(0).toUpperCase()+P.cmp.slice(1))+': AED '+fmt(b.total)+'</div></div></div>'+
+    '<div class="kpis">'+
+    '<div class="kpi"><span>Bills</span><b>'+fmt0(a.bills)+'</b>'+deltaPill(a.bills,b.bills)+'</div>'+
+    '<div class="kpi"><span>Average bill</span><b>'+fmt(avg(a))+'</b>'+deltaPill(avg(a),avg(b))+'</div>'+
+    '<div class="kpi"><span>VAT collected</span><b>'+fmt(a.vat)+'</b><small>Excl. VAT '+fmt(a.net)+'</small></div>'+
+    '<div class="kpi"><span>Cash · Card</span><b>'+(a.total?Math.round(a.cash/a.total*100):0)+'% · '+(a.total?Math.round(a.card/a.total*100):0)+'%</b><small>'+fmt(a.cash)+' · '+fmt(a.card)+'</small></div>'+
+    '<div class="kpi"><span>Discounts given</span><b>'+fmt(a.disc)+'</b>'+deltaPill(a.disc,b.disc,'',false)+'</div>'+
+    '<div class="kpi"><span>Voided bills</span><b>'+fmt0(a.voidN)+'</b><small>AED '+fmt(a.voidTotal)+'</small></div>'+
+    '</div></div>';
+  // branch league
+  const rows=C.branches.map(br=>{const x=agg(cur.filter(s=>s.branch===br.id)),y=agg(prev.filter(s=>s.branch===br.id));return {br,x,y}}).sort((p,q)=>q.x.total-p.x.total);
+  const max=Math.max(1,...rows.map(r=>r.x.total));
+  h+='<div class="dash-card"><h3>Branches</h3><p class="cap">Total sales per branch, highest first, with change vs '+esc(P.cmp)+'.</p><div class="blist" role="table" aria-label="Sales by branch">'+
+    '<div class="brow head" role="row"><span role="columnheader">Branch</span><span role="columnheader">Total sales (AED)</span><span class="r bills" role="columnheader">Bills</span><span class="r avg" role="columnheader">Avg bill</span><span class="r" role="columnheader">Change</span></div>'+
+    (rows.length?rows.map(r=>'<div class="brow" role="row"><span class="bn" role="cell"><i>'+esc(r.br.code)+'</i><span>'+esc(r.br.name)+'</span></span>'+
+      '<span class="btrack" role="cell"><span class="bbar" style="width:calc('+(r.x.total/max*100).toFixed(2)+'% - 80px)"></span><em>'+fmt(r.x.total)+'</em></span>'+
+      '<span class="r bills" role="cell">'+fmt0(r.x.bills)+'</span><span class="r avg" role="cell">'+fmt(avg(r.x))+'</span><span role="cell" style="justify-self:end">'+deltaPill(r.x.total,r.y.total)+'</span></div>').join(''):'<p class="none">No branches yet – add them under Branches.</p>')+
+    '</div></div>';
+  // sales over time
+  h+='<div class="dash-card half trend"><h3>'+(P.unit==='hour'?'Sales by hour':'Sales by day')+'</h3><p class="cap">All branches, AED incl. VAT.</p>'+
+    '<div class="chart-legend"><span><i class="sw-col"></i>'+esc(P.label)+'</span><span><i class="sw-line"></i>'+esc(P.cmp.charAt(0).toUpperCase()+P.cmp.slice(1))+'</span></div>'+trendSVG(cur,prev,P)+'</div>';
+  // top fabrics
+  const its=byItem(cur).slice(0,6),tot=a.total||1;
+  h+='<div class="dash-card half"><h3>Top fabrics</h3><p class="cap">Best sellers by sales value.</p>'+(its.length?tbl([['Fabric'],['Quantity',1],['Sales (AED)',1],['Share',1]],its.map(i=>trow([esc(i.name),i.qty+' '+us(i.unit),fmt(i.total),Math.round(i.total/tot*100)+'%'],'lrrr'))):'<p class="none">No sales in this period yet.</p>')+'</div>';
+  // needs attention
+  const al=[];
+  const oldHeld=held.filter(x=>Date.now()-x.ts>2*3600e3);
+  if(oldHeld.length){const by={};oldHeld.forEach(x=>{by[x.branch]=(by[x.branch]||0)+1});al.push(['warn','!',plural(oldHeld.length,'held bill')+' waiting more than 2 hours',Object.keys(by).map(k=>brName(k)+': '+by[k]).join(' · ')])}
+  if(P.live&&new Date().getHours()>=12){const idle=C.branches.filter(br=>!cur.some(s=>s.branch===br.id));if(idle.length)al.push(['warn','!',plural(idle.length,'branch')+' with no sales yet today'.replace('branchs','branches'),idle.map(x=>x.name).join(' · ')+' – closed, offline, or not using the POS?'])}
+  const voids=cur.filter(s=>s.status==='void');
+  if(voids.length){const by={};voids.forEach(x=>{by[x.branch]=(by[x.branch]||0)+1});al.push(['bad','×',plural(voids.length,'voided bill')+' (AED '+fmt(a.voidTotal)+')',Object.keys(by).map(k=>brName(k)+': '+by[k]).join(' · ')])}
+  const offNo=cur.filter(s=>/-X/.test(s.no));
+  if(offNo.length)al.push(['warn','!',plural(offNo.length,'bill')+' numbered offline without a reserved number','A till ran out of reserved invoice numbers while offline. Check its internet connection.'])
+  if(a.total&&a.disc/a.total>0.1)al.push(['warn','%','Discounts are '+Math.round(a.disc/a.total*100)+'% of sales','AED '+fmt(a.disc)+' given in this period']);
+  if(!al.length)al.push(['ok','✓','Nothing needs attention','No old held bills, voids or idle branches for this period.']);
+  h+='<div class="dash-card"><h3>Needs attention</h3><p class="cap">Things worth a phone call.</p><ul class="alerts">'+al.map(x=>'<li class="'+x[0]+'"><span class="ai" aria-hidden="true">'+x[1]+'</span><div><b>'+esc(x[2])+'</b><small>'+esc(x[3])+'</small></div></li>').join('')+'</ul></div>';
+  h+='</div>';
+  body.innerHTML=h;
+  bindTrend();
+}
+// columns = selected period, 2px line = comparison period; one shared AED axis
+function trendSVG(cur,prev,P){
+  let keys,labelOf,keyOf;
+  if(P.unit==='hour'){
+    const hrs=cur.concat(prev).filter(s=>s.status!=='void').map(s=>new Date(s.ts).getHours());
+    const lo=Math.min(9,...hrs),hi=Math.max(22,...hrs);
+    keys=[];for(let i=lo;i<=hi;i++)keys.push(i);
+    keyOf=s=>new Date(s.ts).getHours();labelOf=k=>pad2(k)+':00';
+  }else{
+    keys=[];for(let i=1;i<=P.days;i++)keys.push(i);
+    keyOf=s=>new Date(s.ts).getDate();labelOf=k=>k+' '+new Date(P.from+'T12:00:00').toLocaleDateString('en-GB',{month:'short'});
+  }
+  const sum=list=>{const o={};keys.forEach(k=>o[k]=0);list.filter(s=>s.status!=='void').forEach(s=>{const k=keyOf(s);if(k in o)o[k]+=s.total});return o};
+  const A=sum(cur),B=sum(prev);
+  const lastKey=P.live?new Date().getHours():(dashPeriod==='month'?new Date().getDate():keys[keys.length-1]);
+  const vmax=Math.max(100,...keys.map(k=>Math.max(A[k],B[k])));
+  const step=niceStep(vmax/4),top=Math.ceil(vmax/step)*step;
+  const W=640,H=230,L=48,R=8,T=10,Bm=26,pw=W-L-R,ph=H-T-Bm,n=keys.length,band=pw/n,cw=Math.min(24,Math.max(3,band-2));
+  const x=i=>L+band*i+band/2,yv=v=>T+ph-(v/top)*ph;
+  let g='';
+  for(let v=0;v<=top+1e-9;v+=step){const yy=yv(v).toFixed(1);g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+yy+'" y2="'+yy+'" stroke="#E6E8EC" stroke-width="1"/><text x="'+(L-6)+'" y="'+yy+'" dy="0.32em" text-anchor="end" font-size="10.5" fill="#676D78">'+compact(v)+'</text>'}
+  const every=Math.ceil(n/(P.unit==='hour'?8:10));
+  let cols='',xl='';
+  keys.forEach((k,i)=>{
+    const v=A[k],hgt=Math.max(0,ph-(yv(v)-T)),x0=x(i)-cw/2,y0=yv(v),r=Math.min(4,cw/2,hgt);
+    const d=hgt>0?'M'+x0+','+(T+ph)+'V'+(y0+r)+'Q'+x0+','+y0+' '+(x0+r)+','+y0+'H'+(x0+cw-r)+'Q'+(x0+cw)+','+y0+' '+(x0+cw)+','+(y0+r)+'V'+(T+ph)+'Z':'';
+    cols+='<g class="slot" tabindex="0" data-k="'+esc(labelOf(k))+'" data-a="'+v.toFixed(2)+'" data-b="'+B[k].toFixed(2)+'" aria-label="'+esc(labelOf(k))+': AED '+fmt(v)+'"><rect x="'+(L+band*i)+'" y="'+T+'" width="'+band+'" height="'+ph+'" fill="transparent"/>'+(d?'<path class="col" d="'+d+'" fill="#E1550C"/>':'')+'</g>';
+    if(i%every===0)xl+='<text x="'+x(i).toFixed(1)+'" y="'+(H-8)+'" text-anchor="middle" font-size="10.5" fill="#676D78">'+esc(P.unit==='hour'?pad2(k):String(k))+'</text>';
+  });
+  // the comparison stops where the selected period stops (now, for today / this month)
+  const cmpEnd=P.live||dashPeriod==='month'?lastKey:keys[keys.length-1];
+  const pts=keys.map((k,i)=>[k,i]).filter(([k])=>k<=cmpEnd).map(([k,i])=>x(i).toFixed(1)+','+yv(B[k]).toFixed(1)).join(' ');
+  const line='<polyline points="'+pts+'" fill="none" stroke="#6E747E" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" pointer-events="none"/>';
+  const li=keys.indexOf(lastKey),endLbl=li>=0&&A[keys[li]]>0?'<text x="'+x(li).toFixed(1)+'" y="'+(yv(A[keys[li]])-6).toFixed(1)+'" text-anchor="middle" font-size="10.5" font-weight="700" fill="#14171C" stroke="#fff" stroke-width="3" paint-order="stroke">'+compact(A[keys[li]])+'</text>':'';
+  return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+esc((P.unit==='hour'?'Sales by hour':'Sales by day')+', '+P.label+' compared with '+P.cmp)+'">'+g+'<line x1="'+L+'" x2="'+(W-R)+'" y1="'+(T+ph)+'" y2="'+(T+ph)+'" stroke="#C9CDD4" stroke-width="1"/>'+cols+line+endLbl+xl+'</svg>';
+}
+function niceStep(x){if(x<=0)return 1;const p=Math.pow(10,Math.floor(Math.log10(x))),f=x/p;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*p}
+function bindTrend(){
+  const tip=$('#dashTip'),P=periodInfo(dashPeriod);
+  const show=(g,ev)=>{
+    tip.innerHTML='';
+    const t=document.createElement('div');t.className='tt';t.textContent=g.dataset.k;tip.appendChild(t);
+    [[P.label,g.dataset.a,'#E1550C'],[P.cmp.charAt(0).toUpperCase()+P.cmp.slice(1),g.dataset.b,'#6E747E']].forEach(r=>{
+      const row=document.createElement('div');row.className='tr';
+      const lab=document.createElement('span');const k=document.createElement('i');k.className='k';k.style.background=r[2];lab.appendChild(k);lab.appendChild(document.createTextNode(r[0]));
+      const v=document.createElement('b');v.textContent='AED '+fmt(+r[1]);row.appendChild(lab);row.appendChild(v);tip.appendChild(row);
+    });
+    tip.hidden=false;
+    const bx=ev&&ev.clientX!=null?{x:ev.clientX,y:ev.clientY}:(()=>{const r=g.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top}})();
+    const w=tip.offsetWidth,hh=tip.offsetHeight;
+    tip.style.left=Math.max(8,Math.min(innerWidth-w-8,bx.x+14))+'px';tip.style.top=Math.max(8,bx.y-hh-12)+'px';
+  };
+  $$('#dashBody .slot').forEach(g=>{
+    g.addEventListener('pointermove',e=>show(g,e));g.addEventListener('focus',()=>show(g));
+    g.addEventListener('pointerleave',()=>{tip.hidden=true});g.addEventListener('blur',()=>{tip.hidden=true});
+  });
+}
+$('#dashFilters').addEventListener('click',e=>{const b=e.target.closest('[data-p]');if(!b)return;dashPeriod=b.dataset.p;store.set('sk_dash',dashPeriod);renderDashboard()});
+$('#dashRefresh').onclick=()=>{salesCache.clear();renderDashboard()};
+
 /* ---------- branches (head office) ---------- */
 function renderBranches(){
   $('#branchesPage').innerHTML=C.branches.length?'<div class="list">'+C.branches.map(b=>'<div class="li"><div class="bcode">'+esc(b.code)+'</div><div><b>'+esc(b.name)+'</b><br><small>'+esc(b.address||'No address')+(b.phone?' · '+esc(b.phone):'')+' · login: <span class="num">'+esc(b.email||'none')+'</span></small></div><button class="mini" data-be="'+esc(b.id)+'">Edit</button></div>').join('')+'</div>':
@@ -1583,9 +1823,9 @@ function sideToday(){
   $('#sideToday').textContent='AED '+fmt(agg(list).total);
 }
 let curView='sale';
-const VIEWS={sale:null,held:()=>renderHeld(),items:itemsModal,reports:()=>reportsModal(),branches:()=>renderBranches(),settings:()=>{settingsModal();renderBackup()}};
+const VIEWS={dashboard:()=>renderDashboard(),sale:null,held:()=>renderHeld(),items:itemsModal,reports:()=>reportsModal(),branches:()=>renderBranches(),settings:()=>{settingsModal();renderBackup()}};
 function go(v){
-  if(!(v in VIEWS)||!viewAllowed(v))v=CLOUD&&isHQ()?'reports':'sale';
+  if(!(v in VIEWS)||!viewAllowed(v))v=CLOUD&&isHQ()?'dashboard':'sale';
   curView=v;
   Object.keys(VIEWS).forEach(k=>{$('#view-'+k).hidden=k!==v});
   $$('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
