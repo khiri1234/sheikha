@@ -579,6 +579,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
           <button type="button" data-p="today">Today</button><button type="button" data-p="yesterday">Yesterday</button><button type="button" data-p="month">This month</button><button type="button" data-p="lastmonth">Last month</button>
         </div>
         <button class="btn" type="button" id="dashRefresh">↻ Refresh</button>
+        <button class="btn" type="button" id="dashShare">💬 Share summary</button>
       </div>
       <div id="dashBody"></div>
       <div class="dash-tip" id="dashTip" hidden></div>
@@ -1387,9 +1388,9 @@ function reportDoc(title,period,inner){
   return '<div class="rpt"><div class="rh"><div><h1>'+esc(settings.name)+'</h1><div>'+(CLOUD&&isBranchUser()?esc(brName(C.branch))+' – ':'')+esc(((CLOUD&&isBranchUser()&&(branchById(C.branch)||{}).address)||settings.address))+(settings.trn?' – TRN '+esc(settings.trn):'')+'</div></div><div class="rt"><b>'+esc(title)+'</b><div>'+esc(period)+'</div><div>Printed '+fmtDate(Date.now())+'</div></div></div>'+inner+'</div>';
 }
 function csvOf(rows){return rows.map(r=>r.map(c=>{c=String(c);return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c}).join(',')).join('\n')}
-function copyText(t){
-  const fallback=()=>{const ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand('copy')}catch(e){}ta.remove();toast(ok?'Copied – paste into Excel':'Copy not available here')};
-  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(()=>toast('Copied – paste into Excel'),fallback);else fallback();
+function copyText(t,msg){
+  const fallback=()=>{const ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand('copy')}catch(e){}ta.remove();toast(ok?(msg||'Copied – paste into Excel'):'Copy not available here')};
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(()=>toast(msg||'Copied – paste into Excel'),fallback);else fallback();
 }
 
 function reportsModal(tab){
@@ -1434,7 +1435,7 @@ function reportsModal(tab){
       }else if(R.tab==='shifts'){
         zShown=await shiftsIn(R.from,R.to,R.br);
         title='Shifts and Z reports';period=rng();body=shiftsBlock(zShown,showBr,true);pbody=shiftsBlock(zShown,showBr,false);
-        csv=csvOf([['Z no','Branch','Opened','Closed','Opened by','Closed by','Sales','Expected cash','Counted','Over/short']].concat(zShown.map(x=>[x.zNo||'open',brName(x.branch),fmtFull(x.openedAt),x.closedAt?fmtFull(x.closedAt):'',x.openedBy||'',x.closedBy||'',x.summary?x.summary.total.toFixed(2):'',x.status==='closed'?x.expectedCash.toFixed(2):'',x.status==='closed'?x.countedCash.toFixed(2):'',x.status==='closed'?x.diff.toFixed(2):''])));
+        csv=csvOf([['Z no','Branch','Opened','Closed','Opened by','Closed by','Sales','Paid out','Expected cash','Counted','Over/short']].concat(zShown.map(x=>[x.zNo||'open',brName(x.branch),fmtFull(x.openedAt),x.closedAt?fmtFull(x.closedAt):'',x.openedBy||'',x.closedBy||'',x.summary?x.summary.total.toFixed(2):'',((x.summary||shiftSummary(x,[])).paidOut||0).toFixed(2),x.status==='closed'?x.expectedCash.toFixed(2):'',x.status==='closed'?x.countedCash.toFixed(2):'',x.status==='closed'?x.diff.toFixed(2):''])));
       }else if(R.tab==='items'){
         shown=await salesIn(R.from,R.to,R.br);
         title='Items sold report';period=rng();body=pbody=itemsBlock(shown);
@@ -1540,6 +1541,7 @@ function settingsModal(){
     '<label class="fld"><span>Address</span><input id="sAddr" value="'+esc(s.address)+'"></label>'+
     '<div class="two-f"><label class="fld"><span>Phone</span><input id="sPhone" value="'+esc(s.phone)+'"></label><label class="fld"><span>Emirate (for VAT 201)</span><select id="sEm">'+EMIRATES.map(e=>'<option'+(s.emirate===e?' selected':'')+'>'+e+'</option>').join('')+'</select></label></div>'+
     '<div class="two-f"><label class="fld"><span>Receipt footer</span><input id="sFoot" value="'+esc(s.footer)+'"></label><label class="fld"><span>Footer in Arabic</span><input id="sFootAr" dir="rtl" value="'+esc(s.footerAr)+'"></label></div>'+
+    (CLOUD?'<div class="two-f"><label class="fld"><span>Head office WhatsApp (for Z reports)</span><input id="sWa" inputmode="tel" placeholder="e.g. 971501234567" value="'+esc(s.waNumber||'')+'"></label><label class="fld"><span>Email for Z reports</span><input id="sMail" type="email" placeholder="'+esc(HQ_EMAIL)+'" value="'+esc(s.reportEmail||'')+'"></label></div>':'')+
     '<div class="actions">'+(CLOUD?'':'<button class="ghost" id="sReset" style="margin-right:auto;color:var(--danger)">Erase all sales</button>')+'<button class="ghost" id="sCancel">Cancel</button><button class="primary" id="sSave">Save</button></div>',{page:'#settingsPage'});
   const $m=x=>$(x,m.el);
   $m('#sCancel').onclick=()=>m.close();
@@ -1550,7 +1552,7 @@ function settingsModal(){
       trn:$m('#sTrn').value.trim(),vat:(vat>=0&&vat<100)?vat:5,
       address:$m('#sAddr').value.trim(),phone:$m('#sPhone').value.trim(),emirate:$m('#sEm').value,
       footer:$m('#sFoot').value.trim(),footerAr:$m('#sFootAr').value.trim()
-    });
+    },CLOUD?{waNumber:$m('#sWa').value.replace(/[^\d+]/g,''),reportEmail:$m('#sMail').value.trim()}:{});
     if(CLOUD)C.db.collection('config').doc('shop').set(Object.assign({},settings),{merge:true}).catch(e=>toast('Not saved: '+(e.code||e.message)));
     else saveSettings();
     logAct('Settings','Shop settings updated');brand();renderCart();m.close();toast('Settings saved');
@@ -1662,7 +1664,8 @@ function openShift(float){
 function shiftSummary(sh,list){
   const a=agg(list),byC={};
   list.filter(x=>x.status!=='void').forEach(x=>{const k=x.cashier||'—';const o=byC[k]||(byC[k]={bills:0,total:0,cash:0,card:0});o.bills++;o.total=r2(o.total+x.total);o[x.method==='card'?'card':'cash']=r2(o[x.method==='card'?'card':'cash']+x.total)});
-  return {bills:a.bills,gross:a.gross,disc:a.disc,net:a.net,vat:a.vat,total:a.total,cash:a.cash,card:a.card,cashN:a.cashN,cardN:a.cardN,voidN:a.voidN,voidTotal:a.voidTotal,byCashier:byC,expectedCash:r2((+sh.openingFloat||0)+a.cash)};
+  const moves=sh.moves||[],paidOut=r2(moves.filter(m=>m.type==='out').reduce((n,m)=>n+m.amount,0)),paidIn=r2(moves.filter(m=>m.type==='in').reduce((n,m)=>n+m.amount,0));
+  return {bills:a.bills,gross:a.gross,disc:a.disc,net:a.net,vat:a.vat,total:a.total,cash:a.cash,card:a.card,cashN:a.cashN,cardN:a.cardN,voidN:a.voidN,voidTotal:a.voidTotal,byCashier:byC,paidOut,paidIn,moves,expectedCash:r2((+sh.openingFloat||0)+a.cash-paidOut+paidIn)};
 }
 function zReportHTML(sh,sum,kind){
   const br=branchById(sh.branch)||{};const kv=(k,v,cls)=>'<div class="kv'+(cls?' '+cls:'')+'"><span>'+k+'</span><span>'+v+'</span></div>';
@@ -1674,13 +1677,46 @@ function zReportHTML(sh,sum,kind){
     kv('Bills',sum.bills)+kv('Items (incl. VAT)',fmt(sum.gross))+(sum.disc?kv('Discounts','− '+fmt(sum.disc)):'')+kv('Amount excl. VAT',fmt(sum.net))+kv('VAT '+settings.vat+'%',fmt(sum.vat))+kv('TOTAL (AED)',fmt(sum.total),'t')+'<hr>'+
     kv('Cash ('+sum.cashN+')',fmt(sum.cash))+kv('Card ('+sum.cardN+')',fmt(sum.card))+kv('Voided ('+sum.voidN+')',fmt(sum.voidTotal))+'<hr>'+
     '<div class="c"><b>BY CASHIER</b></div>'+Object.keys(sum.byCashier).map(k=>{const o=sum.byCashier[k];return kv(esc(k)+' ('+o.bills+')',fmt(o.total))}).join('')+(Object.keys(sum.byCashier).length?'':'<div class="fine c">No sales</div>')+'<hr>'+
-    '<div class="c"><b>CASH DRAWER</b></div>'+kv('Opening float',fmt(sh.openingFloat))+kv('+ Cash sales',fmt(sum.cash))+kv('= Expected cash',fmt(sum.expectedCash),'t')+
+    '<div class="c"><b>CASH DRAWER</b></div>'+kv('Opening float',fmt(sh.openingFloat))+kv('+ Cash sales',fmt(sum.cash))+
+    (sum.paidIn?kv('+ Cash paid in',fmt(sum.paidIn)):'')+(sum.paidOut?kv('− Cash paid out',fmt(sum.paidOut)):'')+
+    ((sum.moves||[]).length?(sum.moves||[]).map(mv=>'<div class="rq fine"><span>'+fmtTime(mv.ts)+' '+(mv.type==='out'?'OUT':'IN')+' · '+esc(mv.reason||'')+(mv.cashier?' ('+esc(mv.cashier)+')':'')+'</span><span>'+(mv.type==='out'?'−':'+')+fmt(mv.amount)+'</span></div>').join(''):'')+
+    kv('= Expected cash',fmt(sum.expectedCash),'t')+
     (closed?kv('Counted cash',fmt(sh.countedCash))+kv(diff<0?'SHORT':diff>0?'OVER':'Difference',(diff>0?'+':'')+fmt(diff),'t')+(sh.note?'<div class="fine">Note: '+esc(sh.note)+'</div>':''):'')+
     (closed?'<hr><div class="fine">Cashier signature: ____________________</div><div class="fine" style="margin-top:10px">Manager signature: ____________________</div>':'')+'</div>';
 }
 function showZ(sh,sum,kind){
-  const m=modal('<div class="paper">'+zReportHTML(sh,sum,kind)+'</div><div class="actions"><button class="ghost" id="zPrint">Print</button><button class="primary" id="zClose">Close</button></div>');
+  const m=modal('<div class="paper">'+zReportHTML(sh,sum,kind)+'</div><div class="actions"><button class="ghost" id="zWa">💬 WhatsApp</button><button class="ghost" id="zMail">✉️ Email</button><button class="ghost" id="zPrint">Print</button><button class="primary" id="zClose">Close</button></div>');
+  const text=zText(sh,sum,kind),subj=(kind==='Z'?'Z report ':'X report ')+(sh.zNo||'')+' – '+brName(sh.branch)+' – '+fmtDate(sh.closedAt||Date.now());
+  $('#zWa',m.el).onclick=()=>shareWhatsApp(text);$('#zMail',m.el).onclick=()=>shareEmail(subj,text);
   $('#zPrint',m.el).onclick=()=>doPrint(zReportHTML(sh,sum,kind));$('#zClose',m.el).onclick=()=>m.close();
+}
+// plain-text version of an X/Z report for WhatsApp and email
+function zText(sh,sum,kind){
+  const closed=kind==='Z'&&sh.status==='closed',L=[];
+  L.push('*'+settings.name+' – '+brName(sh.branch)+'*');
+  L.push((kind==='Z'?'Z REPORT':'X REPORT')+(closed&&sh.zNo?' '+sh.zNo:''));
+  L.push('Opened: '+fmtDate(sh.openedAt)+' ('+(sh.openedBy||'')+')');
+  if(closed)L.push('Closed: '+fmtDate(sh.closedAt)+' ('+(sh.closedBy||'')+')');
+  L.push('');
+  L.push('Sales: AED '+fmt(sum.total)+' ('+plural(sum.bills,'bill')+')');
+  L.push('Cash: AED '+fmt(sum.cash)+' · Card: AED '+fmt(sum.card));
+  L.push('Excl. VAT: '+fmt(sum.net)+' · VAT: '+fmt(sum.vat));
+  if(sum.disc)L.push('Discounts: '+fmt(sum.disc));
+  if(sum.voidN)L.push('Voided: '+sum.voidN+' (AED '+fmt(sum.voidTotal)+')');
+  const by=Object.keys(sum.byCashier||{});
+  if(by.length){L.push('');L.push('By cashier:');by.forEach(k=>{const o=sum.byCashier[k];L.push('• '+k+': AED '+fmt(o.total)+' ('+o.bills+')')})}
+  L.push('');L.push('Cash drawer:');
+  L.push('Float '+fmt(sh.openingFloat)+' + cash sales '+fmt(sum.cash)+(sum.paidIn?' + paid in '+fmt(sum.paidIn):'')+(sum.paidOut?' − paid out '+fmt(sum.paidOut):'')+' = expected *'+fmt(sum.expectedCash)+'*');
+  (sum.moves||[]).forEach(mv=>L.push('  '+(mv.type==='out'?'Paid out ':'Paid in ')+fmt(mv.amount)+' – '+(mv.reason||'')+(mv.cashier?' ('+mv.cashier+')':'')));
+  if(closed){L.push('Counted: '+fmt(sh.countedCash));L.push((sh.diff<0?'⚠️ SHORT ':sh.diff>0?'⚠️ OVER ':'✅ Exact ')+(sh.diff?fmt(Math.abs(sh.diff)):''));if(sh.note)L.push('Note: '+sh.note)}
+  return L.join('\n');
+}
+function shareWhatsApp(text){
+  const num=String(settings.waNumber||'').replace(/\D/g,'');
+  window.open('https://wa.me/'+num+'?text='+encodeURIComponent(text),'_blank','noopener');
+}
+function shareEmail(subject,text){
+  location.href='mailto:'+encodeURIComponent(settings.reportEmail||HQ_EMAIL||'')+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(text.replace(/\*/g,''));
 }
 async function nextZNo(){
   const code=myBranch().code||'B';
@@ -1694,10 +1730,11 @@ function closeShiftModal(){
   const sum=shiftSummary(sh,S.shiftSales);
   const m=modal('<h2>Close shift</h2><p class="sub">Count all the cash in the drawer and enter the total.</p>'+
     '<div class="sh-row"><span>Opening float</span><b>'+fmt(sh.openingFloat)+'</b></div><div class="sh-row"><span>Cash sales ('+sum.cashN+')</span><b>'+fmt(sum.cash)+'</b></div>'+
+    (sum.paidIn?'<div class="sh-row"><span>Cash paid in</span><b>+ '+fmt(sum.paidIn)+'</b></div>':'')+(sum.paidOut?'<div class="sh-row"><span>Cash paid out</span><b>− '+fmt(sum.paidOut)+'</b></div>':'')+
     '<div class="sh-row big"><span>Expected in drawer</span><b>AED '+fmt(sum.expectedCash)+'</b></div>'+
     '<label class="fld" style="margin-top:10px"><span>Counted cash</span><div class="money"><i>AED</i><input class="num" id="csCount" inputmode="decimal" placeholder="0.00"></div></label>'+
     '<div class="sh-row big" id="csDiff"><span>Difference</span><b>–</b></div>'+
-    '<label class="fld"><span>Note (optional)</span><input id="csNote" placeholder="e.g. AED 20 taken for petty cash"></label>'+
+    '<label class="fld"><span>Note (optional)</span><input id="csNote" placeholder="e.g. reason for a difference"></label>'+
     (held.length?'<p class="note">'+plural(held.length,'held bill')+' will stay waiting for the next shift.</p>':'')+
     '<div class="actions"><button class="ghost" id="csCancel">Cancel</button><button class="primary" id="csGo" disabled>Close shift &amp; print Z</button></div>');
   const $m=x=>$(x,m.el);
@@ -1714,8 +1751,42 @@ function closeShiftModal(){
     m.close();
     const done=Object.assign({},sh,upd2);
     showZ(done,fin,'Z');
+    toast('Shift closed – send the Z report to head office with WhatsApp or Email');
   };
   setTimeout(()=>$m('#csCount').focus(),30);
+}
+function cashMoveModal(type){
+  const sh=S.shift;if(!sh)return;
+  const out=type==='out',sum=shiftSummary(sh,S.shiftSales);
+  const m=modal('<h2>'+(out?'Pay out cash':'Pay in cash')+'</h2><p class="sub">'+(out?'Cash taken from the drawer, e.g. petty cash for a delivery, cleaning or tea.':'Cash added to the drawer, e.g. extra change brought from the bank.')+'</p>'+
+    '<label class="fld"><span>Amount</span><div class="money"><i>AED</i><input class="num" id="cmAmt" inputmode="decimal" placeholder="0.00"></div></label>'+
+    '<label class="fld"><span>Reason</span><input id="cmWhy" placeholder="'+(out?'e.g. Delivery charge, Ali':'e.g. Change from bank')+'"></label>'+
+    (out?'<p class="note">Cash in the drawer now (expected): AED '+fmt(sum.expectedCash)+'</p>':'')+
+    '<div class="actions"><button class="ghost" id="cmCancel">Cancel</button><button class="primary" id="cmGo">'+(out?'Pay out':'Pay in')+'</button></div>');
+  const $m=x=>$(x,m.el);
+  $m('#cmCancel').onclick=()=>m.close();
+  $m('#cmGo').onclick=async()=>{
+    const amt=r2(parseFloat($m('#cmAmt').value)),why=$m('#cmWhy').value.trim();
+    if(!(amt>0)){toast('Enter the amount');$m('#cmAmt').focus();return}
+    if(!why){toast('Enter the reason');$m('#cmWhy').focus();return}
+    if(out&&amt>sum.expectedCash&&!(await askConfirm('More than the drawer holds?','The drawer should hold AED '+fmt(sum.expectedCash)+'. Pay out AED '+fmt(amt)+' anyway?','Pay out',true)))return;
+    const mv={id:uid(),ts:Date.now(),type,amount:amt,reason:why,cashier:cashierName()||C.email};
+    shiftsCol().doc(sh.id).update({moves:firebase.firestore.FieldValue.arrayUnion(mv)}).catch(e=>{console.error(e);toast('Not saved: '+(e.code||e.message))});
+    logAct('Shift',(out?'Paid out ':'Paid in ')+'AED '+fmt(amt)+' – '+why);
+    m.close();
+    if(out)voucherModal(sh,mv);else toast('Paid in AED '+fmt(amt));
+  };
+  setTimeout(()=>$m('#cmAmt').focus(),30);
+}
+function voucherHTML(sh,mv){
+  return '<div class="rc"><div class="c"><h3>'+esc(settings.name)+'</h3><div class="fine"><b>'+esc(brName(sh.branch))+'</b></div></div><hr><div class="c"><b>PETTY CASH VOUCHER</b></div><hr>'+
+    '<div class="kv"><span>Date</span><span>'+fmtDate(mv.ts)+'</span></div><div class="kv"><span>Paid by</span><span>'+esc(mv.cashier||'')+'</span></div>'+
+    '<div class="rl">Reason: '+esc(mv.reason)+'</div><div class="kv t"><span>AMOUNT (AED)</span><span>'+fmt(mv.amount)+'</span></div><hr>'+
+    '<div class="fine">Received by: ____________________</div><div class="fine" style="margin-top:10px">Signature: ____________________</div></div>';
+}
+function voucherModal(sh,mv){
+  const m=modal('<h2>Cash paid out</h2><p class="sub">AED '+fmt(mv.amount)+' – '+esc(mv.reason)+'. Print a voucher for the receiver to sign.</p><div class="paper">'+voucherHTML(sh,mv)+'</div><div class="actions"><button class="ghost" id="vcPrint">Print voucher</button><button class="primary" id="vcDone">Done</button></div>');
+  $('#vcPrint',m.el).onclick=()=>doPrint(voucherHTML(sh,mv));$('#vcDone',m.el).onclick=()=>m.close();
 }
 let shiftHist=null;
 async function renderShiftPage(){
@@ -1727,13 +1798,14 @@ async function renderShiftPage(){
     h+='<div class="card"><h2 style="margin:0 0 2px;font-family:var(--display)">Shift open</h2><p class="sub" style="margin:0">Since '+esc(fmtDate(sh.openedAt))+' · opened by '+esc(sh.openedBy||'')+'</p>'+
       '<div class="sh-grid"><div class="stat"><span>Sales</span><b class="num">AED '+fmt(sum.total)+'</b></div><div class="stat"><span>Bills</span><b class="num">'+sum.bills+'</b></div><div class="stat"><span>Cash · Card</span><b class="num">'+fmt(sum.cash)+' · '+fmt(sum.card)+'</b></div><div class="stat"><span>Expected cash in drawer</span><b class="num">AED '+fmt(sum.expectedCash)+'</b></div></div>'+
       (Object.keys(sum.byCashier).length?tbl([['Cashier'],['Bills',1],['Cash',1],['Card',1],['Total',1]],Object.keys(sum.byCashier).map(k=>{const o=sum.byCashier[k];return trow([esc(k),o.bills,fmt(o.cash),fmt(o.card),fmt(o.total)],'lrrrr')})):'')+
-      '<div class="actions"><button class="ghost" id="shX">Print X report</button><button class="primary" id="shZ">Close shift &amp; Z report</button></div></div>';
+      '<h3 class="rs">Cash paid in and out</h3>'+(sum.moves.length?tbl([['Time'],['Type'],['Reason'],['By'],['Amount',1]],sum.moves.slice().sort((a,b)=>a.ts-b.ts).map(mv=>trow([fmtTime(mv.ts),mv.type==='out'?'Paid out':'Paid in',esc(mv.reason),esc(mv.cashier||''),(mv.type==='out'?'− ':'+ ')+fmt(mv.amount)],'llllr'))):'<p class="none">None yet. Use Pay out for petty cash taken from the drawer.</p>')+
+      '<div class="actions"><button class="ghost" id="shOut">➖ Pay out</button><button class="ghost" id="shIn">➕ Pay in</button><button class="ghost" id="shX">Print X report</button><button class="primary" id="shZ">Close shift &amp; Z report</button></div></div>';
   }else{
     h+='<div class="card open-shift" style="margin:0 0 16px;max-width:none">'+openShiftForm()+'</div>';
   }
   h+='<h3 class="rs">Recent Z reports</h3><div id="shHist"><p class="none">Loading…</p></div>';
   pg.innerHTML=h;
-  if(S.shift){$('#shX').onclick=()=>showZ(S.shift,shiftSummary(S.shift,S.shiftSales),'X');$('#shZ').onclick=closeShiftModal}else bindOpenShift('#shiftPage');
+  if(S.shift){$('#shX').onclick=()=>showZ(S.shift,shiftSummary(S.shift,S.shiftSales),'X');$('#shZ').onclick=closeShiftModal;$('#shOut').onclick=()=>cashMoveModal('out');$('#shIn').onclick=()=>cashMoveModal('in')}else bindOpenShift('#shiftPage');
   try{
     const q=await shiftsCol().where('status','==','closed').get();
     shiftHist=q.docs.map(d=>d.data()).sort((a,b)=>b.closedAt-a.closedAt).slice(0,30);
@@ -1789,10 +1861,11 @@ async function shiftsIn(from,to,bf){
 function shiftsBlock(list,showBr,actions){
   if(!list.length)return '<p class="none">No shifts in this period.</p>';
   const tot=r2(list.filter(x=>x.status==='closed').reduce((n,x)=>n+(x.diff||0),0)),sales=r2(list.reduce((n,x)=>n+(x.summary?x.summary.total:0),0));
-  const pat=(showBr?'ll':'l')+'lllrrrr'+(actions?'l':'');
-  return tbl([['Z no.']].concat(showBr?[['Branch']]:[],[['Opened'],['Closed'],['By'],['Sales',1],['Expected cash',1],['Counted',1],['Over / short',1]],actions?[['']]:[]),
-    list.map(x=>trow([esc(x.zNo||'Open')].concat(showBr?[esc(brName(x.branch))]:[],[fmtDate(x.openedAt),x.closedAt?fmtDate(x.closedAt):'<b>Still open</b>',esc((x.openedBy||'')+(x.closedBy&&x.closedBy!==x.openedBy?' → '+x.closedBy:'')),x.summary?fmt(x.summary.total):'–',x.status==='closed'?fmt(x.expectedCash):'–',x.status==='closed'?fmt(x.countedCash):'–',x.status==='closed'?'<span class="'+(x.diff<0?'diff-short':x.diff>0?'diff-over':'diff-ok')+'">'+(x.diff>0?'+':'')+fmt(x.diff)+'</span>':'–'],actions?[x.status==='closed'?'<button class="mini" data-zv="'+esc(x.id)+'">View</button>':'']:[]),pat)),
-    trow(['Total ('+plural(list.length,'shift')+')'].concat(showBr?['']:[],['','','',fmt(sales),'','','<b>'+(tot>0?'+':'')+fmt(tot)+'</b>'],actions?['']:[]),pat,'sum'));
+  const pat=(showBr?'ll':'l')+'lllrrrrr'+(actions?'l':'');
+  const po=x=>{const sm=x.summary||shiftSummary(x,[]);return sm.paidOut?fmt(sm.paidOut):'–'};
+  return tbl([['Z no.']].concat(showBr?[['Branch']]:[],[['Opened'],['Closed'],['By'],['Sales',1],['Paid out',1],['Expected cash',1],['Counted',1],['Over / short',1]],actions?[['']]:[]),
+    list.map(x=>trow([esc(x.zNo||'Open')].concat(showBr?[esc(brName(x.branch))]:[],[fmtDate(x.openedAt),x.closedAt?fmtDate(x.closedAt):'<b>Still open</b>',esc((x.openedBy||'')+(x.closedBy&&x.closedBy!==x.openedBy?' → '+x.closedBy:'')),x.summary?fmt(x.summary.total):'–',po(x),x.status==='closed'?fmt(x.expectedCash):'–',x.status==='closed'?fmt(x.countedCash):'–',x.status==='closed'?'<span class="'+(x.diff<0?'diff-short':x.diff>0?'diff-over':'diff-ok')+'">'+(x.diff>0?'+':'')+fmt(x.diff)+'</span>':'–'],actions?[x.status==='closed'?'<button class="mini" data-zv="'+esc(x.id)+'">View</button>':'']:[]),pat)),
+    trow(['Total ('+plural(list.length,'shift')+')'].concat(showBr?['']:[],['','','',fmt(sales),fmt(list.reduce((n,x)=>n+((x.summary||shiftSummary(x,[])).paidOut||0),0)),'','','<b>'+(tot>0?'+':'')+fmt(tot)+'</b>'],actions?['']:[]),pat,'sum'));
 }
 
 /* ---------- dashboard (head office) ----------
@@ -1825,7 +1898,7 @@ async function heldAll(){
   try{const qs=await Promise.all(C.branches.map(b=>bref(b.id).collection('held').get()));return qs.flatMap((q,i)=>q.docs.map(d=>Object.assign({branch:C.branches[i].id},d.data())))}
   catch(e){console.warn(e);return []}
 }
-let dashSeq=0,dashShifts=[],dashOpen=[];
+let dashSeq=0,dashShifts=[],dashOpen=[],dashLast=null;
 async function renderDashboard(quiet){
   const my=++dashSeq,P=periodInfo(dashPeriod);
   $$('#dashFilters [data-p]').forEach(b=>{b.classList.toggle('on',b.dataset.p===dashPeriod);b.setAttribute('aria-selected',b.dataset.p===dashPeriod)});
@@ -1892,6 +1965,7 @@ async function renderDashboard(quiet){
   h+='</div>';
   body.innerHTML=h;
   bindTrend();
+  dashLast={P,a,b,rows,al};
 }
 // columns = selected period, 2px line = comparison period; one shared AED axis
 function trendSVG(cur,prev,P){
@@ -1952,6 +2026,23 @@ function bindTrend(){
 }
 $('#dashFilters').addEventListener('click',e=>{const b=e.target.closest('[data-p]');if(!b)return;dashPeriod=b.dataset.p;store.set('sk_dash',dashPeriod);renderDashboard()});
 $('#dashRefresh').onclick=()=>{salesCache.clear();renderDashboard()};
+$('#dashShare').onclick=()=>{
+  if(!dashLast)return;
+  const {P,a,b,rows,al}=dashLast,pc=b.total?Math.round((a.total-b.total)/b.total*100):null,L=[];
+  L.push('*'+settings.name+' – '+P.label+'*');
+  L.push('Total sales: *AED '+fmt(a.total)+'*'+(pc!==null?' ('+(pc>=0?'+':'')+pc+'% vs '+P.cmp+')':''));
+  L.push(plural(a.bills,'bill')+' · avg AED '+fmt(a.bills?a.total/a.bills:0)+' · VAT '+fmt(a.vat));
+  L.push('Cash '+fmt(a.cash)+' · Card '+fmt(a.card));
+  L.push('');L.push('Branches:');
+  rows.forEach((r,i)=>L.push((i+1)+'. '+r.br.name+': AED '+fmt(r.x.total)+' ('+r.x.bills+')'));
+  const warn=al.filter(x=>x[0]!=='ok');
+  if(warn.length){L.push('');L.push('Needs attention:');warn.forEach(x=>L.push('• '+x[2]+(x[3]?' – '+x[3]:'')))}
+  const text=L.join('\n');
+  const m=modal('<h2>Share summary</h2><p class="sub">'+esc(P.label)+' – send it by WhatsApp or email.</p><textarea id="shTxt" rows="12" style="width:100%;font-family:var(--mono);font-size:12.5px;border:1px solid var(--line);border-radius:10px;padding:10px">'+esc(text)+'</textarea>'+
+    '<div class="actions"><button class="ghost" id="shCopy">Copy</button><button class="ghost" id="shMail">✉️ Email</button><button class="primary" id="shWa">💬 WhatsApp</button></div>');
+  const cur=()=>$('#shTxt',m.el).value;
+  $('#shCopy',m.el).onclick=()=>copyText(cur(),'Copied');$('#shMail',m.el).onclick=()=>shareEmail(settings.name+' – '+P.label+' summary',cur());$('#shWa',m.el).onclick=()=>shareWhatsApp(cur());
+};
 
 /* ---------- branches (head office) ---------- */
 function renderBranches(){
