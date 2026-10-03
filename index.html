@@ -379,6 +379,33 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
 .alerts small{display:block;color:var(--text-dim)}
 @media (max-width:1100px){.dash-card.half{grid-column:span 12}}
 @media (max-width:640px){.brow{grid-template-columns:minmax(0,1fr) 84px;row-gap:4px}.brow .btrack{grid-column:1/-1;order:3}.brow .r.bills,.brow .r.avg,.brow.head .r{display:none}.hero .big{font-size:38px}}
+/* Cashiers, shifts, Z reports */
+.who-cashier{color:#fff;font-weight:700;font-size:12px}
+.who-links{display:flex;gap:10px;flex-wrap:wrap}
+.pin-dots{display:flex;gap:12px;justify-content:center;margin:6px 0 14px}
+.pin-dots i{width:14px;height:14px;border-radius:50%;border:2px solid #C9CDD4}
+.pin-dots i.on{background:var(--till);border-color:var(--till)}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pin-pad button{height:54px;border-radius:12px;border:1px solid var(--line);background:#fff;font-size:22px;font-weight:700;font-family:var(--mono)}
+.pin-pad button:hover{border-color:var(--till);color:var(--till-dark)}
+.pin-pad button:active{background:#FDF1EA}
+.pin-pad .k-sm{font-size:13px;font-family:var(--sans);color:var(--text-dim)}
+.gate-box.shake{animation:shake .35s}
+@keyframes shake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.gate-foot{margin-top:14px;text-align:center}
+.gate-foot .link{font-size:12px}
+.shift-warn{background:#FFF4DB;border:1px solid #F3D48B;color:#7A5200;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:600;margin:-4px 0 14px}
+.open-shift{max-width:520px;margin:10px auto}
+.open-shift h2{margin:0 0 4px;font-family:var(--display);font-size:22px}
+.open-shift p{margin:0 0 16px;color:var(--text-dim);font-size:13.5px}
+.shift-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--text-dim);margin-top:4px}
+.shift-pill b{color:var(--ok)}
+.sh-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:14px 0}
+.sh-row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--soft);font-size:13.5px}
+.sh-row b{font-family:var(--mono)}
+.sh-row.big{font-size:16px;font-weight:700;border-bottom:0}
+.diff-ok{color:var(--ok)}.diff-short{color:var(--red)}.diff-over{color:#A86A00}
+.mini.danger{color:var(--red);border-color:#EBC9C0}
 /* Responsive */
 @media (min-width:1200px){
   .prod-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
@@ -437,6 +464,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
     <nav class="nav" aria-label="Main">
       <button class="nav-btn" data-view="dashboard" hidden><span class="ic">📈</span>Dashboard</button>
       <button class="nav-btn active" data-view="sale"><span class="ic">🧾</span>Sale</button>
+      <button class="nav-btn" data-view="shift" hidden><span class="ic">🕘</span>Shift</button>
       <button class="nav-btn" data-view="held"><span class="ic">⏸️</span>Held Bills<span class="nav-count" id="heldCount" hidden></span></button>
       <button class="nav-btn" data-view="items"><span class="ic">🧵</span>Items</button>
       <button class="nav-btn" data-view="reports"><span class="ic">📊</span>Reports</button>
@@ -444,7 +472,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
       <button class="nav-btn" data-view="settings"><span class="ic">⚙️</span>Settings</button>
     </nav>
     <div class="side-foot">VAT <span id="sideVat">5</span>% · <span id="sideTodayLbl">Today's sales</span><br><b id="sideToday">AED 0.00</b>
-      <div class="who" id="who" hidden><span class="net" id="netState"></span><span id="whoEmail"></span><button class="lock-link" id="btnSignOut" type="button">Sign out</button></div>
+      <div class="who" id="who" hidden><span class="net" id="netState"></span><span class="who-cashier" id="whoCashier" hidden></span><span id="whoEmail"></span><span class="who-links"><button class="lock-link" id="btnSwitch" type="button" hidden>Switch cashier</button><button class="lock-link" id="btnSignOut" type="button">Sign out</button></span></div>
     </div>
   </div>
 
@@ -460,7 +488,9 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
         <button class="btn primary" id="nagBackup" type="button">Back up now</button>
         <button class="link" id="nagLater" type="button">Later</button>
       </div>
-      <div class="sale-layout">
+      <div class="shift-warn" id="shiftWarn" hidden></div>
+      <div class="card open-shift" id="shiftOpenCard" hidden></div>
+      <div class="sale-layout" id="saleMain">
         <div class="catalog-col">
           <form class="scan-row" id="scanForm" autocomplete="off">
             <input id="scanInput" type="search" placeholder="Scan barcode or type fabric name, then Enter…" aria-label="Scan barcode or search fabrics" enterkeyhint="go">
@@ -503,6 +533,14 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
         </div>
       </div>
       <button class="cartbar" id="cartbar" aria-label="Open bill"><span id="cbCount">Bill is empty</span><span class="num" id="cbTotal">AED 0.00</span></button>
+    </section>
+
+    <!-- SHIFT VIEW (branch) -->
+    <section id="view-shift" hidden>
+      <div class="topbar">
+        <div><h1>Shift</h1><div class="sub">Open the shift with the cash float, print an X report any time, close with a Z report</div></div>
+      </div>
+      <div id="shiftPage"></div>
     </section>
 
     <!-- HELD BILLS VIEW -->
@@ -639,7 +677,7 @@ function logAct(type,text){
   if(CLOUD){
     if(!C.role)return;
     const b=isHQ()?'hq':C.branch;
-    logsCol(b).add({ts:Date.now(),type:type,text:text,by:C.email,branch:b}).catch(e=>console.warn('Log not saved',e));
+    logsCol(b).add({ts:Date.now(),type:type,text:text,by:C.email,cashier:cashierName(),branch:b}).catch(e=>console.warn('Log not saved',e));
     return;
   }
   actlog.unshift({ts:Date.now(),type:type,text:text});if(actlog.length>1000)actlog.length=1000;store.set('sk_log',actlog);
@@ -950,20 +988,31 @@ async function startSession(user){
     });
     listen(C.db.collection('config').doc('vatin'),snap=>{vatin=snap.exists?snap.data():{}});
   }else{
-    listen(bref(C.branch),snap=>{if(snap.exists){C.branches=[snap.data()];brand()}});
+    S.cashier=store.get(cashierKey(),null);S.shift=null;S.shiftsOn=true;
+    listen(bref(C.branch),snap=>{
+      if(!snap.exists)return;
+      C.branches=[snap.data()];brand();
+      // cashier list changed: ask for a PIN if needed, drop the PIN screen if no longer needed
+      if(needCashier()){if($('#gate').hidden)pinGate()}else if(C.role)$('#gate').hidden=true;
+      updateWho();
+    });
     listen(heldCol(),snap=>{held=snap.docs.map(d=>d.data());renderHeld()});
     watchToday();
+    watchShift();
     topUpInvoices();
   }
   applyRole();brand();
   gate(null);
   go(isHQ()?'dashboard':'sale');
+  if(isBranchUser())checkCashier();
   offerImport();
 }
 function endSession(){
   C.unsubs.concat(C.todayUnsubs).forEach(u=>{try{u()}catch(e){}});
   C.unsubs=[];C.todayUnsubs=[];C.today={};
   C.role=null;C.branch=null;C.email='';C.branches=[];held=[];
+  if(S.salesUnsub){S.salesUnsub();S.salesUnsub=null}
+  S.cashier=null;S.shift=null;S.shiftSales=[];S.shiftsOn=true;
 }
 // live total of today's sales: own branch, or every branch for head office
 function watchToday(){
@@ -974,10 +1023,11 @@ function watchToday(){
 }
 function applyRole(){
   const role=CLOUD?C.role:'local';
-  const allow={dashboard:['hq'],sale:['local','branch'],held:['local','branch'],items:['local','hq'],reports:['local','branch','hq'],branches:['hq'],settings:['local','hq']};
+  const allow={dashboard:['hq'],shift:['branch'],sale:['local','branch'],held:['local','branch'],items:['local','hq'],reports:['local','branch','hq'],branches:['hq'],settings:['local','hq']};
   $$('.nav-btn').forEach(b=>{b.hidden=!(allow[b.dataset.view]||[]).includes(role)});
   $('#who').hidden=!CLOUD||!C.role;
   if(CLOUD&&C.role){$('#whoEmail').textContent=C.email;netState()}
+  updateWho();renderShiftState();
   $('#sideTodayLbl').textContent=isHQ()?'Today, all branches':"Today's sales";
 }
 function viewAllowed(v){const b=$('.nav-btn[data-view="'+v+'"]');return !b||!b.hidden}
@@ -1016,14 +1066,14 @@ async function topUpInvoices(){
 }
 function saveSale(sale){
   if(!CLOUD){sales.unshift(sale);saveSales();return}
-  Object.assign(sale,{branch:C.branch,branchName:brName(C.branch),by:C.email});
+  Object.assign(sale,{branch:C.branch,branchName:brName(C.branch),by:C.email,cashier:cashierName(),cashierId:S.cashier?S.cashier.id:'',shiftId:S.shift?S.shift.id:''});
   salesCol(C.branch).doc(sale.id).set(sale).catch(e=>{console.error(e);toast('Sale '+sale.no+' was not saved online: '+(e.code||e.message))});
 }
 function voidSale(s){
   s.status='void';s.voidedAt=Date.now();
   if(!CLOUD){saveSales();return}
-  s.voidedBy=C.email;
-  salesCol(s.branch).doc(s.id).update({status:'void',voidedAt:s.voidedAt,voidedBy:C.email}).catch(e=>{console.error(e);toast('Void not saved: '+(e.code||e.message))});
+  s.voidedBy=cashierName()||C.email;
+  salesCol(s.branch).doc(s.id).update({status:'void',voidedAt:s.voidedAt,voidedBy:s.voidedBy}).catch(e=>{console.error(e);toast('Void not saved: '+(e.code||e.message))});
 }
 
 /* ---------- held bills ---------- */
@@ -1039,7 +1089,7 @@ async function holdCurrent(){
   if(!cart.length)return null;
   const snapshot={cart:JSON.parse(JSON.stringify(cart)),discount:Object.assign({},discount),total:totals().total};
   cart=[];discount={type:'pct',value:''};saveCart();renderCart();
-  const h=Object.assign({id:uid(),no:await nextHeldNo(),ts:Date.now()},snapshot);
+  const h=Object.assign({id:uid(),no:await nextHeldNo(),ts:Date.now(),cashier:cashierName()},snapshot);
   if(CLOUD){heldCol().doc(h.id).set(h).catch(e=>{console.error('Could not save held bill',e);toast('Held bill #'+h.no+' could not be saved online')})}
   else{held.push(h);saveHeld()}
   logAct('Bill','Held bill #'+h.no+' – AED '+fmt(h.total)+' ('+h.cart.length+(h.cart.length===1?' line':' lines')+')');
@@ -1166,7 +1216,7 @@ function receiptHTML(s){
     (phone?'<div class="fine">Tel: '+esc(phone)+'</div>':'')+
     (taxInv?'<div class="fine">TRN: '+esc(settings.trn)+'</div>':'')+'</div>'+
     '<hr><div class="c"><b>'+(taxInv?'TAX INVOICE – فاتورة ضريبية':'RECEIPT – إيصال')+'</b></div><hr>'+
-    '<div class="kv"><span>No.</span><b>'+esc(s.no)+'</b></div><div class="kv"><span>Date</span><span>'+fmtDate(s.ts)+'</span></div><hr>'+
+    '<div class="kv"><span>No.</span><b>'+esc(s.no)+'</b></div><div class="kv"><span>Date</span><span>'+fmtDate(s.ts)+'</span></div>'+(s.cashier?'<div class="kv"><span>Cashier</span><span>'+esc(s.cashier)+'</span></div>':'')+'<hr>'+
     rows+'<hr>'+
     '<div class="kv"><span>Items (incl. VAT)</span><span>'+fmt(s.sumGross)+'</span></div>'+
     (s.disc>0?'<div class="kv"><span>Discount'+(s.discount.type==='pct'?' ('+s.discount.value+'%)':'')+'</span><span>− '+fmt(s.disc)+'</span></div>':'')+
@@ -1246,12 +1296,12 @@ const statBox=(l,v)=>'<div class="stat"><span>'+l+'</span><b class="num">'+v+'</
 const aed=v=>'AED '+fmt(v);
 
 function billsBlock(list,actions,showBr){
-  const a=agg(list);
-  const head=[['Invoice']].concat(showBr?[['Branch']]:[],[['Date & time'],['Payment'],['Excl. VAT',1],['VAT',1],['Total',1],['Status']],actions?[['']]:[]);
-  const pat=(showBr?'llll':'lll')+'rrrl'+(actions?'l':'');
-  const rows=list.map(s=>trow([esc(s.no)].concat(showBr?[esc(brName(s.branch))]:[],[fmtDate(s.ts),s.method==='cash'?'Cash':'Card',fmt(s.net),fmt(s.vat),fmt(s.total),s.status==='void'?'Void':'Paid'],
+  const a=agg(list),showC=CLOUD;
+  const head=[['Invoice']].concat(showBr?[['Branch']]:[],[['Date & time']],showC?[['Cashier']]:[],[['Payment'],['Excl. VAT',1],['VAT',1],['Total',1],['Status']],actions?[['']]:[]);
+  const pat=(showBr?'llll':'lll')+(showC?'l':'')+'rrrl'+(actions?'l':'');
+  const rows=list.map(s=>trow([esc(s.no)].concat(showBr?[esc(brName(s.branch))]:[],[fmtDate(s.ts)],showC?[esc(s.cashier||'')]:[],[s.method==='cash'?'Cash':'Card',fmt(s.net),fmt(s.vat),fmt(s.total),s.status==='void'?'Void':'Paid'],
     actions?['<button class="mini" data-v="'+esc(s.id)+'">View</button> '+(s.status!=='void'?'<button class="mini" data-x="'+esc(s.id)+'">Void</button>':'')]:[]),pat,s.status==='void'?'void':''));
-  return list.length?tbl(head,rows,trow(['Total ('+a.bills+' paid bills)'].concat(showBr?['']:[],['','',fmt(a.net),fmt(a.vat),fmt(a.total),''],actions?['']:[]),pat,'sum')):'<p class="none">No invoices for this selection.</p>';
+  return list.length?tbl(head,rows,trow(['Total ('+a.bills+' paid bills)'].concat(showBr?['']:[],showC?['']:[],['','',fmt(a.net),fmt(a.vat),fmt(a.total),''],actions?['']:[]),pat,'sum')):'<p class="none">No invoices for this selection.</p>';
 }
 function branchBlock(list){
   const ids=[...new Set(C.branches.map(b=>b.id).concat(list.map(s=>s.branch)))];
@@ -1311,7 +1361,7 @@ function vatBody(list,from,to,edit){
 function logBody(all,type,limit,showBr){
   const list=all.filter(e=>type==='all'||e.type===type).slice(0,limit);
   if(!list.length)return '<p class="none">No activity recorded yet.</p>';
-  return tbl([['Date & time']].concat(showBr?[['Branch']]:[],[['Type'],['Details']]),list.map(e=>trow([fmtFull(e.ts)].concat(showBr?[esc(brName(e.branch))]:[],['<span class="tag">'+esc(e.type)+'</span>',esc(e.text)+(e.by?' <small class="none">· '+esc(e.by)+'</small>':'')]),showBr?'llll':'lll')));
+  return tbl([['Date & time']].concat(showBr?[['Branch']]:[],[['Type'],['Details']]),list.map(e=>trow([fmtFull(e.ts)].concat(showBr?[esc(brName(e.branch))]:[],['<span class="tag">'+esc(e.type)+'</span>',esc(e.text)+((e.cashier||e.by)?' <small class="none">· '+esc(e.cashier||e.by)+'</small>':'')]),showBr?'llll':'lll')));
 }
 // sales between two dates: this device, this branch, or (head office) one/all branches
 const salesCache=new Map();
@@ -1352,10 +1402,10 @@ function reportsModal(tab){
   const hq=CLOUD&&isHQ();
   const brSel=()=>hq?selF('Branch','br',[['all','All branches']].concat(C.branches.map(b=>[b.id,b.code+' · '+b.name]))):'';
   const brLabel=()=>hq?(R.br==='all'?'All branches':brName(R.br)):(CLOUD?brName(C.branch):'');
-  let shown=[],seqNo=0;
+  let shown=[],zShown=[],seqNo=0;
   async function draw(){
     const my=++seqNo;
-    const T=[['daily','Daily sales'],['inv','Invoices']].concat(CLOUD&&!hq?[]:[['vat','VAT 201']],[['items','Items sold'],['log','Activity log']]);
+    const T=[['daily','Daily sales'],['inv','Invoices']].concat(CLOUD?[['shifts','Shifts (Z)']]:[],CLOUD&&!hq?[]:[['vat','VAT 201']],[['items','Items sold'],['log','Activity log']]);
     if(!T.some(t=>t[0]===R.tab))R.tab='daily';
     let filt='',body='',title='',period='',pbody='',csv=null;
     const rng=()=>nice(R.from)+' to '+nice(R.to);
@@ -1363,6 +1413,7 @@ function reportsModal(tab){
     if(R.tab==='daily')filt='<div class="filters"><button class="mini" data-day="-1">‹ Prev</button>'+dateF('Date','day')+'<button class="mini" data-day="1">Next ›</button><button class="mini" data-day="0">Today</button>'+brSel()+'</div>';
     else if(R.tab==='inv')filt='<div class="filters">'+dateF('From','from')+dateF('To','to')+brSel()+selF('Payment','method',[['all','All'],['cash','Cash'],['card','Card']])+selF('Status','status',[['all','All'],['paid','Paid'],['void','Void']])+'<div class="qk">'+quick('data-q',[['month','This month'],['lastmonth','Last month'],['today','Today']])+'</div></div>';
     else if(R.tab==='vat')filt='<div class="filters">'+dateF('Period from','vf')+dateF('Period to','vt')+'<div class="qk">'+quick('data-vq',[['month','This month'],['lastmonth','Last month'],['quarter','This quarter'],['lastquarter','Last quarter']])+'</div></div>';
+    else if(R.tab==='shifts')filt='<div class="filters">'+dateF('From','from')+dateF('To','to')+brSel()+'<div class="qk">'+quick('data-q',[['month','This month'],['lastmonth','Last month'],['today','Today']])+'</div></div>';
     else if(R.tab==='items')filt='<div class="filters">'+dateF('From','from')+dateF('To','to')+brSel()+'<div class="qk">'+quick('data-q',[['month','This month'],['lastmonth','Last month'],['today','Today']])+'</div></div>';
     else filt='<div class="filters">'+brSel()+selF('Show','act',[['all','Everything'],['Sale','Sales'],['Void','Voids'],['Bill','Bill changes'],['Item','Items'],['Settings','Settings'],['Report','Reports'],['Data','Data']])+'</div>';
     const head='<div class="rhead modal-only"><h2>Reports</h2><button class="ghost" id="rClose">Close</button></div>'+
@@ -1380,6 +1431,10 @@ function reportsModal(tab){
       }else if(R.tab==='vat'){
         shown=await salesIn(R.vf,R.vt,'all');
         title='VAT 201 return – working';period=nice(R.vf)+' to '+nice(R.vt);body=vatBody(shown,R.vf,R.vt,true);pbody=vatBody(shown,R.vf,R.vt,false);
+      }else if(R.tab==='shifts'){
+        zShown=await shiftsIn(R.from,R.to,R.br);
+        title='Shifts and Z reports';period=rng();body=shiftsBlock(zShown,showBr,true);pbody=shiftsBlock(zShown,showBr,false);
+        csv=csvOf([['Z no','Branch','Opened','Closed','Opened by','Closed by','Sales','Expected cash','Counted','Over/short']].concat(zShown.map(x=>[x.zNo||'open',brName(x.branch),fmtFull(x.openedAt),x.closedAt?fmtFull(x.closedAt):'',x.openedBy||'',x.closedBy||'',x.summary?x.summary.total.toFixed(2):'',x.status==='closed'?x.expectedCash.toFixed(2):'',x.status==='closed'?x.countedCash.toFixed(2):'',x.status==='closed'?x.diff.toFixed(2):''])));
       }else if(R.tab==='items'){
         shown=await salesIn(R.from,R.to,R.br);
         title='Items sold report';period=rng();body=pbody=itemsBlock(shown);
@@ -1425,6 +1480,7 @@ function reportsModal(tab){
     $$('[data-vq]',m.el).forEach(b=>b.onclick=()=>{const r=quickRange(b.dataset.vq,true);R.vf=r[0];R.vt=r[1];draw()});
     if(!full)return;
     $$('[data-v]',m.el).forEach(b=>b.onclick=()=>{const s=shown.find(x=>x.id===b.dataset.v);if(s)viewSale(s)});
+    $$('[data-zv]',m.el).forEach(b=>b.onclick=()=>{const x=zShown.find(y=>y.id===b.dataset.zv);if(x)showZ(x,x.summary,'Z')});
     $$('[data-x]',m.el).forEach(b=>b.onclick=async()=>{
       const s=shown.find(x=>x.id===b.dataset.x);if(!s)return;
       if(await askConfirm('Void '+s.no+'?','This sale will be removed from all report totals. It stays in the list marked as void.','Void sale',true)){voidSale(s);logAct('Void',s.no+' voided (AED '+fmt(s.total)+', '+s.method+')');draw()}
@@ -1504,6 +1560,241 @@ function settingsModal(){
   };
 }
 
+/* ---------- cashiers, shifts, Z reports (branches) ----------
+   Head office gives each branch its cashiers, each with a 4-digit PIN
+   (stored hashed on the branch document). At the till the cashier enters
+   their PIN; sales, held bills, voids and the log record who did it.
+   A shift (branches/{id}/shifts/*) is opened with the cash float and closed
+   with a cash count: expected cash = float + cash sales, the difference is
+   shown as over/short and the Z report is printed and kept. If the database
+   rules don't include shifts yet, selling carries on without shifts. */
+const S={cashier:null,shift:null,shiftsOn:true,shiftSales:[],salesUnsub:null};
+const myBranch=()=>branchById(C.branch)||{};
+const activeCashiers=()=>(myBranch().cashiers||[]).filter(c=>c.active!==false);
+const shiftsCol=b=>bref(b||C.branch).collection('shifts');
+async function pinHash(branchId,pin){
+  const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('sheikha-pos|'+branchId+'|'+pin));
+  return [...new Uint8Array(d)].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+const cashierKey=()=>'sk_cashier_'+C.branch;
+function cashierName(){return S.cashier?S.cashier.name:''}
+function needCashier(){return CLOUD&&isBranchUser()&&activeCashiers().length>0&&!(S.cashier&&activeCashiers().some(c=>c.id===S.cashier.id))}
+function pinGate(msg){
+  const g=$('#gate');g.hidden=false;
+  let pin='';
+  $('#gateBox').innerHTML='<div class="gb"><i class="dot"></i><div><b>'+esc(settings.name)+'</b><small>'+esc(brName(C.branch))+'</small></div></div>'+
+    '<h2>Who’s on the till?</h2><p>Enter your 4-digit cashier PIN.</p><div class="pin-dots" id="pinDots"><i></i><i></i><i></i><i></i></div>'+
+    '<div class="gate-err" id="pinErr" style="text-align:center">'+esc(msg||'')+'</div>'+
+    '<div class="pin-pad" id="pinPad">'+[1,2,3,4,5,6,7,8,9].map(n=>'<button type="button" data-n="'+n+'">'+n+'</button>').join('')+'<button type="button" class="k-sm" data-n="c">Clear</button><button type="button" data-n="0">0</button><button type="button" class="k-sm" data-n="b">⌫</button></div>'+
+    '<div class="gate-foot"><button class="link" type="button" id="pinSignOut">Sign out of this branch</button></div>';
+  const dots=()=>$$('#pinDots i').forEach((d,i)=>d.classList.toggle('on',i<pin.length));
+  const press=async k=>{
+    if(k==='c')pin='';else if(k==='b')pin=pin.slice(0,-1);else if(pin.length<4)pin+=k;
+    dots();
+    if(pin.length===4){
+      const h=await pinHash(C.branch,pin),c=activeCashiers().find(x=>x.pin===h);
+      if(!c){pin='';dots();$('#pinErr').textContent='PIN not recognised. Try again.';const b=$('#gateBox');b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake');return}
+      S.cashier={id:c.id,name:c.name};store.set(cashierKey(),S.cashier);
+      document.removeEventListener('keydown',onKey);
+      g.hidden=true;logAct('Shift',c.name+' started on the till');updateWho();renderShiftState();
+    }
+  };
+  const onKey=e=>{if(g.hidden){document.removeEventListener('keydown',onKey);return}if(/^[0-9]$/.test(e.key))press(e.key);else if(e.key==='Backspace')press('b');else if(e.key==='Escape')press('c')};
+  document.addEventListener('keydown',onKey);
+  $('#pinPad').onclick=e=>{const b=e.target.closest('[data-n]');if(b)press(b.dataset.n)};
+  $('#pinSignOut').onclick=()=>{document.removeEventListener('keydown',onKey);C.auth.signOut()};
+}
+function checkCashier(){if(needCashier())pinGate();updateWho()}
+function updateWho(){
+  const show=CLOUD&&isBranchUser()&&activeCashiers().length>0;
+  $('#whoCashier').hidden=!show||!S.cashier;$('#whoCashier').textContent=S.cashier?'👤 '+S.cashier.name:'';
+  $('#btnSwitch').hidden=!show;
+}
+$('#btnSwitch').onclick=()=>{if(S.cashier)logAct('Shift',S.cashier.name+' left the till');S.cashier=null;store.set(cashierKey(),null);pinGate();updateWho()};
+
+function watchShift(){
+  listenShift(shiftsCol().where('status','==','open'),snap=>{
+    const open=snap.docs.map(d=>d.data()).sort((a,b)=>b.openedAt-a.openedAt);
+    const prev=S.shift&&S.shift.id;S.shift=open[0]||null;
+    if((S.shift&&S.shift.id)!==prev){
+      if(S.salesUnsub){S.salesUnsub();S.salesUnsub=null}
+      S.shiftSales=[];
+      if(S.shift)S.salesUnsub=salesCol(C.branch).where('shiftId','==',S.shift.id).onSnapshot(q=>{S.shiftSales=q.docs.map(d=>d.data());if(curView==='shift')renderShiftPage()},e=>console.error(e));
+    }
+    renderShiftState();
+  });
+}
+function listenShift(ref,cb){
+  C.unsubs.push(ref.onSnapshot(cb,err=>{
+    console.error('Shift sync',err);
+    if(err.code==='permission-denied'){S.shiftsOn=false;renderShiftState()}
+  }));
+}
+function shiftNeeded(){return CLOUD&&isBranchUser()&&S.shiftsOn&&!S.shift}
+function renderShiftState(){
+  if(!(CLOUD&&isBranchUser())){$('#shiftOpenCard').hidden=true;$('#saleMain').hidden=false;$('#shiftWarn').hidden=true;return}
+  const need=shiftNeeded();
+  $('#saleMain').hidden=need;$('#shiftOpenCard').hidden=!need;
+  $('#shiftWarn').hidden=S.shiftsOn;
+  $('#shiftWarn').textContent='Shifts and Z reports are switched off until head office publishes the updated database rules (SETUP.md step 6). You can keep selling.';
+  if(need)$('#shiftOpenCard').innerHTML=openShiftForm();bindOpenShift('#shiftOpenCard');
+  const sub=$('#view-sale .topbar .sub');
+  if(sub)sub.innerHTML=S.shift?'<span class="shift-pill">● <b>Shift open</b> since '+esc(fmtTime(S.shift.openedAt))+' · opened by '+esc(S.shift.openedBy||'')+'</span>':'Scan a barcode, search below, or tap a fabric – then enter the price and choose with or without VAT';
+  if(curView==='shift')renderShiftPage();
+}
+function openShiftForm(){
+  return '<h2>Open the shift</h2><p>Count the cash in the drawer before the first sale and enter it as the opening float.</p>'+
+    '<label class="fld"><span>Opening cash float</span><div class="money"><i>AED</i><input class="num" id="osFloat" inputmode="decimal" placeholder="0.00"></div></label>'+
+    '<button class="primary" type="button" id="osGo" style="width:100%">Open shift</button>';
+}
+function bindOpenShift(root){
+  const b=$(root+' #osGo');if(!b)return;
+  b.onclick=()=>openShift(parseFloat($(root+' #osFloat').value)||0);
+  $(root+' #osFloat').onkeydown=e=>{if(e.key==='Enter')b.click()};
+}
+function openShift(float){
+  if(S.shift)return;
+  const sh={id:uid(),branch:C.branch,status:'open',openedAt:Date.now(),openedBy:cashierName()||C.email,openingFloat:r2(float)};
+  shiftsCol().doc(sh.id).set(sh).catch(e=>{console.error(e);if(e.code==='permission-denied'){S.shiftsOn=false;S.shift=null;renderShiftState()}else toast('Shift not saved: '+(e.code||e.message))});
+  logAct('Shift','Shift opened by '+sh.openedBy+' with float AED '+fmt(sh.openingFloat));
+  toast('Shift open');
+}
+function shiftSummary(sh,list){
+  const a=agg(list),byC={};
+  list.filter(x=>x.status!=='void').forEach(x=>{const k=x.cashier||'—';const o=byC[k]||(byC[k]={bills:0,total:0,cash:0,card:0});o.bills++;o.total=r2(o.total+x.total);o[x.method==='card'?'card':'cash']=r2(o[x.method==='card'?'card':'cash']+x.total)});
+  return {bills:a.bills,gross:a.gross,disc:a.disc,net:a.net,vat:a.vat,total:a.total,cash:a.cash,card:a.card,cashN:a.cashN,cardN:a.cardN,voidN:a.voidN,voidTotal:a.voidTotal,byCashier:byC,expectedCash:r2((+sh.openingFloat||0)+a.cash)};
+}
+function zReportHTML(sh,sum,kind){
+  const br=branchById(sh.branch)||{};const kv=(k,v,cls)=>'<div class="kv'+(cls?' '+cls:'')+'"><span>'+k+'</span><span>'+v+'</span></div>';
+  const closed=kind==='Z'&&sh.status==='closed';
+  const diff=closed?sh.diff:null;
+  return '<div class="rc"><div class="c"><h3>'+esc(settings.name)+'</h3><div class="ar">'+esc(settings.nameAr)+'</div><div class="fine"><b>'+esc(br.name||'')+'</b></div>'+(settings.trn?'<div class="fine">TRN: '+esc(settings.trn)+'</div>':'')+'</div>'+
+    '<hr><div class="c"><b>'+(kind==='Z'?'Z REPORT – END OF SHIFT':'X REPORT – SHIFT SO FAR')+'</b>'+(closed&&sh.zNo?'<br><b>'+esc(sh.zNo)+'</b>':'')+'</div><hr>'+
+    kv('Opened',fmtDate(sh.openedAt))+kv('Opened by',esc(sh.openedBy||''))+(closed?kv('Closed',fmtDate(sh.closedAt))+kv('Closed by',esc(sh.closedBy||'')):kv('Printed',fmtDate(Date.now())))+'<hr>'+
+    kv('Bills',sum.bills)+kv('Items (incl. VAT)',fmt(sum.gross))+(sum.disc?kv('Discounts','− '+fmt(sum.disc)):'')+kv('Amount excl. VAT',fmt(sum.net))+kv('VAT '+settings.vat+'%',fmt(sum.vat))+kv('TOTAL (AED)',fmt(sum.total),'t')+'<hr>'+
+    kv('Cash ('+sum.cashN+')',fmt(sum.cash))+kv('Card ('+sum.cardN+')',fmt(sum.card))+kv('Voided ('+sum.voidN+')',fmt(sum.voidTotal))+'<hr>'+
+    '<div class="c"><b>BY CASHIER</b></div>'+Object.keys(sum.byCashier).map(k=>{const o=sum.byCashier[k];return kv(esc(k)+' ('+o.bills+')',fmt(o.total))}).join('')+(Object.keys(sum.byCashier).length?'':'<div class="fine c">No sales</div>')+'<hr>'+
+    '<div class="c"><b>CASH DRAWER</b></div>'+kv('Opening float',fmt(sh.openingFloat))+kv('+ Cash sales',fmt(sum.cash))+kv('= Expected cash',fmt(sum.expectedCash),'t')+
+    (closed?kv('Counted cash',fmt(sh.countedCash))+kv(diff<0?'SHORT':diff>0?'OVER':'Difference',(diff>0?'+':'')+fmt(diff),'t')+(sh.note?'<div class="fine">Note: '+esc(sh.note)+'</div>':''):'')+
+    (closed?'<hr><div class="fine">Cashier signature: ____________________</div><div class="fine" style="margin-top:10px">Manager signature: ____________________</div>':'')+'</div>';
+}
+function showZ(sh,sum,kind){
+  const m=modal('<div class="paper">'+zReportHTML(sh,sum,kind)+'</div><div class="actions"><button class="ghost" id="zPrint">Print</button><button class="primary" id="zClose">Close</button></div>');
+  $('#zPrint',m.el).onclick=()=>doPrint(zReportHTML(sh,sum,kind));$('#zClose',m.el).onclick=()=>m.close();
+}
+async function nextZNo(){
+  const code=myBranch().code||'B';
+  try{
+    const n=await withTimeout(C.db.runTransaction(async tx=>{const snap=await tx.get(ctrRef());const n=((snap.exists&&snap.data().zSeq)||0)+1;tx.set(ctrRef(),{zSeq:n},{merge:true});return n}),8000);
+    return code+'-Z'+String(n).padStart(4,'0');
+  }catch(e){return code+'-Z'+ymd(Date.now()).replace(/-/g,'')+'-'+pad2(new Date().getHours())+pad2(new Date().getMinutes())}
+}
+function closeShiftModal(){
+  const sh=S.shift;if(!sh)return;
+  const sum=shiftSummary(sh,S.shiftSales);
+  const m=modal('<h2>Close shift</h2><p class="sub">Count all the cash in the drawer and enter the total.</p>'+
+    '<div class="sh-row"><span>Opening float</span><b>'+fmt(sh.openingFloat)+'</b></div><div class="sh-row"><span>Cash sales ('+sum.cashN+')</span><b>'+fmt(sum.cash)+'</b></div>'+
+    '<div class="sh-row big"><span>Expected in drawer</span><b>AED '+fmt(sum.expectedCash)+'</b></div>'+
+    '<label class="fld" style="margin-top:10px"><span>Counted cash</span><div class="money"><i>AED</i><input class="num" id="csCount" inputmode="decimal" placeholder="0.00"></div></label>'+
+    '<div class="sh-row big" id="csDiff"><span>Difference</span><b>–</b></div>'+
+    '<label class="fld"><span>Note (optional)</span><input id="csNote" placeholder="e.g. AED 20 taken for petty cash"></label>'+
+    (held.length?'<p class="note">'+plural(held.length,'held bill')+' will stay waiting for the next shift.</p>':'')+
+    '<div class="actions"><button class="ghost" id="csCancel">Cancel</button><button class="primary" id="csGo" disabled>Close shift &amp; print Z</button></div>');
+  const $m=x=>$(x,m.el);
+  const upd=()=>{const v=$m('#csCount').value.trim(),ok=v!==''&&!isNaN(parseFloat(v));$m('#csGo').disabled=!ok;if(!ok){$m('#csDiff b').textContent='–';$m('#csDiff b').className='';return}
+    const d=r2(parseFloat(v)-sum.expectedCash);$m('#csDiff b').textContent=(d>0?'+':'')+fmt(d)+(d<0?' short':d>0?' over':' – exact');$m('#csDiff b').className=d<0?'diff-short':d>0?'diff-over':'diff-ok'};
+  $m('#csCount').oninput=upd;$m('#csCancel').onclick=()=>m.close();
+  $m('#csGo').onclick=async()=>{
+    $m('#csGo').disabled=true;$m('#csGo').textContent='Closing…';
+    const counted=r2(parseFloat($m('#csCount').value)),zNo=await nextZNo();
+    const fin=shiftSummary(sh,S.shiftSales);
+    const upd2={status:'closed',closedAt:Date.now(),closedBy:cashierName()||C.email,countedCash:counted,expectedCash:fin.expectedCash,diff:r2(counted-fin.expectedCash),note:$m('#csNote').value.trim(),zNo,summary:fin};
+    shiftsCol().doc(sh.id).update(upd2).catch(e=>{console.error(e);toast('Shift close not saved: '+(e.code||e.message))});
+    logAct('Shift','Shift closed ('+zNo+') – sales AED '+fmt(fin.total)+', cash '+(upd2.diff<0?'short ':upd2.diff>0?'over ':'')+fmt(Math.abs(upd2.diff)));
+    m.close();
+    const done=Object.assign({},sh,upd2);
+    showZ(done,fin,'Z');
+  };
+  setTimeout(()=>$m('#csCount').focus(),30);
+}
+let shiftHist=null;
+async function renderShiftPage(){
+  const pg=$('#shiftPage');
+  if(!S.shiftsOn){pg.innerHTML='<div class="card none">Shifts are switched off until head office publishes the updated database rules (SETUP.md step 6).</div>';return}
+  let h='';
+  if(S.shift){
+    const sh=S.shift,sum=shiftSummary(sh,S.shiftSales);
+    h+='<div class="card"><h2 style="margin:0 0 2px;font-family:var(--display)">Shift open</h2><p class="sub" style="margin:0">Since '+esc(fmtDate(sh.openedAt))+' · opened by '+esc(sh.openedBy||'')+'</p>'+
+      '<div class="sh-grid"><div class="stat"><span>Sales</span><b class="num">AED '+fmt(sum.total)+'</b></div><div class="stat"><span>Bills</span><b class="num">'+sum.bills+'</b></div><div class="stat"><span>Cash · Card</span><b class="num">'+fmt(sum.cash)+' · '+fmt(sum.card)+'</b></div><div class="stat"><span>Expected cash in drawer</span><b class="num">AED '+fmt(sum.expectedCash)+'</b></div></div>'+
+      (Object.keys(sum.byCashier).length?tbl([['Cashier'],['Bills',1],['Cash',1],['Card',1],['Total',1]],Object.keys(sum.byCashier).map(k=>{const o=sum.byCashier[k];return trow([esc(k),o.bills,fmt(o.cash),fmt(o.card),fmt(o.total)],'lrrrr')})):'')+
+      '<div class="actions"><button class="ghost" id="shX">Print X report</button><button class="primary" id="shZ">Close shift &amp; Z report</button></div></div>';
+  }else{
+    h+='<div class="card open-shift" style="margin:0 0 16px;max-width:none">'+openShiftForm()+'</div>';
+  }
+  h+='<h3 class="rs">Recent Z reports</h3><div id="shHist"><p class="none">Loading…</p></div>';
+  pg.innerHTML=h;
+  if(S.shift){$('#shX').onclick=()=>showZ(S.shift,shiftSummary(S.shift,S.shiftSales),'X');$('#shZ').onclick=closeShiftModal}else bindOpenShift('#shiftPage');
+  try{
+    const q=await shiftsCol().where('status','==','closed').get();
+    shiftHist=q.docs.map(d=>d.data()).sort((a,b)=>b.closedAt-a.closedAt).slice(0,30);
+    if(curView!=='shift')return;
+    $('#shHist').innerHTML=shiftHist.length?tbl([['Z no.'],['Closed'],['By'],['Sales',1],['Over / short',1],['']],shiftHist.map(x=>trow([esc(x.zNo||''),fmtDate(x.closedAt),esc(x.closedBy||''),fmt(x.summary?x.summary.total:0),'<span class="'+(x.diff<0?'diff-short':x.diff>0?'diff-over':'diff-ok')+'">'+(x.diff>0?'+':'')+fmt(x.diff)+'</span>','<button class="mini" data-z="'+esc(x.id)+'">View</button>'],'lllrrl'))):'<p class="none">No closed shifts yet.</p>';
+    $$('#shHist [data-z]').forEach(b=>b.onclick=()=>{const x=shiftHist.find(y=>y.id===b.dataset.z);if(x)showZ(x,x.summary,'Z')});
+  }catch(e){$('#shHist').innerHTML='<p class="none">Could not load past shifts: '+esc(e.code||e.message)+'</p>'}
+}
+
+/* ---------- cashiers (head office) ---------- */
+function cashiersModal(b){
+  const m=modal('<div id="cashBody"></div>');
+  const draw=()=>{
+    const br=branchById(b.id)||b,list=br.cashiers||[];
+    $('#cashBody',m.el).innerHTML='<h2>Cashiers – '+esc(br.name)+'</h2><p class="sub">Each cashier signs in at the till with their own 4-digit PIN, so every sale shows who made it.</p>'+
+      (list.length?'<div class="list">'+list.map(c=>'<div class="li"><div class="bcode">👤</div><div><b>'+esc(c.name)+'</b>'+(c.active===false?' <small class="none">(removed)</small>':'')+'</div><span style="display:flex;gap:6px">'+(c.active===false?'<button class="mini" data-ca="'+esc(c.id)+'">Restore</button>':'<button class="mini" data-cp="'+esc(c.id)+'">New PIN</button><button class="mini danger" data-cr="'+esc(c.id)+'">Remove</button>')+'</span></div>').join('')+'</div>':'<p class="none">No cashiers yet. Without cashiers, the branch sells without PINs.</p>')+
+      '<h3 class="rs">Add a cashier</h3><div class="two-f"><label class="fld"><span>Name</span><input id="caName" placeholder="e.g. Ahmed"></label><label class="fld"><span>4-digit PIN</span><input id="caPin" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off"></label></div>'+
+      '<div class="actions"><button class="ghost" id="caDone">Done</button><button class="primary" id="caAdd">Add cashier</button></div>';
+    const $m=x=>$(x,m.el);
+    $m('#caDone').onclick=()=>m.close();
+    $m('#caAdd').onclick=async()=>{
+      const name=$m('#caName').value.trim(),pin=$m('#caPin').value.trim();
+      if(!name){$m('#caName').focus();return}
+      if(!/^\d{4}$/.test(pin)){toast('The PIN must be 4 digits');$m('#caPin').focus();return}
+      const h=await pinHash(b.id,pin);
+      if(list.some(c=>c.active!==false&&c.pin===h)){toast('Another cashier at this branch already uses that PIN');return}
+      await saveCashiers(b.id,list.concat([{id:'c'+uid(),name,pin:h,active:true}]),'Cashier '+name+' added to '+br.name);
+      draw();
+    };
+    $$('[data-cr]',m.el).forEach(x=>x.onclick=async()=>{const c=list.find(y=>y.id===x.dataset.cr);if(c&&await askConfirm('Remove '+c.name+'?','They will no longer be able to sign in at the till. Their past sales keep their name.','Remove',true)){await saveCashiers(b.id,list.map(y=>y.id===c.id?Object.assign({},y,{active:false}):y),'Cashier '+c.name+' removed from '+br.name);draw()}});
+    $$('[data-ca]',m.el).forEach(x=>x.onclick=async()=>{const c=list.find(y=>y.id===x.dataset.ca);await saveCashiers(b.id,list.map(y=>y.id===c.id?Object.assign({},y,{active:true}):y),'Cashier '+c.name+' restored at '+br.name);draw()});
+    $$('[data-cp]',m.el).forEach(x=>x.onclick=async()=>{
+      const c=list.find(y=>y.id===x.dataset.cp);const pin=(prompt('New 4-digit PIN for '+c.name)||'').trim();if(!pin)return;
+      if(!/^\d{4}$/.test(pin)){toast('The PIN must be 4 digits');return}
+      const h=await pinHash(b.id,pin);if(list.some(y=>y.id!==c.id&&y.active!==false&&y.pin===h)){toast('Another cashier already uses that PIN');return}
+      await saveCashiers(b.id,list.map(y=>y.id===c.id?Object.assign({},y,{pin:h}):y),'PIN changed for '+c.name+' at '+br.name);toast('PIN changed');draw();
+    });
+  };
+  draw();
+}
+async function saveCashiers(bid,list,msg){
+  try{await bref(bid).update({cashiers:list});const br=branchById(bid);if(br)br.cashiers=list;logAct('Settings',msg)}
+  catch(e){toast('Not saved: '+(e.code||e.message))}
+}
+
+/* ---------- shifts report (head office) ---------- */
+async function shiftsIn(from,to,bf){
+  const a=dayStart(from),b=dayEnd(to);
+  const ids=isHQ()?(bf&&bf!=='all'?[bf]:C.branches.map(x=>x.id)):[C.branch];
+  const parts=await Promise.all(ids.map(id=>shiftsCol(id).where('openedAt','>=',a).where('openedAt','<=',b).get().catch(e=>{if(e.code==='permission-denied')return {docs:[]};throw e})));
+  return parts.flatMap(q=>q.docs.map(d=>d.data())).sort((x,y)=>y.openedAt-x.openedAt);
+}
+function shiftsBlock(list,showBr,actions){
+  if(!list.length)return '<p class="none">No shifts in this period.</p>';
+  const tot=r2(list.filter(x=>x.status==='closed').reduce((n,x)=>n+(x.diff||0),0)),sales=r2(list.reduce((n,x)=>n+(x.summary?x.summary.total:0),0));
+  const pat=(showBr?'ll':'l')+'lllrrrr'+(actions?'l':'');
+  return tbl([['Z no.']].concat(showBr?[['Branch']]:[],[['Opened'],['Closed'],['By'],['Sales',1],['Expected cash',1],['Counted',1],['Over / short',1]],actions?[['']]:[]),
+    list.map(x=>trow([esc(x.zNo||'Open')].concat(showBr?[esc(brName(x.branch))]:[],[fmtDate(x.openedAt),x.closedAt?fmtDate(x.closedAt):'<b>Still open</b>',esc((x.openedBy||'')+(x.closedBy&&x.closedBy!==x.openedBy?' → '+x.closedBy:'')),x.summary?fmt(x.summary.total):'–',x.status==='closed'?fmt(x.expectedCash):'–',x.status==='closed'?fmt(x.countedCash):'–',x.status==='closed'?'<span class="'+(x.diff<0?'diff-short':x.diff>0?'diff-over':'diff-ok')+'">'+(x.diff>0?'+':'')+fmt(x.diff)+'</span>':'–'],actions?[x.status==='closed'?'<button class="mini" data-zv="'+esc(x.id)+'">View</button>':'']:[]),pat)),
+    trow(['Total ('+plural(list.length,'shift')+')'].concat(showBr?['']:[],['','','',fmt(sales),'','','<b>'+(tot>0?'+':'')+fmt(tot)+'</b>'],actions?['']:[]),pat,'sum'));
+}
+
 /* ---------- dashboard (head office) ----------
    One period filter scopes everything: headline total, KPIs, branch league,
    sales-over-time chart (hourly for a day, daily for a month), top fabrics
@@ -1534,7 +1825,7 @@ async function heldAll(){
   try{const qs=await Promise.all(C.branches.map(b=>bref(b.id).collection('held').get()));return qs.flatMap((q,i)=>q.docs.map(d=>Object.assign({branch:C.branches[i].id},d.data())))}
   catch(e){console.warn(e);return []}
 }
-let dashSeq=0;
+let dashSeq=0,dashShifts=[],dashOpen=[];
 async function renderDashboard(quiet){
   const my=++dashSeq,P=periodInfo(dashPeriod);
   $$('#dashFilters [data-p]').forEach(b=>{b.classList.toggle('on',b.dataset.p===dashPeriod);b.setAttribute('aria-selected',b.dataset.p===dashPeriod)});
@@ -1546,6 +1837,8 @@ async function renderDashboard(quiet){
     cur=P.live?Object.values(C.today).flat().filter(x=>isToday(x.ts)):await salesIn(P.from,P.to,'all');
     prev=await salesIn(P.cf,P.ct,'all');if(P.cut)prev=prev.filter(x=>x.ts<=P.cut);
     held=await heldAll();
+    dashShifts=await shiftsIn(P.from,P.to,'all').catch(()=>[]);
+    dashOpen=(await Promise.all(C.branches.map(b=>shiftsCol(b.id).where('status','==','open').get().catch(()=>({docs:[]}))))).flatMap(q=>q.docs.map(d=>d.data()));
   }catch(e){
     if(my!==dashSeq)return;
     body.classList.remove('busy');body.innerHTML='<div class="card none">Could not load the dashboard: '+esc(e.code||e.message)+'. Check the internet connection and press Refresh.</div>';return;
@@ -1589,8 +1882,12 @@ async function renderDashboard(quiet){
   if(voids.length){const by={};voids.forEach(x=>{by[x.branch]=(by[x.branch]||0)+1});al.push(['bad','×',plural(voids.length,'voided bill')+' (AED '+fmt(a.voidTotal)+')',Object.keys(by).map(k=>brName(k)+': '+by[k]).join(' · ')])}
   const offNo=cur.filter(s=>/-X/.test(s.no));
   if(offNo.length)al.push(['warn','!',plural(offNo.length,'bill')+' numbered offline without a reserved number','A till ran out of reserved invoice numbers while offline. Check its internet connection.'])
+  const off=dashShifts.filter(x=>x.status==='closed'&&Math.abs(x.diff||0)>=1);
+  if(off.length)al.push(['bad','≠','Cash '+(off.some(x=>x.diff<0)?'short':'over')+' on '+plural(off.length,'shift'),off.map(x=>brName(x.branch)+' '+(x.zNo||'')+': '+(x.diff>0?'+':'')+fmt(x.diff)).join(' · ')]);
+  const stale=dashOpen.filter(x=>Date.now()-x.openedAt>14*3600e3);
+  if(stale.length)al.push(['warn','!',plural(stale.length,'shift')+' open for more than 14 hours',stale.map(x=>brName(x.branch)+' (since '+fmtDate(x.openedAt)+')').join(' · ')+' – forgot to close?']);
   if(a.total&&a.disc/a.total>0.1)al.push(['warn','%','Discounts are '+Math.round(a.disc/a.total*100)+'% of sales','AED '+fmt(a.disc)+' given in this period']);
-  if(!al.length)al.push(['ok','✓','Nothing needs attention','No old held bills, voids or idle branches for this period.']);
+  if(!al.length)al.push(['ok','✓','Nothing needs attention','No old held bills, voids, cash differences or idle branches for this period.']);
   h+='<div class="dash-card"><h3>Needs attention</h3><p class="cap">Things worth a phone call.</p><ul class="alerts">'+al.map(x=>'<li class="'+x[0]+'"><span class="ai" aria-hidden="true">'+x[1]+'</span><div><b>'+esc(x[2])+'</b><small>'+esc(x[3])+'</small></div></li>').join('')+'</ul></div>';
   h+='</div>';
   body.innerHTML=h;
@@ -1658,9 +1955,10 @@ $('#dashRefresh').onclick=()=>{salesCache.clear();renderDashboard()};
 
 /* ---------- branches (head office) ---------- */
 function renderBranches(){
-  $('#branchesPage').innerHTML=C.branches.length?'<div class="list">'+C.branches.map(b=>'<div class="li"><div class="bcode">'+esc(b.code)+'</div><div><b>'+esc(b.name)+'</b><br><small>'+esc(b.address||'No address')+(b.phone?' · '+esc(b.phone):'')+' · login: <span class="num">'+esc(b.email||'none')+'</span></small></div><button class="mini" data-be="'+esc(b.id)+'">Edit</button></div>').join('')+'</div>':
+  $('#branchesPage').innerHTML=C.branches.length?'<div class="list">'+C.branches.map(b=>'<div class="li"><div class="bcode">'+esc(b.code)+'</div><div><b>'+esc(b.name)+'</b><br><small>'+esc(b.address||'No address')+(b.phone?' · '+esc(b.phone):'')+' · login: <span class="num">'+esc(b.email||'none')+'</span></small></div><span style="display:flex;gap:6px"><button class="mini" data-bc="'+esc(b.id)+'">Cashiers ('+(b.cashiers||[]).filter(c=>c.active!==false).length+')</button><button class="mini" data-be="'+esc(b.id)+'">Edit</button></span></div>').join('')+'</div>':
     '<div class="card none">No branches yet. Add each shop with “+ Add branch”, using the login email you created for it in Firebase.</div>';
   $$('[data-be]').forEach(x=>x.onclick=()=>branchForm(branchById(x.dataset.be)));
+  $$('[data-bc]').forEach(x=>x.onclick=()=>cashiersModal(branchById(x.dataset.bc)));
 }
 function branchForm(b){
   const isNew=!b;
@@ -1823,7 +2121,7 @@ function sideToday(){
   $('#sideToday').textContent='AED '+fmt(agg(list).total);
 }
 let curView='sale';
-const VIEWS={dashboard:()=>renderDashboard(),sale:null,held:()=>renderHeld(),items:itemsModal,reports:()=>reportsModal(),branches:()=>renderBranches(),settings:()=>{settingsModal();renderBackup()}};
+const VIEWS={dashboard:()=>renderDashboard(),shift:()=>renderShiftPage(),sale:null,held:()=>renderHeld(),items:itemsModal,reports:()=>reportsModal(),branches:()=>renderBranches(),settings:()=>{settingsModal();renderBackup()}};
 function go(v){
   if(!(v in VIEWS)||!viewAllowed(v))v=CLOUD&&isHQ()?'dashboard':'sale';
   curView=v;

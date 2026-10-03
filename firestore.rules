@@ -7,7 +7,8 @@ rules_version = '2';
 // Who can do what:
 //   head office  – everything: settings, fabrics, branches, all branches' data
 //   branch login – read settings and fabrics; read and add its own branch's
-//                  sales, held bills and log; void (not edit or delete) its sales
+//                  sales, held bills, shifts and log; void (not edit or delete)
+//                  its sales; a closed shift (Z report) can't be changed
 //   anyone else  – nothing
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -65,7 +66,15 @@ service cloud.firestore {
         allow create: if isBranch(b);
       }
 
-      // invoice and held-bill counters
+      // shifts: opened with the cash float, closed once with the cash count (Z report);
+      // a closed shift can't be changed
+      match /shifts/{id} {
+        allow read: if isHQ() || isBranch(b);
+        allow create: if isBranch(b) && request.resource.data.branch == b && request.resource.data.status == 'open';
+        allow update: if isBranch(b) && resource.data.status == 'open';
+      }
+
+      // invoice, held-bill and Z-report counters
       match /meta/{id} {
         allow read: if isHQ() || isBranch(b);
         allow write: if isBranch(b);
