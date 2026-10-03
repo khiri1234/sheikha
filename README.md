@@ -9,6 +9,7 @@ https://khiri1234.github.io/sheikha/.
   without internet.
 - `firestore.rules` – database security rules for the multi-branch setup.
 - [`SETUP.md`](SETUP.md) – how to connect head office and all branches.
+- [`ios/`](ios/README.md) – **Sheikha HQ**, the head-office iPhone app (SwiftUI + Firebase).
 
 Without Firebase settings (`FIREBASE_CONFIG` in `index.html`) the POS keeps
 everything on the one computer it runs on. With them, every branch signs in,
