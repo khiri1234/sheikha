@@ -116,28 +116,14 @@ struct DashboardView: View {
 
     private func card<C: View>(_ title: String, _ caption: String, icon: String, tint: Color, @ViewBuilder _ content: () -> C) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
-                Image(systemName: icon).font(.subheadline.weight(.bold)).foregroundStyle(.white)
-                    .frame(width: 30, height: 30)
-                    .background(tint.gradient, in: RoundedRectangle(cornerRadius: 8))
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title).font(.headline)
-                    Text(caption).font(.caption).foregroundStyle(.secondary)
-                }
-            }
+            Label { Text(title).font(.headline) } icon: { Image(systemName: icon).foregroundStyle(tint) }
+            Text(caption).font(.caption).foregroundStyle(.secondary)
             content()
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.background, in: RoundedRectangle(cornerRadius: 14))
-        .overlay(alignment: .top) {
-            UnevenRoundedRectangle(cornerRadii: .init(topLeading: 14, topTrailing: 14)).fill(tint.gradient).frame(height: 4)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
-
-    /// Each branch keeps its own colour (by position in the code-sorted list).
-    private func color(_ br: Branch) -> Color { Brand.palette(store.branches.firstIndex { $0.id == br.id } ?? 0) }
 
     private struct Row: Identifiable { var id: String; var branch: Branch; var cur: Totals; var prev: Totals }
 
@@ -154,7 +140,7 @@ struct DashboardView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text(r.branch.code).font(.caption2.monospaced().bold()).padding(.horizontal, 5).padding(.vertical, 1)
-                        .background(color(r.branch).opacity(0.15), in: RoundedRectangle(cornerRadius: 4)).foregroundStyle(color(r.branch))
+                        .background(Brand.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 4)).foregroundStyle(Brand.orange)
                     Text(r.branch.name).font(.subheadline.weight(.semibold)).lineLimit(1)
                     Spacer()
                     DeltaPill(current: r.cur.total, previous: r.prev.total)
@@ -162,9 +148,9 @@ struct DashboardView: View {
                 HStack(spacing: 8) {
                     GeometryReader { g in
                         ZStack(alignment: .leading) {
-                            Capsule().fill(color(r.branch).opacity(0.12))
+                            Capsule().fill(Color.secondary.opacity(0.12))
                             Capsule()
-                                .fill(LinearGradient(colors: [color(r.branch).opacity(0.65), color(r.branch)], startPoint: .leading, endPoint: .trailing))
+                                .fill(Brand.orange)
                                 .frame(width: max(6, g.size.width * r.cur.total / top))
                         }
                     }
@@ -180,14 +166,13 @@ struct DashboardView: View {
     @ViewBuilder private func topFabrics(_ total: Double) -> some View {
         let list = Array(fabricsSold(current).prefix(6))
         if list.isEmpty { Text("No sales in this period yet.").foregroundStyle(.secondary) }
-        ForEach(Array(list.enumerated()), id: \.element.id) { i, f in
+        ForEach(list) { f in
             HStack {
-                Circle().fill(Brand.palette(i + 3)).frame(width: 10, height: 10)
                 Text(f.name).font(.subheadline)
                 Spacer()
                 Text("\(Fmt.qty(f.qty)) \(f.unit)").font(.caption.monospaced()).foregroundStyle(.secondary)
                 Text(Fmt.amount(f.total)).font(.caption.monospaced().bold()).frame(width: 90, alignment: .trailing)
-                Text(total > 0 ? "\(Int((f.total / total * 100).rounded()))%" : "–").font(.caption2.bold()).foregroundStyle(Brand.palette(i + 3)).frame(width: 34, alignment: .trailing)
+                Text(total > 0 ? "\(Int((f.total / total * 100).rounded()))%" : "–").font(.caption2).foregroundStyle(.secondary).frame(width: 34, alignment: .trailing)
             }
         }
     }
@@ -219,8 +204,6 @@ struct DashboardView: View {
         let list = alerts(a)
         if list.isEmpty {
             Label("Nothing needs attention", systemImage: "checkmark.circle.fill").foregroundStyle(Brand.good).font(.subheadline.weight(.semibold))
-                .padding(10).frame(maxWidth: .infinity, alignment: .leading)
-                .background(Brand.good.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
         }
         ForEach(list) { al in
             HStack(alignment: .top, spacing: 10) {
@@ -232,9 +215,7 @@ struct DashboardView: View {
                     Text(al.detail).font(.caption).foregroundStyle(.secondary)
                 }
             }
-            .padding(10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(al.color.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+            .padding(.vertical, 2)
         }
     }
 

@@ -38,12 +38,12 @@ struct StatTile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .top) {
-                Text(title).font(.caption.weight(.semibold)).foregroundStyle(tint)
+                Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 Spacer(minLength: 4)
                 if let icon {
-                    Image(systemName: icon).font(.caption.weight(.bold)).foregroundStyle(.white)
-                        .frame(width: 26, height: 26)
-                        .background(tint.gradient, in: Circle())
+                    Image(systemName: icon).font(.caption.weight(.semibold)).foregroundStyle(tint)
+                        .frame(width: 24, height: 24)
+                        .background(tint.opacity(0.12), in: Circle())
                 }
             }
             Text(value).font(.system(.title3, design: .monospaced).weight(.bold)).minimumScaleFactor(0.6).lineLimit(1)
@@ -53,8 +53,7 @@ struct StatTile: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(.background, in: RoundedRectangle(cornerRadius: 12))
-        .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(tint.opacity(0.35)))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.secondary.opacity(0.2)))
     }
 }
 

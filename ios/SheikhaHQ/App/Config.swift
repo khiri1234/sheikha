@@ -21,9 +21,6 @@ enum Brand {
     static let teal = adaptive(light: (0.0, 0.502, 0.533), dark: (0.255, 0.800, 0.800))
     static let purple = adaptive(light: (0.478, 0.271, 0.800), dark: (0.710, 0.553, 1.0))
     static let pink = adaptive(light: (0.800, 0.176, 0.471), dark: (1.0, 0.451, 0.659))
-    static let indigo = adaptive(light: (0.271, 0.306, 0.769), dark: (0.569, 0.600, 1.0))
-    static let accents: [Color] = [orange, blue, teal, purple, pink, good, amber, indigo]
-    static func palette(_ i: Int) -> Color { accents[((i % accents.count) + accents.count) % accents.count] }
 
     /// Headline card and chart bars.
     static let sunset = LinearGradient(colors: [Color(red: 0.95, green: 0.42, blue: 0.10), Color(red: 0.80, green: 0.20, blue: 0.20)], startPoint: .topLeading, endPoint: .bottomTrailing)
