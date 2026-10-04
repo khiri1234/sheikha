@@ -82,7 +82,7 @@ POS,sales,dashboard,branches,Z report,VAT,shift,cashier,retail,textiles,fabric,h
 | Field | Value |
 |---|---|
 | Support URL | `https://khiri1234.github.io/sheikha/support.html` |
-| Marketing URL | `https://khiri1234.github.io/sheikha/` (optional) |
+| Marketing URL | `https://khiri1234.github.io/sheikha/hq.html` |
 | Privacy Policy URL (App Privacy page) | `https://khiri1234.github.io/sheikha/privacy.html` |
 | Copyright | `2026 Sheikha Textiles LLC` |
 | Version | `1.0` |
