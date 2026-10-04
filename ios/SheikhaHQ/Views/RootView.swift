@@ -58,6 +58,7 @@ struct LockView: View {
 }
 
 struct MainTabs: View {
+    @Environment(HQStore.self) private var store
     var body: some View {
         TabView {
             NavigationStack { DashboardView() }
@@ -70,6 +71,14 @@ struct MainTabs: View {
                 .tabItem { Label("Z reports", systemImage: "banknote") }
             NavigationStack { MoreView() }
                 .tabItem { Label("More", systemImage: "ellipsis.circle") }
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if store.isDemo {
+                Text("Demo mode – sample data, not a real shop")
+                    .font(.caption.weight(.semibold)).foregroundStyle(.white)
+                    .frame(maxWidth: .infinity).padding(.vertical, 4)
+                    .background(Brand.orange)
+            }
         }
     }
 }
