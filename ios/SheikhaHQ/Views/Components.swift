@@ -6,14 +6,16 @@ struct DeltaPill: View {
     var previous: Double
     var label: String = ""
     var upIsGood = true
+    /// white text for use on a coloured background
+    var onColor = false
 
     var body: some View {
         let (text, color) = info
         Text(text)
             .font(.caption.weight(.bold))
             .padding(.horizontal, 8).padding(.vertical, 3)
-            .background(color.opacity(0.12), in: Capsule())
-            .foregroundStyle(color)
+            .background(onColor ? Color.white.opacity(0.22) : color.opacity(0.12), in: Capsule())
+            .foregroundStyle(onColor ? Color.white : color)
     }
     private var info: (String, Color) {
         if previous == 0 && current == 0 { return ("– no change", .secondary) }
@@ -31,9 +33,19 @@ struct StatTile: View {
     var value: String
     var footnote: String? = nil
     var delta: DeltaPill? = nil
+    var icon: String? = nil
+    var tint: Color = .secondary
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            HStack(alignment: .top) {
+                Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                Spacer(minLength: 4)
+                if let icon {
+                    Image(systemName: icon).font(.caption.weight(.semibold)).foregroundStyle(tint)
+                        .frame(width: 24, height: 24)
+                        .background(tint.opacity(0.12), in: Circle())
+                }
+            }
             Text(value).font(.system(.title3, design: .monospaced).weight(.bold)).minimumScaleFactor(0.6).lineLimit(1)
             if let delta { delta }
             if let footnote { Text(footnote).font(.caption2).foregroundStyle(.secondary) }
