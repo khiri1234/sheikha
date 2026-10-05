@@ -63,40 +63,31 @@ struct DashboardView: View {
 
                 // headline
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("TOTAL SALES · \(period.rawValue.uppercased())").font(.caption.weight(.bold)).foregroundStyle(.white.opacity(0.85))
+                    Text("TOTAL SALES · \(period.rawValue.uppercased())").font(.caption.weight(.bold)).foregroundStyle(.secondary)
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text("AED").font(.title3.weight(.semibold)).foregroundStyle(.white.opacity(0.85))
-                        Text(Fmt.amount(a.total)).font(.system(size: 44, weight: .bold)).minimumScaleFactor(0.5).lineLimit(1).foregroundStyle(.white)
+                        Text("AED").font(.title3.weight(.semibold)).foregroundStyle(.secondary)
+                        Text(Fmt.amount(a.total)).font(.system(size: 44, weight: .bold)).minimumScaleFactor(0.5).lineLimit(1)
                     }
                     HStack {
-                        DeltaPill(current: a.total, previous: b.total, label: info.cmpLabel, onColor: true)
-                        if loading { ProgressView().controlSize(.small).tint(.white) }
+                        DeltaPill(current: a.total, previous: b.total, label: info.cmpLabel)
+                        if loading { ProgressView().controlSize(.small) }
                     }
-                    Text("\(info.cmpLabel.prefix(1).uppercased() + info.cmpLabel.dropFirst()): \(Fmt.aed(b.total))").font(.caption).foregroundStyle(.white.opacity(0.85))
+                    Text("\(info.cmpLabel.prefix(1).uppercased() + info.cmpLabel.dropFirst()): \(Fmt.aed(b.total))").font(.caption).foregroundStyle(.secondary)
                 }
-                .padding(18)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(alignment: .bottomTrailing) {
-                    Image(systemName: "chart.line.uptrend.xyaxis").font(.system(size: 90, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.12)).offset(x: 10, y: 14)
-                }
-                .background(Brand.sunset, in: RoundedRectangle(cornerRadius: 18))
-                .clipShape(RoundedRectangle(cornerRadius: 18))
-                .shadow(color: Brand.orange.opacity(0.3), radius: 10, y: 4)
 
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                    StatTile(title: "Bills", value: "\(a.bills)", delta: DeltaPill(current: Double(a.bills), previous: Double(b.bills)), icon: "doc.text.fill", tint: Brand.blue)
-                    StatTile(title: "Average bill", value: Fmt.amount(a.average), delta: DeltaPill(current: a.average, previous: b.average), icon: "divide", tint: Brand.purple)
-                    StatTile(title: "VAT collected", value: Fmt.amount(a.vat), footnote: "Excl. VAT " + Fmt.amount(a.net), icon: "building.columns.fill", tint: Brand.teal)
-                    StatTile(title: "Cash · Card", value: a.total > 0 ? "\(Int((a.cash / a.total * 100).rounded()))% · \(Int((a.card / a.total * 100).rounded()))%" : "–", footnote: Fmt.amount(a.cash) + " · " + Fmt.amount(a.card), icon: "creditcard.fill", tint: Brand.good)
-                    StatTile(title: "Discounts", value: Fmt.amount(a.disc), delta: DeltaPill(current: a.disc, previous: b.disc, upIsGood: false), icon: "tag.fill", tint: Brand.pink)
-                    StatTile(title: "Voided bills", value: "\(a.voidN)", footnote: Fmt.aed(a.voidTotal), icon: "xmark", tint: Brand.bad)
+                    StatTile(title: "Bills", value: "\(a.bills)", delta: DeltaPill(current: Double(a.bills), previous: Double(b.bills)))
+                    StatTile(title: "Average bill", value: Fmt.amount(a.average), delta: DeltaPill(current: a.average, previous: b.average))
+                    StatTile(title: "VAT collected", value: Fmt.amount(a.vat), footnote: "Excl. VAT " + Fmt.amount(a.net))
+                    StatTile(title: "Cash · Card", value: a.total > 0 ? "\(Int((a.cash / a.total * 100).rounded()))% · \(Int((a.card / a.total * 100).rounded()))%" : "–", footnote: Fmt.amount(a.cash) + " · " + Fmt.amount(a.card))
+                    StatTile(title: "Discounts", value: Fmt.amount(a.disc), delta: DeltaPill(current: a.disc, previous: b.disc, upIsGood: false))
+                    StatTile(title: "Voided bills", value: "\(a.voidN)", footnote: Fmt.aed(a.voidTotal))
                 }
 
-                card("Branches", "Highest first, change vs \(info.cmpLabel).", icon: "building.2.fill", tint: Brand.blue) { branchRanking }
-                card(info.hourly ? "Sales by hour" : "Sales by day", "All branches, AED incl. VAT.", icon: "chart.bar.fill", tint: Brand.orange) { TrendChart(current: current, compare: compare, info: info, period: period) }
-                card("Top fabrics", "Best sellers by sales value.", icon: "star.fill", tint: Brand.purple) { topFabrics(a.total) }
-                card("Needs attention", "Things worth a phone call.", icon: "bell.fill", tint: Brand.amber) { attention(a) }
+                card("Branches", "Highest first, change vs \(info.cmpLabel).") { branchRanking }
+                card(info.hourly ? "Sales by hour" : "Sales by day", "All branches, AED incl. VAT.") { TrendChart(current: current, compare: compare, info: info, period: period) }
+                card("Top fabrics", "Best sellers by sales value.") { topFabrics(a.total) }
+                card("Needs attention", "Things worth a phone call.") { attention(a) }
             }
             .padding()
         }
@@ -114,9 +105,9 @@ struct DashboardView: View {
 
     // MARK: sections
 
-    private func card<C: View>(_ title: String, _ caption: String, icon: String, tint: Color, @ViewBuilder _ content: () -> C) -> some View {
+    private func card<C: View>(_ title: String, _ caption: String, @ViewBuilder _ content: () -> C) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label { Text(title).font(.headline) } icon: { Image(systemName: icon).foregroundStyle(tint) }
+            Text(title).font(.headline)
             Text(caption).font(.caption).foregroundStyle(.secondary)
             content()
         }
@@ -147,12 +138,9 @@ struct DashboardView: View {
                 }
                 HStack(spacing: 8) {
                     GeometryReader { g in
-                        ZStack(alignment: .leading) {
-                            Capsule().fill(Color.secondary.opacity(0.12))
-                            Capsule()
-                                .fill(Brand.orange)
-                                .frame(width: max(6, g.size.width * r.cur.total / top))
-                        }
+                        UnevenRoundedRectangle(cornerRadii: .init(topLeading: 0, bottomLeading: 0, bottomTrailing: 4, topTrailing: 4))
+                            .fill(Brand.orange)
+                            .frame(width: max(2, g.size.width * r.cur.total / top))
                     }
                     .frame(height: 12)
                     Text(Fmt.amount(r.cur.total)).font(.caption.monospaced().bold()).frame(width: 96, alignment: .trailing)
@@ -207,9 +195,7 @@ struct DashboardView: View {
         }
         ForEach(list) { al in
             HStack(alignment: .top, spacing: 10) {
-                Image(systemName: al.icon).font(.subheadline.weight(.bold)).foregroundStyle(al.color)
-                    .frame(width: 28, height: 28)
-                    .background(al.color.opacity(0.15), in: Circle())
+                Image(systemName: al.icon).foregroundStyle(al.color)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(al.title).font(.subheadline.weight(.semibold))
                     Text(al.detail).font(.caption).foregroundStyle(.secondary)
@@ -283,14 +269,14 @@ struct TrendChart: View {
         let pts = points
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 14) {
-                Label { Text(period.rawValue) } icon: { RoundedRectangle(cornerRadius: 2).fill(Brand.barFill).frame(width: 10, height: 10) }
+                Label { Text(period.rawValue) } icon: { RoundedRectangle(cornerRadius: 2).fill(Brand.orange).frame(width: 10, height: 10) }
                 Label { Text(info.cmpLabel.prefix(1).uppercased() + info.cmpLabel.dropFirst()) } icon: { Rectangle().fill(Brand.compare).frame(width: 14, height: 2) }
             }
             .font(.caption).foregroundStyle(.secondary)
             Chart {
                 ForEach(pts) { p in
                     BarMark(x: .value(info.hourly ? "Hour" : "Day", p.key), y: .value("AED", p.cur), width: .fixed(info.hourly ? 12 : 6))
-                        .foregroundStyle(Brand.barFill)
+                        .foregroundStyle(Brand.orange)
                         .cornerRadius(3)
                 }
                 ForEach(pts.filter { $0.cmp >= 0 }) { p in
