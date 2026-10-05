@@ -4,6 +4,9 @@ import UIKit
 /// The head-office login. Must match HQ_EMAIL in index.html and isHQ() in firestore.rules.
 enum Config {
     static let hqEmail = "sheikhatextiles@gmail.com"
+    /// Demo sign-in for App Review: sample data only, no access to the real shop (see DemoData).
+    static let demoEmail = "demo@sheikhatextiles.app"
+    static let demoPassword = "SheikhaDemo2026"
 }
 
 enum Brand {

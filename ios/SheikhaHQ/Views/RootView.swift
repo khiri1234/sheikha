@@ -49,7 +49,7 @@ struct LockView: View {
         ZStack {
             Brand.charcoal.ignoresSafeArea()
             VStack(spacing: 16) {
-                Image(systemName: "lock.fill").font(.system(size: 44)).foregroundStyle(Brand.orange)
+                Image("Logo").resizable().scaledToFit().frame(width: 120, height: 120).clipShape(RoundedRectangle(cornerRadius: 26))
                 Text("Sheikha HQ is locked").font(.title3.bold()).foregroundStyle(.white)
                 Button("Unlock", action: unlock).buttonStyle(.borderedProminent)
             }
@@ -58,6 +58,7 @@ struct LockView: View {
 }
 
 struct MainTabs: View {
+    @Environment(HQStore.self) private var store
     var body: some View {
         TabView {
             NavigationStack { DashboardView() }
@@ -70,6 +71,14 @@ struct MainTabs: View {
                 .tabItem { Label("Z reports", systemImage: "banknote") }
             NavigationStack { MoreView() }
                 .tabItem { Label("More", systemImage: "ellipsis.circle") }
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if store.isDemo {
+                Text("Demo mode – sample data, not a real shop")
+                    .font(.caption.weight(.semibold)).foregroundStyle(.white)
+                    .frame(maxWidth: .infinity).padding(.vertical, 4)
+                    .background(Brand.orange)
+            }
         }
     }
 }
@@ -87,8 +96,10 @@ struct LoginView: View {
             Brand.charcoal.ignoresSafeArea()
             VStack(spacing: 18) {
                 Spacer()
-                VStack(spacing: 4) {
-                    Text("SHEIKHA TEXTILES").font(.title2.weight(.heavy)).foregroundStyle(.white)
+                VStack(spacing: 12) {
+                    Image("Logo").resizable().scaledToFit().frame(width: 180, height: 180)
+                        .clipShape(RoundedRectangle(cornerRadius: 38))
+                        .accessibilityLabel("Sheikha Textiles")
                     Text("Head office").font(.headline).foregroundStyle(Brand.orange)
                 }
                 VStack(spacing: 12) {

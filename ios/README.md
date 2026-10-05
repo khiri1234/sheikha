@@ -84,6 +84,11 @@ After running `xcodegen`, check **Signing & Capabilities** shows **Push Notifica
 **Background Modes → Remote notifications**. Push notifications only work on a real iPhone,
 not in the Simulator.
 
+## Submitting to the App Store
+See [APP_REVIEW.md](APP_REVIEW.md): distribution choice, every App Store Connect field, screenshots,
+privacy answers and the demo account for Apple's reviewers (`demo@sheikhatextiles.app` opens a
+demo mode with sample data and never touches the live database).
+
 ## Notes
 - Only the head-office login can use the app; branch logins are refused.
 - Cashier PINs set here are hashed exactly like the web POS
