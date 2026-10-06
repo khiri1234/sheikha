@@ -49,7 +49,7 @@ struct LockView: View {
         ZStack {
             Brand.charcoal.ignoresSafeArea()
             VStack(spacing: 16) {
-                Image("Logo").resizable().scaledToFit().frame(width: 120, height: 120).clipShape(RoundedRectangle(cornerRadius: 26))
+                Image(systemName: "lock.fill").font(.system(size: 44)).foregroundStyle(Brand.orange)
                 Text("Sheikha HQ is locked").font(.title3.bold()).foregroundStyle(.white)
                 Button("Unlock", action: unlock).buttonStyle(.borderedProminent)
             }
@@ -96,10 +96,8 @@ struct LoginView: View {
             Brand.charcoal.ignoresSafeArea()
             VStack(spacing: 18) {
                 Spacer()
-                VStack(spacing: 12) {
-                    Image("Logo").resizable().scaledToFit().frame(width: 180, height: 180)
-                        .clipShape(RoundedRectangle(cornerRadius: 38))
-                        .accessibilityLabel("Sheikha Textiles")
+                VStack(spacing: 4) {
+                    Text("SHEIKHA TEXTILES").font(.title2.weight(.heavy)).foregroundStyle(.white)
                     Text("Head office").font(.headline).foregroundStyle(Brand.orange)
                 }
                 VStack(spacing: 12) {
