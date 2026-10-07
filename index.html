@@ -36,7 +36,10 @@ button{cursor:pointer}
 /* Sidebar */
 .sidebar{background:#1E2228;border-right:0;color:#EEF0F3;padding:22px 14px;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh;padding-top:calc(22px + env(safe-area-inset-top,0px))}
 .brand{display:flex;align-items:center;gap:10px;padding:0 8px 22px 8px;border-bottom:1px solid #2F343C;margin-bottom:16px}
-.brand .logo{flex:none;width:44px;height:44px;border-radius:10px;object-fit:cover}
+.brand .dot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--till);box-shadow:0 0 0 3px rgba(225,85,12,.25)}
+.brand .logo{display:none;flex:none;width:44px;height:44px;border-radius:10px;object-fit:cover}
+.side-logo{display:block;width:100%;max-width:170px;aspect-ratio:1;margin:18px auto 0;border-radius:16px;object-fit:cover}
+@media (max-height:640px){.side-logo{display:none}}
 .brand span{font-family:var(--display);font-weight:700;letter-spacing:.01em;font-size:15px;line-height:1.15;display:block}
 .brand small{display:block;font-size:12px;color:#9AA0AA;margin-top:2px}
 .nav{display:flex;flex-direction:column;gap:4px}
@@ -434,6 +437,8 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
   .nav-btn{position:relative}
   .nav-count{position:absolute;top:2px;right:0;min-width:16px;padding:0 4px;font-size:10px;line-height:16px}
   .side-foot{display:none}
+  .side-logo,.brand .dot{display:none}
+  .brand .logo{display:block}
   main{padding:16px 14px 90px}
   .topbar .pill{display:none}
   .sale-layout{grid-template-columns:1fr}
@@ -463,7 +468,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
 <div class="gate" id="gate" hidden><div class="gate-box" id="gateBox"></div></div>
 <div class="app" id="app">
   <div class="sidebar">
-    <div class="brand"><img class="logo" src="icon-192.png" alt="Sheikha Textiles"><div><span id="brandName">SHEIKHA TEXTILES</span><small id="brandAr">الشيخة للأقمشة</small><small class="brand-branch" id="brandBranch" hidden></small></div></div>
+    <div class="brand"><div class="dot"></div><img class="logo" src="icon-192.png" alt="Sheikha Textiles"><div><span id="brandName">SHEIKHA TEXTILES</span><small id="brandAr">الشيخة للأقمشة</small><small class="brand-branch" id="brandBranch" hidden></small></div></div>
     <nav class="nav" aria-label="Main">
       <button class="nav-btn" data-view="dashboard" hidden><span class="ic">📈</span>Dashboard</button>
       <button class="nav-btn active" data-view="sale"><span class="ic">🧾</span>Sale</button>
@@ -474,6 +479,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
       <button class="nav-btn" data-view="branches" hidden><span class="ic">🏬</span>Branches</button>
       <button class="nav-btn" data-view="settings"><span class="ic">⚙️</span>Settings</button>
     </nav>
+    <img class="side-logo" src="icon-512.png" alt="Sheikha Textiles">
     <div class="side-foot">VAT <span id="sideVat">5</span>% · <span id="sideTodayLbl">Today's sales</span><br><b id="sideToday">AED 0.00</b>
       <div class="who" id="who" hidden><span class="net" id="netState"></span><span class="who-cashier" id="whoCashier" hidden></span><span id="whoEmail"></span><span class="who-links"><button class="lock-link" id="btnSwitch" type="button" hidden>Switch cashier</button><button class="lock-link" id="btnSignOut" type="button">Sign out</button></span></div>
     </div>
