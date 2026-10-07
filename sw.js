@@ -2,7 +2,7 @@
 // the computer so the till opens and sells even without internet.
 // App files: network first (updates arrive as soon as they are published),
 // falling back to the saved copy. Libraries and fonts: saved copy first.
-const CACHE='sheikha-pos-v4';
+const CACHE='sheikha-pos-v5';
 const SDK='https://www.gstatic.com/firebasejs/10.12.2/';
 const PRECACHE=['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png']
   .concat(['firebase-app-compat.js','firebase-auth-compat.js','firebase-firestore-compat.js'].map(f=>SDK+f));
