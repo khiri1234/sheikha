@@ -5,7 +5,7 @@ rules_version = '2';
 // Publish these rules in Firebase console → Firestore Database → Rules.
 //
 // Who can do what:
-//   head office  – everything: settings, fabrics, branches, all branches' data
+//   head office  – everything: settings, fabrics, branches, purchases, all branches' data
 //   branch login – read settings and fabrics; read and add its own branch's
 //                  sales, held bills, shifts and log; void (not edit or delete)
 //                  its sales; a closed shift (Z report) can't be changed
@@ -36,6 +36,11 @@ service cloud.firestore {
     match /branchLogins/{em} {
       allow read: if isHQ() || (signedIn() && email() == em);
       allow write: if isHQ();
+    }
+
+    // supplier bills (Purchases), head office only
+    match /purchases/{id} {
+      allow read, write: if isHQ();
     }
 
     // head office activity log

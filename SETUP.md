@@ -211,3 +211,20 @@ Nothing changes at the branches, and the database rules don't need updating.
   - If no answer appears at all, the Cloud Functions aren't deployed. Run step 4
     again.
 - For more detail, run `firebase functions:log --only notifyTest` in Terminal.
+
+### 15. Purchases (supplier bills)
+**One-time:** the database rules gained a section for purchases. Copy the whole of
+[`firestore.rules`](firestore.rules) again into **Firebase → Firestore Database →
+Rules** and click **Publish**. Until then, the Purchases page shows a note instead
+of the list.
+
+**Head office:** **Purchases → + Add purchase** for every supplier bill: date,
+supplier, their invoice number and TRN, which branch it was for, the type (fabric
+stock, rent, utilities…), how it was paid, and the amount. Type either the amount
+before VAT or the total; the other figures fill in at the shop's VAT rate (change
+the VAT figure if the bill shows something different, e.g. 0 for no VAT).
+
+The page lists the bills for a period with totals, *Not paid yet* for bills on
+credit, **Copy for Excel** and **Print**. **Reports → VAT 201** fills box 9 from
+these bills automatically; typing figures into box 9 overrides that for the
+period. Branches don't see purchases.

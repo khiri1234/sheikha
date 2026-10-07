@@ -413,6 +413,11 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
 .sh-row.big{font-size:16px;font-weight:700;border-bottom:0}
 .diff-ok{color:var(--ok)}.diff-short{color:var(--red)}.diff-over{color:#A86A00}
 .mini.danger{color:var(--red);border-color:#EBC9C0}
+.pur-amt{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.ghost.danger-t{color:var(--red);border-color:#EBC9C0}
+.tag.pur-due{background:#FDECEA;color:#A8322A}
+.pur-warn{background:#FDF1EA;border:1px solid #F6CDB5;border-radius:10px;padding:12px 14px;color:var(--till-dark);font-size:13px}
+@media (max-width:640px){.pur-amt{grid-template-columns:1fr}}
 /* Responsive */
 @media (min-width:1200px){
   .prod-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
@@ -476,6 +481,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
       <button class="nav-btn" data-view="shift" hidden><span class="ic">🕘</span>Shift</button>
       <button class="nav-btn" data-view="held"><span class="ic">⏸️</span>Held Bills<span class="nav-count" id="heldCount" hidden></span></button>
       <button class="nav-btn" data-view="items"><span class="ic">🧵</span>Items</button>
+      <button class="nav-btn" data-view="purchases" hidden><span class="ic">🛒</span>Purchases</button>
       <button class="nav-btn" data-view="reports"><span class="ic">📊</span>Reports</button>
       <button class="nav-btn" data-view="branches" hidden><span class="ic">🏬</span>Branches</button>
       <button class="nav-btn" data-view="settings"><span class="ic">⚙️</span>Settings</button>
@@ -568,6 +574,15 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
         <button class="btn primary" id="btnAddItem">+ Add item</button>
       </div>
       <div class="page-body" id="itemsPage"></div>
+    </section>
+
+    <!-- PURCHASES VIEW (head office) -->
+    <section id="view-purchases" hidden>
+      <div class="topbar">
+        <div><h1>Purchases</h1><div class="sub">Supplier bills – fabric stock, rent, utilities and other expenses. Their VAT goes into box 9 of the VAT 201.</div></div>
+        <button class="btn primary" id="btnAddPur">+ Add purchase</button>
+      </div>
+      <div class="page-body card" id="purchasesPage"></div>
     </section>
 
     <!-- REPORTS VIEW -->
@@ -676,6 +691,8 @@ let seq=store.get('sk_seq',1);
 let actlog=CLOUD?[]:store.get('sk_log',[]);
 let held=CLOUD?[]:store.get('sk_held',[]);
 let vatin=CLOUD?{}:store.get('sk_vatin',{});
+let purchases=CLOUD?[]:store.get('sk_purchases',[]);
+let purErr='';
 // cloud session: role is 'hq' (head office) or 'branch'
 const C={db:null,auth:null,role:null,branch:null,email:'',unsubs:[],todayUnsubs:[],branches:[],today:{}};
 const isHQ=()=>C.role==='hq';
@@ -998,6 +1015,9 @@ async function startSession(user){
       if(ids!==C.branches.map(b=>b.id).join()){salesCache.clear();if(curView==='dashboard')renderDashboard(true)}
     });
     listen(C.db.collection('config').doc('vatin'),snap=>{vatin=snap.exists?snap.data():{}});
+    // purchases need the updated database rules; until they are published, say so on the Purchases page only
+    C.unsubs.push(C.db.collection('purchases').onSnapshot(snap=>{purErr='';purchases=snap.docs.map(d=>d.data());if(curView==='purchases')drawPurList()},
+      err=>{console.error('Purchases',err);purErr=err.code||err.message;if(curView==='purchases')drawPurList()}));
   }else{
     S.cashier=store.get(cashierKey(),null);S.shift=null;S.shiftsOn=true;
     listen(bref(C.branch),snap=>{
@@ -1021,7 +1041,7 @@ async function startSession(user){
 function endSession(){
   C.unsubs.concat(C.todayUnsubs).forEach(u=>{try{u()}catch(e){}});
   C.unsubs=[];C.todayUnsubs=[];C.today={};
-  C.role=null;C.branch=null;C.email='';C.branches=[];held=[];
+  C.role=null;C.branch=null;C.email='';C.branches=[];held=[];if(CLOUD){purchases=[];purErr=''}
   if(S.salesUnsub){S.salesUnsub();S.salesUnsub=null}
   S.cashier=null;S.shift=null;S.shiftSales=[];S.shiftsOn=true;
 }
@@ -1034,7 +1054,7 @@ function watchToday(){
 }
 function applyRole(){
   const role=CLOUD?C.role:'local';
-  const allow={dashboard:['hq'],shift:['branch'],sale:['local','branch'],held:['local','branch'],items:['local','hq'],reports:['local','branch','hq'],branches:['hq'],settings:['local','hq']};
+  const allow={dashboard:['hq'],shift:['branch'],sale:['local','branch'],held:['local','branch'],items:['local','hq'],purchases:['local','hq'],reports:['local','branch','hq'],branches:['hq'],settings:['local','hq']};
   $$('.nav-btn').forEach(b=>{b.hidden=!(allow[b.dataset.view]||[]).includes(role)});
   $('#who').hidden=!CLOUD||!C.role;
   if(CLOUD&&C.role){$('#whoEmail').textContent=C.email;netState()}
@@ -1337,9 +1357,11 @@ function dailyBody(list,showBr){
 function vatCalc(list,from,to){
   const a=agg(list);
   const vi=vatin[from+'_'+to]||{amt:'',vat:''};
-  const exp=r2(parseFloat(vi.amt)||0),expVat=r2(parseFloat(vi.vat)||0);
+  // box 9 comes from Purchases unless a figure was typed in for this period
+  const pa=purAgg(purIn(from,to)),manual=String(vi.amt||'').trim()!==''||String(vi.vat||'').trim()!=='';
+  const exp=manual?r2(parseFloat(vi.amt)||0):pa.net,expVat=manual?r2(parseFloat(vi.vat)||0):pa.vat;
   const em=Math.max(0,EMIRATES.indexOf(settings.emirate));
-  return {a,vi,exp,expVat,em,due:a.vat,rec:expVat,pay:r2(a.vat-expVat)};
+  return {a,vi,pa,manual,exp,expVat,em,due:a.vat,rec:expVat,pay:r2(a.vat-expVat)};
 }
 function vatBody(list,from,to,edit){
   const c=vatCalc(list,from,to),z='0.00',L='abcdefg';
@@ -1356,8 +1378,8 @@ function vatBody(list,from,to,edit){
   o+=R('7','Adjustments to goods imported into the UAE',z,z,'');
   o+=R('8','Totals',fmt(c.a.net),fmt(c.a.vat),z,'sum');
   o+=SH('VAT on expenses and all other inputs');
-  const inA=edit?'<input id="vAmt" class="vin num" inputmode="decimal" placeholder="0.00" value="'+esc(c.vi.amt)+'" aria-label="Standard rated expenses amount">':fmt(c.exp);
-  const inV=edit?'<input id="vVat" class="vin num" inputmode="decimal" placeholder="0.00" value="'+esc(c.vi.vat)+'" aria-label="Recoverable VAT on expenses">':fmt(c.expVat);
+  const inA=edit?'<input id="vAmt" class="vin num" inputmode="decimal" placeholder="'+(c.pa.n?c.pa.net.toFixed(2):'0.00')+'" value="'+esc(c.manual?c.vi.amt:(c.pa.n?c.pa.net.toFixed(2):''))+'" aria-label="Standard rated expenses amount">':fmt(c.exp);
+  const inV=edit?'<input id="vVat" class="vin num" inputmode="decimal" placeholder="'+(c.pa.n?c.pa.vat.toFixed(2):'0.00')+'" value="'+esc(c.manual?c.vi.vat:(c.pa.n?c.pa.vat.toFixed(2):''))+'" aria-label="Recoverable VAT on expenses">':fmt(c.expVat);
   o+='<tr><td class="bx">9</td><td>Standard rated expenses</td><td class="r">'+inA+'</td><td class="r">'+inV+'</td><td class="r num">'+z+'</td></tr>';
   o+=R('10','Supplies subject to the reverse charge provisions',z,z,'');
   o+='<tr class="sum"><td class="bx">11</td><td>Totals</td><td class="r num" id="v11a">'+fmt(c.exp)+'</td><td class="r num" id="v11v">'+fmt(c.expVat)+'</td><td class="r num">'+z+'</td></tr>';
@@ -1366,7 +1388,7 @@ function vatBody(list,from,to,edit){
   o+='<tr><td class="bx">13</td><td>Total value of recoverable tax for the period</td><td></td><td class="r num" id="v13">'+fmt(c.rec)+'</td><td></td></tr>';
   o+='<tr class="sum"><td class="bx">14</td><td>Payable tax for the period</td><td></td><td class="r num" id="v14">'+fmt(c.pay)+(c.pay<0?' (refundable)':'')+'</td><td></td></tr>';
   o+='</tbody></table></div>';
-  o+='<p class="note">Based on '+c.a.bills+' paid bills'+(CLOUD?' from all branches':' from this POS')+' (voided bills left out). All POS sales are treated as standard rated at '+settings.vat+'% in '+esc(EMIRATES[c.em])+'. Boxes 2 to 7 and 10 are zero. Enter purchases in box 9. Check every figure against your records before filing the VAT 201 on the FTA portal.</p>';
+  o+='<p class="note">Based on '+c.a.bills+' paid bills'+(CLOUD?' from all branches':' from this POS')+' (voided bills left out). All POS sales are treated as standard rated at '+settings.vat+'% in '+esc(EMIRATES[c.em])+'. Boxes 2 to 7 and 10 are zero. '+(c.manual?'Box 9 was typed in for this period'+(c.pa.n?' (Purchases has '+plural(c.pa.n,'bill')+': AED '+fmt(c.pa.net)+', VAT '+fmt(c.pa.vat)+')':'')+(edit?'; clear both box 9 figures to use Purchases instead':''):'Box 9 is the total of '+plural(c.pa.n,'bill')+' entered under Purchases for this period'+(edit?'; type figures over it to change them':''))+'. Check every figure against your records before filing the VAT 201 on the FTA portal.</p>';
   return o;
 }
 function logBody(all,type,limit,showBr){
@@ -1426,7 +1448,7 @@ function reportsModal(tab){
     else if(R.tab==='vat')filt='<div class="filters">'+dateF('Period from','vf')+dateF('Period to','vt')+'<div class="qk">'+quick('data-vq',[['month','This month'],['lastmonth','Last month'],['quarter','This quarter'],['lastquarter','Last quarter']])+'</div></div>';
     else if(R.tab==='shifts')filt='<div class="filters">'+dateF('From','from')+dateF('To','to')+brSel()+'<div class="qk">'+quick('data-q',[['month','This month'],['lastmonth','Last month'],['today','Today']])+'</div></div>';
     else if(R.tab==='items')filt='<div class="filters">'+dateF('From','from')+dateF('To','to')+brSel()+'<div class="qk">'+quick('data-q',[['month','This month'],['lastmonth','Last month'],['today','Today']])+'</div></div>';
-    else filt='<div class="filters">'+brSel()+selF('Show','act',[['all','Everything'],['Sale','Sales'],['Void','Voids'],['Bill','Bill changes'],['Item','Items'],['Settings','Settings'],['Report','Reports'],['Data','Data']])+'</div>';
+    else filt='<div class="filters">'+brSel()+selF('Show','act',[['all','Everything'],['Sale','Sales'],['Void','Voids'],['Bill','Bill changes'],['Item','Items'],['Purchase','Purchases'],['Settings','Settings'],['Report','Reports'],['Data','Data']])+'</div>';
     const head='<div class="rhead modal-only"><h2>Reports</h2><button class="ghost" id="rClose">Close</button></div>'+
       '<div class="rtabs">'+T.map(t=>'<button data-t="'+t[0]+'" class="'+(R.tab===t[0]?'on':'')+'">'+t[1]+'</button>').join('')+'</div>'+filt;
     $('#rBody',m.el).innerHTML=head+'<div class="loading">Loading…</div>';
@@ -2093,6 +2115,125 @@ function branchForm(b){
 }
 $('#btnAddBranch').onclick=()=>branchForm(null);
 
+/* ---------- purchases (supplier bills; head office) ----------
+   Cloud: purchases/{id}, head office only. Each bill: date (YYYY-MM-DD),
+   supplier, supplier TRN and invoice no, branch it was for, type, amount
+   excl. VAT, VAT, total and how it was paid. Their totals fill box 9 of
+   the VAT 201. */
+const PUR_CATS=[['stock','Fabric stock'],['rent','Rent'],['utilities','Electricity, water & internet'],['supplies','Shop supplies & packing'],['transport','Transport & delivery'],['repairs','Repairs & maintenance'],['services','Services & fees'],['other','Other']];
+const PUR_PAY=[['bank','Bank transfer'],['cash','Cash'],['card','Card'],['cheque','Cheque'],['credit','On credit (not paid yet)']];
+const lbl=(list,k)=>(list.find(x=>x[0]===k)||[k,k||''])[1];
+const savePurchases=()=>store.set('sk_purchases',purchases);
+function purIn(from,to){return purchases.filter(p=>p.date>=from&&p.date<=to)}
+function purAgg(list){
+  const sum=f=>r2(list.reduce((x,p)=>x+(+f(p)||0),0));
+  return {n:list.length,net:sum(p=>p.net),vat:sum(p=>p.vat),total:sum(p=>p.total),unpaid:sum(p=>p.paid==='credit'?p.total:0)};
+}
+const PU={from:quickRange('month',true)[0],to:quickRange('month',true)[1],br:'all',cat:'all',q:''};
+function purShown(){
+  const q=PU.q.trim().toLowerCase();
+  return purIn(PU.from,PU.to).filter(p=>(PU.br==='all'||(p.branch||'hq')===PU.br)&&(PU.cat==='all'||p.cat===PU.cat)&&
+    (!q||[p.supplier,p.invNo,p.desc,p.trn].some(x=>String(x||'').toLowerCase().includes(q))))
+    .sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:(b.ts||0)-(a.ts||0));
+}
+function purTable(list,actions){
+  if(!list.length)return '<p class="none">No purchases for this selection.</p>';
+  const a=purAgg(list),showBr=CLOUD;
+  const head=[['Date'],['Supplier'],['Supplier invoice']].concat(showBr?[['For']]:[],[['Type'],['Paid by'],['Excl. VAT',1],['VAT',1],['Total',1]],actions?[['']]:[]);
+  const pat='lll'+(showBr?'l':'')+'llrrr'+(actions?'l':'');
+  const rows=list.map(p=>trow([esc(nice(p.date).slice(5)),'<b>'+esc(p.supplier)+'</b>'+(p.trn?'<br><small class="none num">TRN '+esc(p.trn)+'</small>':'')+(p.desc?'<br><small class="none">'+esc(p.desc)+'</small>':''),esc(p.invNo||'')]
+    .concat(showBr?[esc(brName(p.branch||'hq'))]:[],[esc(lbl(PUR_CATS,p.cat)),p.paid==='credit'?'<span class="tag pur-due">Not paid</span>':esc(lbl(PUR_PAY,p.paid)),fmt(p.net),fmt(p.vat),fmt(p.total)],
+    actions?['<button class="mini" data-pe="'+esc(p.id)+'">Edit</button>']:[]),pat));
+  return tbl(head,rows,trow(['Total ('+plural(a.n,'bill')+')','',''].concat(showBr?['']:[],['','',fmt(a.net),fmt(a.vat),fmt(a.total)],actions?['']:[]),pat,'sum'));
+}
+function renderPurchases(){
+  const host=$('#purchasesPage');
+  const dateF=(l,f)=>'<label class="fld sm"><span>'+l+'</span><input type="date" data-pf="'+f+'" value="'+PU[f]+'"></label>';
+  const selF=(l,f,opts)=>'<label class="fld sm"><span>'+l+'</span><select data-pf="'+f+'">'+opts.map(o=>'<option value="'+esc(o[0])+'"'+(PU[f]===o[0]?' selected':'')+'>'+esc(o[1])+'</option>').join('')+'</select></label>';
+  host.innerHTML='<div class="filters" style="margin-top:0">'+dateF('From','from')+dateF('To','to')+
+    '<div class="qk">'+[['month','This month'],['lastmonth','Last month'],['quarter','This quarter'],['lastquarter','Last quarter']].map(q=>'<button class="mini" data-pq="'+q[0]+'">'+q[1]+'</button>').join('')+'</div>'+
+    (CLOUD?selF('For','br',[['all','All'],['hq','Head office']].concat(C.branches.map(b=>[b.id,b.code+' · '+b.name]))):'')+
+    selF('Type','cat',[['all','All']].concat(PUR_CATS))+
+    '<label class="fld sm"><span>Search</span><input id="purQ" placeholder="Supplier, invoice no…" value="'+esc(PU.q)+'"></label></div><div id="purList"></div>';
+  $$('[data-pf]',host).forEach(i=>i.onchange=()=>{if(!i.value)return;PU[i.dataset.pf]=i.value;drawPurList()});
+  $$('[data-pq]',host).forEach(b=>b.onclick=()=>{const r=quickRange(b.dataset.pq,true);PU.from=r[0];PU.to=r[1];renderPurchases()});
+  $('#purQ').oninput=e=>{PU.q=e.target.value;drawPurList()};
+  drawPurList();
+}
+function drawPurList(){
+  const host=$('#purList');if(!host)return;
+  if(purErr){
+    host.innerHTML='<p class="note pur-warn">Purchases can’t be loaded yet ('+esc(purErr)+'). The database rules need a one-time update: copy the whole of <b>firestore.rules</b> from the repository into <b>Firebase → Firestore Database → Rules</b> and click <b>Publish</b>, then reload this page.</p>';return;
+  }
+  const list=purShown(),a=purAgg(list);
+  const period=nice(PU.from)+' to '+nice(PU.to);
+  host.innerHTML='<div class="stats">'+statBox('Bills',a.n)+statBox('Excl. VAT',aed(a.net))+statBox('VAT (recoverable)',aed(a.vat))+statBox('Total',aed(a.total))+statBox('Not paid yet',aed(a.unpaid))+'</div>'+
+    purTable(list,true)+
+    '<div class="actions">'+(list.length?'<button class="ghost" id="purCopy">Copy for Excel</button><button class="primary" id="purPrint">Print</button>':'')+'</div>';
+  $$('[data-pe]',host).forEach(b=>b.onclick=()=>purchaseForm(purchases.find(p=>p.id===b.dataset.pe)));
+  if(!list.length)return;
+  $('#purCopy').onclick=()=>{
+    copyText(csvOf([['Date','Supplier','Supplier TRN','Supplier invoice'].concat(CLOUD?['For']:[],['Type','Description','Paid by','Excl VAT','VAT','Total'])]
+      .concat(list.map(p=>[p.date,p.supplier,p.trn||'',p.invNo||''].concat(CLOUD?[brName(p.branch||'hq')]:[],[lbl(PUR_CATS,p.cat),p.desc||'',lbl(PUR_PAY,p.paid),(+p.net).toFixed(2),(+p.vat).toFixed(2),(+p.total).toFixed(2)])))));
+    logAct('Report','Copied purchases ('+period+')');
+  };
+  $('#purPrint').onclick=()=>{doPrint(reportDoc('Purchases',period,'<div class="stats">'+statBox('Bills',a.n)+statBox('Excl. VAT',aed(a.net))+statBox('VAT',aed(a.vat))+statBox('Total',aed(a.total))+'</div>'+purTable(list,false)),'a4');logAct('Report','Printed purchases ('+period+')')};
+}
+function purchaseForm(p){
+  const isNew=!p,rate=(+settings.vat||0)/100;
+  const st=p?Object.assign({},p):{id:'p'+uid(),date:ymd(Date.now()),supplier:'',trn:'',invNo:'',branch:'hq',cat:'stock',desc:'',net:'',vat:'',total:'',paid:'bank'};
+  const suppliers=[...new Set(purchases.map(x=>x.supplier).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const v2=x=>x===''||x==null?'':(+x).toFixed(2);
+  const m=modal('<h2>'+(isNew?'Add purchase':'Edit purchase')+'</h2><p class="sub">A bill from a supplier. Type the amount before VAT, or the total – the other figures fill in at '+esc(settings.vat)+'% VAT.</p>'+
+    '<div class="two-f"><label class="fld"><span>Bill date</span><input id="pDate" type="date" value="'+esc(st.date)+'"></label><label class="fld"><span>Type</span><select id="pCat">'+PUR_CATS.map(c=>'<option value="'+c[0]+'"'+(st.cat===c[0]?' selected':'')+'>'+c[1]+'</option>').join('')+'</select></label></div>'+
+    '<label class="fld"><span>Supplier</span><input id="pSup" list="pSupList" autocomplete="off" placeholder="e.g. Al Noor Fabrics Trading" value="'+esc(st.supplier)+'"><datalist id="pSupList">'+suppliers.map(x=>'<option value="'+esc(x)+'">').join('')+'</datalist></label>'+
+    '<div class="two-f"><label class="fld"><span>Supplier invoice no.</span><input id="pInv" value="'+esc(st.invNo)+'"></label><label class="fld"><span>Supplier TRN (optional)</span><input id="pTrn" class="num" inputmode="numeric" placeholder="15 digits" value="'+esc(st.trn)+'"></label></div>'+
+    '<div class="two-f">'+(CLOUD?'<label class="fld"><span>For</span><select id="pBr">'+[['hq','Head office']].concat(C.branches.map(b=>[b.id,b.code+' · '+b.name])).map(o=>'<option value="'+esc(o[0])+'"'+((st.branch||'hq')===o[0]?' selected':'')+'>'+esc(o[1])+'</option>').join('')+'</select></label>':'')+
+    '<label class="fld"><span>Paid by</span><select id="pPaid">'+PUR_PAY.map(o=>'<option value="'+o[0]+'"'+(st.paid===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+'</select></label></div>'+
+    '<label class="fld"><span>Description (optional)</span><input id="pDesc" placeholder="e.g. 20 rolls Swiss voile" value="'+esc(st.desc)+'"></label>'+
+    '<div class="pur-amt"><label class="fld"><span>Amount excl. VAT</span><input id="pNet" class="num" inputmode="decimal" placeholder="0.00" value="'+v2(st.net)+'"></label>'+
+    '<label class="fld"><span>VAT</span><input id="pVat" class="num" inputmode="decimal" placeholder="0.00" value="'+v2(st.vat)+'"></label>'+
+    '<label class="fld"><span>Total incl. VAT</span><input id="pTot" class="num" inputmode="decimal" placeholder="0.00" value="'+v2(st.total)+'"></label></div>'+
+    '<div class="actions">'+(isNew?'':'<button class="ghost danger-t" id="pDel" style="margin-right:auto">Delete</button>')+'<button class="ghost" id="pCancel">Cancel</button><button class="primary" id="pSave">Save</button></div>',{wide:true});
+  const $m=x=>$(x,m.el);
+  const num=id=>{const v=parseFloat($m(id).value);return isFinite(v)?v:0};
+  const has=id=>$m(id).value.trim()!=='';
+  $m('#pNet').oninput=()=>{const n=num('#pNet'),v=r2(n*rate);$m('#pVat').value=has('#pNet')?v.toFixed(2):'';$m('#pTot').value=has('#pNet')?r2(n+v).toFixed(2):''};
+  $m('#pVat').oninput=()=>{$m('#pTot').value=r2(num('#pNet')+num('#pVat')).toFixed(2)};
+  $m('#pTot').oninput=()=>{const t=num('#pTot'),n=r2(t/(1+rate));$m('#pNet').value=has('#pTot')?n.toFixed(2):'';$m('#pVat').value=has('#pTot')?r2(t-n).toFixed(2):''};
+  $m('#pSup').onchange=()=>{const last=purchases.filter(x=>x.supplier===$m('#pSup').value.trim()&&x.trn).sort((a,b)=>(b.ts||0)-(a.ts||0))[0];if(last&&!has('#pTrn'))$m('#pTrn').value=last.trn};
+  $m('#pCancel').onclick=()=>m.close();
+  if(!isNew)$m('#pDel').onclick=async()=>{
+    if(!(await askConfirm('Delete this purchase?',st.supplier+(st.invNo?' – '+st.invNo:'')+', AED '+fmt(st.total)+'. It will be removed from the purchases list and the VAT 201.','Delete',true)))return;
+    if(CLOUD)C.db.collection('purchases').doc(st.id).delete().catch(e=>toast('Not deleted: '+(e.code||e.message)));
+    else{purchases=purchases.filter(x=>x.id!==st.id);savePurchases();drawPurList()}
+    logAct('Purchase','Deleted purchase from '+st.supplier+(st.invNo?' ('+st.invNo+')':'')+', AED '+fmt(st.total));
+    m.close();toast('Purchase deleted');
+  };
+  $m('#pSave').onclick=async()=>{
+    const date=$m('#pDate').value,supplier=$m('#pSup').value.trim(),invNo=$m('#pInv').value.trim(),trn=$m('#pTrn').value.trim();
+    const net=r2(num('#pNet')),vat=r2(num('#pVat')),total=r2(net+vat);
+    if(!date){$m('#pDate').focus();return}
+    if(!supplier){toast('Enter the supplier');$m('#pSup').focus();return}
+    if(!(total>0)||net<0||vat<0){toast('Enter the amount');$m('#pNet').focus();return}
+    if(trn&&!/^\d{15}$/.test(trn)){toast('A TRN has 15 digits');$m('#pTrn').focus();return}
+    const dup=invNo&&purchases.find(x=>x.id!==st.id&&String(x.supplier).toLowerCase()===supplier.toLowerCase()&&String(x.invNo||'').toLowerCase()===invNo.toLowerCase());
+    if(dup&&!(await askConfirm('Already entered?','Invoice '+invNo+' from '+supplier+' was already entered on '+nice(dup.date)+' (AED '+fmt(dup.total)+'). Save it again anyway?','Save anyway',false)))return;
+    Object.assign(st,{date,supplier,invNo,trn,cat:$m('#pCat').value,paid:$m('#pPaid').value,desc:$m('#pDesc').value.trim(),net,vat,total,branch:CLOUD?$m('#pBr').value:'hq'});
+    if(isNew){st.ts=Date.now();st.by=CLOUD?C.email:''}else st.edited=Date.now();
+    // the cloud's offline cache saves straight away and uploads later, so don't wait for the server
+    if(CLOUD)C.db.collection('purchases').doc(st.id).set(st).catch(e=>toast('Not saved: '+(e.code||e.message)));
+    else{purchases=isNew?purchases.concat([st]):purchases.map(x=>x.id===st.id?st:x);savePurchases()}
+    logAct('Purchase',(isNew?'Added':'Updated')+' purchase from '+supplier+(invNo?' ('+invNo+')':'')+', AED '+fmt(total));
+    m.close();toast(isNew?'Purchase added':'Purchase saved');
+    // show the month of a bill dated outside the period on screen
+    if(date<PU.from||date>PU.to){PU.from=date.slice(0,8)+'01';PU.to=ymd(new Date(+date.slice(0,4),+date.slice(5,7),0).getTime());renderPurchases()}
+    else drawPurList();
+  };
+  setTimeout(()=>$m(isNew?'#pSup':'#pNet').focus(),30);
+}
+$('#btnAddPur').onclick=()=>purchaseForm(null);
+
 /* ---------- moving data from before the branch system ---------- */
 async function offerImport(){
   try{
@@ -2151,7 +2292,8 @@ async function cloudBackup(){
   const btn=$('#bkSave');btn.disabled=true;btn.textContent='Preparing…';
   try{
     const db=C.db,[cfg,vi,its,brs]=await Promise.all([db.collection('config').doc('shop').get(),db.collection('config').doc('vatin').get(),db.collection('items').get(),db.collection('branches').get()]);
-    const out={config:cfg.exists?cfg.data():null,vatin:vi.exists?vi.data():null,items:its.docs.map(d=>d.data()),branches:brs.docs.map(d=>d.data()),sales:{},held:{}};
+    const pur=await db.collection('purchases').get().catch(()=>null);
+    const out={config:cfg.exists?cfg.data():null,vatin:vi.exists?vi.data():null,items:its.docs.map(d=>d.data()),branches:brs.docs.map(d=>d.data()),purchases:pur?pur.docs.map(d=>d.data()):[],sales:{},held:{}};
     let n=0;
     for(const d of brs.docs){
       const [sq,hq]=await Promise.all([salesCol(d.id).get(),bref(d.id).collection('held').get()]);
@@ -2222,7 +2364,7 @@ function sideToday(){
   $('#sideToday').textContent='AED '+fmt(agg(list).total);
 }
 let curView='sale';
-const VIEWS={dashboard:()=>renderDashboard(),shift:()=>renderShiftPage(),sale:null,held:()=>renderHeld(),items:itemsModal,reports:()=>reportsModal(),branches:()=>renderBranches(),settings:()=>{settingsModal();renderBackup()}};
+const VIEWS={dashboard:()=>renderDashboard(),shift:()=>renderShiftPage(),sale:null,held:()=>renderHeld(),items:itemsModal,purchases:()=>renderPurchases(),reports:()=>reportsModal(),branches:()=>renderBranches(),settings:()=>{settingsModal();renderBackup()}};
 function go(v){
   if(!(v in VIEWS)||!viewAllowed(v))v=CLOUD&&isHQ()?'dashboard':'sale';
   curView=v;
