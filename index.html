@@ -6,6 +6,7 @@
 <title>Sheikha Textiles – Point of Sale</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#1E2228">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
@@ -35,7 +36,7 @@ button{cursor:pointer}
 /* Sidebar */
 .sidebar{background:#1E2228;border-right:0;color:#EEF0F3;padding:22px 14px;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh;padding-top:calc(22px + env(safe-area-inset-top,0px))}
 .brand{display:flex;align-items:center;gap:10px;padding:0 8px 22px 8px;border-bottom:1px solid #2F343C;margin-bottom:16px}
-.brand .dot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--till);box-shadow:0 0 0 3px rgba(225,85,12,.25)}
+.brand .logo{flex:none;width:44px;height:44px;border-radius:10px;object-fit:cover}
 .brand span{font-family:var(--display);font-weight:700;letter-spacing:.01em;font-size:15px;line-height:1.15;display:block}
 .brand small{display:block;font-size:12px;color:#9AA0AA;margin-top:2px}
 .nav{display:flex;flex-direction:column;gap:4px}
@@ -298,7 +299,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
 .gate{position:fixed;inset:0;z-index:90;background:#1E2228;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto}
 .gate-box{background:#fff;border-radius:16px;padding:28px 26px;width:380px;max-width:100%;box-shadow:0 20px 60px rgba(0,0,0,.35)}
 .gate-box .gb{display:flex;align-items:center;gap:10px;margin-bottom:18px}
-.gate-box .gb .dot{width:12px;height:12px;border-radius:50%;background:var(--till);box-shadow:0 0 0 4px rgba(225,85,12,.2)}
+.gate-box .gb .logo{flex:none;width:52px;height:52px;border-radius:12px;object-fit:cover}
 .gate-box .gb b{font-family:var(--display);font-size:18px;display:block}
 .gate-box .gb small{color:var(--text-dim)}
 .gate-box h2{margin:0 0 4px;font-family:var(--display);font-size:20px}
@@ -462,7 +463,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
 <div class="gate" id="gate" hidden><div class="gate-box" id="gateBox"></div></div>
 <div class="app" id="app">
   <div class="sidebar">
-    <div class="brand"><div class="dot"></div><div><span id="brandName">SHEIKHA TEXTILES</span><small id="brandAr">الشيخة للأقمشة</small><small class="brand-branch" id="brandBranch" hidden></small></div></div>
+    <div class="brand"><img class="logo" src="icon-192.png" alt="Sheikha Textiles"><div><span id="brandName">SHEIKHA TEXTILES</span><small id="brandAr">الشيخة للأقمشة</small><small class="brand-branch" id="brandBranch" hidden></small></div></div>
     <nav class="nav" aria-label="Main">
       <button class="nav-btn" data-view="dashboard" hidden><span class="ic">📈</span>Dashboard</button>
       <button class="nav-btn active" data-view="sale"><span class="ic">🧾</span>Sale</button>
@@ -918,7 +919,7 @@ function gate(state,msg){
   const g=$('#gate');
   if(!state){g.hidden=true;return}
   g.hidden=false;
-  const head='<div class="gb"><i class="dot"></i><div><b>'+esc(settings.name)+'</b><small>'+esc(settings.nameAr)+' · Point of Sale</small></div></div>';
+  const head='<div class="gb"><img class="logo" src="icon-192.png" alt="Sheikha Textiles"><div><b>'+esc(settings.name)+'</b><small>'+esc(settings.nameAr)+' · Point of Sale</small></div></div>';
   if(state==='login'){
     $('#gateBox').innerHTML=head+'<h2>Sign in</h2><p>Use your branch login, or the head-office login.</p>'+
       '<form id="loginForm" autocomplete="on"><label class="fld"><span>Email</span><input id="lgEmail" type="email" autocomplete="username" required></label>'+
@@ -1586,7 +1587,7 @@ function needCashier(){return CLOUD&&isBranchUser()&&activeCashiers().length>0&&
 function pinGate(msg){
   const g=$('#gate');g.hidden=false;
   let pin='';
-  $('#gateBox').innerHTML='<div class="gb"><i class="dot"></i><div><b>'+esc(settings.name)+'</b><small>'+esc(brName(C.branch))+'</small></div></div>'+
+  $('#gateBox').innerHTML='<div class="gb"><img class="logo" src="icon-192.png" alt="Sheikha Textiles"><div><b>'+esc(settings.name)+'</b><small>'+esc(brName(C.branch))+'</small></div></div>'+
     '<h2>Who’s on the till?</h2><p>Enter your 4-digit cashier PIN.</p><div class="pin-dots" id="pinDots"><i></i><i></i><i></i><i></i></div>'+
     '<div class="gate-err" id="pinErr" style="text-align:center">'+esc(msg||'')+'</div>'+
     '<div class="pin-pad" id="pinPad">'+[1,2,3,4,5,6,7,8,9].map(n=>'<button type="button" data-n="'+n+'">'+n+'</button>').join('')+'<button type="button" class="k-sm" data-n="c">Clear</button><button type="button" data-n="0">0</button><button type="button" class="k-sm" data-n="b">⌫</button></div>'+
