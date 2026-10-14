@@ -27,6 +27,10 @@ enum Fmt {
     static func day(_ date: Date) -> String { d.string(from: date) }
     static func time(_ date: Date) -> String { t.string(from: date) }
     static func ms(_ date: Date) -> Double { (date.timeIntervalSince1970 * 1000).rounded() }
+    /// "2026-10-14" – how the web POS stores purchase dates and VAT periods
+    private static let ymdF: DateFormatter = { let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.calendar = Calendar(identifier: .gregorian); f.dateFormat = "yyyy-MM-dd"; return f }()
+    static func ymd(_ date: Date) -> String { ymdF.string(from: date) }
+    static func parseYMD(_ s: String) -> Date? { ymdF.date(from: s) }
 }
 
 extension Calendar {

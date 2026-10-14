@@ -10,6 +10,7 @@ struct DemoData {
     var sales: [Sale] = []
     var shifts: [Shift] = []
     var held: [HeldBill] = []
+    var purchases: [Purchase] = []
     var settings = ShopSettings()
 
     /// Small repeatable random generator, so the demo looks the same every time.
@@ -111,6 +112,30 @@ struct DemoData {
             }
         }
         sales.sort { $0.ts < $1.ts }
+
+        // supplier bills: fabric stock twice a month, rent, electricity and a few small expenses
+        let suppliers = ["Al Noor Fabrics Trading", "Gulf Textile Wholesale", "Silk Route General Trading"]
+        for back in 0...2 {
+            guard let month = cal.date(byAdding: .month, value: -back, to: cal.date(from: cal.dateComponents([.year, .month], from: now)) ?? now) else { continue }
+            let bills: [(day: Int, supplier: String, cat: String, paid: String, net: Double)] = [
+                (1, "Al Wahda Mall Management", "rent", "cheque", 15000),
+                (3, suppliers[back % 3], "stock", "bank", Double(rng.int(60...110)) * 100),
+                (8, "ADDC", "utilities", "card", Double(rng.int(900...1400))),
+                (12, "Emirates Packaging LLC", "supplies", "cash", Double(rng.int(25...60)) * 10),
+                (17, suppliers[(back + 1) % 3], "stock", back == 0 ? "credit" : "bank", Double(rng.int(30...80)) * 100),
+                (22, "Fast Cargo Delivery", "transport", "cash", Double(rng.int(20...45)) * 10)
+            ]
+            for (i, b) in bills.enumerated() {
+                guard let day = cal.date(byAdding: .day, value: b.day - 1, to: month), day <= now else { continue }
+                let vat = r2(b.net * 0.05)
+                purchases.append(Purchase([
+                    "id": "demo-p\(back)-\(i)", "date": Fmt.ymd(day), "supplier": b.supplier,
+                    "trn": b.cat == "stock" ? "1002345678000\(10 + i)" : "", "invNo": "INV-\(4100 + back * 40 + i * 3)",
+                    "branch": b.cat == "rent" ? branches[0].id : "hq", "cat": b.cat, "desc": b.cat == "stock" ? "Fabric rolls" : "",
+                    "net": b.net, "vat": vat, "total": r2(b.net + vat), "paid": b.paid, "ts": Fmt.ms(day)
+                ]))
+            }
+        }
 
         held = [
             HeldBill(["id": "demo-h1", "ts": Fmt.ms(now.addingTimeInterval(-3 * 3600)), "total": 240.0], branch: branches[2].id),

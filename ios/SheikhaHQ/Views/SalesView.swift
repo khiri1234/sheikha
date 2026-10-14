@@ -145,7 +145,25 @@ struct VATView: View {
                 }
                 Section {
                     LabeledContent("Box 8 – Totals", value: Fmt.amount(t.net) + " / " + Fmt.amount(t.vat))
-                } footer: { Text("Purchases (box 9) are entered in the POS on a computer: Reports → VAT 201.") }
+                }
+                let typed = store.vatInput(from: a, to: b)
+                let pt = PurchaseTotals(store.purchasesIn(from: a, to: b))
+                let input = typed ?? (net: pt.net, vat: pt.vat)
+                let payable = r2(t.vat - input.vat)
+                Section {
+                    LabeledContent("Box 9 – Standard rated expenses", value: Fmt.amount(input.net))
+                    LabeledContent("Recoverable VAT", value: Fmt.amount(input.vat))
+                    NavigationLink("Purchases (\(pt.bills) bills)") { PurchasesView() }
+                } header: {
+                    Text("VAT on expenses (box 9)")
+                } footer: {
+                    Text(typed != nil ? "Typed in on the computer for this period (Reports → VAT 201). Purchases has \(Fmt.aed(pt.net)), VAT \(Fmt.amount(pt.vat))." : "The total of the bills under Purchases for this period.")
+                }
+                Section {
+                    LabeledContent(payable < 0 ? "Box 14 – Refundable" : "Box 14 – Payable tax") {
+                        Text(Fmt.aed(abs(payable))).font(.headline.monospaced())
+                    }
+                } footer: { Text("Output VAT \(Fmt.amount(t.vat)) minus recoverable VAT \(Fmt.amount(input.vat)).") }
             } else {
                 ProgressView()
             }

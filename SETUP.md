@@ -227,4 +227,5 @@ the VAT figure if the bill shows something different, e.g. 0 for no VAT).
 The page lists the bills for a period with totals, *Not paid yet* for bills on
 credit, **Copy for Excel** and **Print**. **Reports → VAT 201** fills box 9 from
 these bills automatically; typing figures into box 9 overrides that for the
-period. Branches don't see purchases.
+period. Branches don't see purchases. The Sheikha HQ iPhone app has the same list
+under **More → Purchases** (build 12 or later).

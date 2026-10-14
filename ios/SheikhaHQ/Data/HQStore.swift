@@ -8,7 +8,7 @@ import FirebaseFirestore
 
 /// Everything the head-office app reads and writes, over the same Firestore
 /// layout as the web POS (see firestore.rules):
-///   config/shop, items/*, branches/{id} (+ sales, held, shifts, logs), hqlog/*
+///   config/shop, config/vatin, items/*, purchases/*, branches/{id} (+ sales, held, shifts, logs), hqlog/*
 @MainActor
 @Observable
 final class HQStore {
@@ -24,6 +24,11 @@ final class HQStore {
     var lastError: String?
     /// config/notify – which push notifications head office receives
     var notify: [String: Any] = [:]
+    /// Supplier bills (Purchases), live. purchasesError is set until the database rules allow them.
+    var purchases: [Purchase] = []
+    var purchasesError: String?
+    /// config/vatin – VAT 201 box 9 figures typed in on the computer, keyed "from_to" (YYYY-MM-DD)
+    var vatin: [String: Any] = [:]
 
     @ObservationIgnored private let db = Firestore.firestore()
     @ObservationIgnored private var listeners: [ListenerRegistration] = []
@@ -81,6 +86,7 @@ final class HQStore {
         branches = d.branches
         settings = d.settings
         fabrics = d.fabrics
+        purchases = d.purchases
         notify = [:]
         refreshDemoToday()
         phase = .ready
@@ -172,6 +178,20 @@ final class HQStore {
             let d = snap?.data() ?? [:]
             Task { @MainActor in self?.notify = d }
         })
+        listeners.append(db.collection("purchases").addSnapshotListener { [weak self] snap, err in
+            let list = (snap?.documents ?? []).map { Purchase($0.data()) }
+            let message = err.map { ($0 as NSError).code == FirestoreErrorCode.Code.permissionDenied.rawValue ?
+                "The database rules need a one-time update for Purchases – see SETUP.md, section 15." : $0.localizedDescription }
+            Task { @MainActor in
+                guard let self else { return }
+                self.purchasesError = message
+                if message == nil { self.purchases = list }
+            }
+        })
+        listeners.append(db.collection("config").document("vatin").addSnapshotListener { [weak self] snap, _ in
+            let d = snap?.data() ?? [:]
+            Task { @MainActor in self?.vatin = d }
+        })
         listeners.append(db.collection("items").addSnapshotListener { [weak self] snap, _ in
             let list = (snap?.documents ?? []).map { Fabric($0.data()) }
                 .sorted { ($0.order, $0.name) < ($1.order, $1.name) }
@@ -202,7 +222,7 @@ final class HQStore {
     private func stop() {
         listeners.forEach { $0.remove() }; listeners = []
         todayListeners.forEach { $0.remove() }; todayListeners = []
-        branches = []; today = [:]; fabrics = []; email = ""
+        branches = []; today = [:]; fabrics = []; purchases = []; purchasesError = nil; vatin = [:]; email = ""
     }
 
     var todaySales: [Sale] {
@@ -210,7 +230,7 @@ final class HQStore {
         return today.values.flatMap { $0 }.filter { cal.isDateInToday($0.date) }
     }
 
-    func branchName(_ id: String) -> String { branches.first { $0.id == id }?.name ?? id }
+    func branchName(_ id: String) -> String { id == "hq" ? "Head office" : branches.first { $0.id == id }?.name ?? id }
     func branch(_ id: String) -> Branch? { branches.first { $0.id == id } }
 
     // MARK: queries
@@ -297,6 +317,41 @@ final class HQStore {
         }
         try await db.collection("items").document(id).setData(["name": name, "price": price, "barcode": barcode], merge: true)
         log("Item", "Fabric \"\(name)\" updated from Sheikha HQ" + (price.isEmpty ? "" : " (usual price AED \(price))"))
+    }
+
+    // MARK: purchases – head office only (firestore.rules)
+
+    func purchasesIn(from: Date, to: Date) -> [Purchase] {
+        let a = Fmt.ymd(from), b = Fmt.ymd(to)
+        return purchases.filter { $0.date >= a && $0.date <= b }
+    }
+
+    /// Box 9 figures typed in on the computer for exactly this period, if any.
+    func vatInput(from: Date, to: Date) -> (net: Double, vat: Double)? {
+        guard let v = vatin[Fmt.ymd(from) + "_" + Fmt.ymd(to)] as? [String: Any] else { return nil }
+        let a = str(v["amt"]).trimmingCharacters(in: .whitespaces), b = str(v["vat"]).trimmingCharacters(in: .whitespaces)
+        if a.isEmpty && b.isEmpty { return nil }
+        return (r2(num(a)), r2(num(b)))
+    }
+
+    func savePurchase(_ p: Purchase, isNew: Bool) async throws {
+        var p = p
+        if isNew { p.ts = Fmt.ms(Date()); p.by = email }
+        if isDemo {
+            if let i = purchases.firstIndex(where: { $0.id == p.id }) { purchases[i] = p } else { purchases.append(p) }
+            return
+        }
+        var d = p.dict
+        if !isNew { d["edited"] = Fmt.ms(Date()) }
+        // the offline cache keeps the change and uploads it later, so don't wait for the server
+        db.collection("purchases").document(p.id).setData(d)
+        log("Purchase", "\(isNew ? "Added" : "Updated") purchase from \(p.supplier)\(p.invNo.isEmpty ? "" : " (\(p.invNo))"), \(Fmt.aed(p.total)) – Sheikha HQ")
+    }
+
+    func deletePurchase(_ p: Purchase) async throws {
+        if isDemo { purchases.removeAll { $0.id == p.id }; return }
+        db.collection("purchases").document(p.id).delete()
+        log("Purchase", "Deleted purchase from \(p.supplier)\(p.invNo.isEmpty ? "" : " (\(p.invNo))"), \(Fmt.aed(p.total)) – Sheikha HQ")
     }
 
     func saveReportContacts(whatsApp: String, email: String) async throws {
