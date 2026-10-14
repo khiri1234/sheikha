@@ -344,13 +344,14 @@ final class HQStore {
         var d = p.dict
         if !isNew { d["edited"] = Fmt.ms(Date()) }
         // the offline cache keeps the change and uploads it later, so don't wait for the server
-        db.collection("purchases").document(p.id).setData(d)
+        // (the completion-handler form, so it isn't the async version that waits)
+        db.collection("purchases").document(p.id).setData(d) { _ in }
         log("Purchase", "\(isNew ? "Added" : "Updated") purchase from \(p.supplier)\(p.invNo.isEmpty ? "" : " (\(p.invNo))"), \(Fmt.aed(p.total)) – Sheikha HQ")
     }
 
     func deletePurchase(_ p: Purchase) async throws {
         if isDemo { purchases.removeAll { $0.id == p.id }; return }
-        db.collection("purchases").document(p.id).delete()
+        db.collection("purchases").document(p.id).delete { _ in }
         log("Purchase", "Deleted purchase from \(p.supplier)\(p.invNo.isEmpty ? "" : " (\(p.invNo))"), \(Fmt.aed(p.total)) – Sheikha HQ")
     }
 
