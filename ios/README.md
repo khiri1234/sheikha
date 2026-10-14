@@ -8,9 +8,9 @@ shows is live from the branches.
 |---|---|
 | **Dashboard** | Today (live) / Yesterday / This month / Last month: total sales with change vs the previous period, bills, average bill, VAT, cash/card, discounts, voids, branch ranking, sales by hour/day chart (tap for values), top fabrics, *Needs attention* (old held bills, idle branches, voids, cash differences, shifts left open, high discounts). Share the summary. |
 | **Branches** | Each branch's sales today, open shift (float, payouts), recent Z reports, and **cashiers**: add, remove/restore, new PIN (works at the tills straight away). Call the branch. |
-| **Sales** | Invoices for any day, one or all branches, with totals; invoice detail and **void**; VAT 201 totals per quarter (box 1a Abu Dhabi). |
+| **Sales** | Invoices for any day, one or all branches, with totals; invoice detail and **void**; VAT 201 per quarter (box 1a Abu Dhabi, box 9 from Purchases, payable tax). |
 | **Z reports** | All branches' closed shifts with over/short, totals and payouts; full Z detail; send by WhatsApp or share. |
-| **More** | Fabric prices and barcodes, the WhatsApp number / email branches send Z reports to, Face ID lock, sign out. |
+| **More** | **Purchases** (supplier bills: add, edit, delete; totals per month or quarter, unpaid bills – the same list as Purchases in the POS), fabric prices and barcodes, the WhatsApp number / email branches send Z reports to, Face ID lock, sign out. |
 
 Branch set-up, logins, receipts and other settings stay in the POS on a computer.
 

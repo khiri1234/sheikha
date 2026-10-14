@@ -13,6 +13,7 @@ struct MoreView: View {
     var body: some View {
         List {
             Section {
+                NavigationLink { PurchasesView() } label: { Label("Purchases", systemImage: "cart") }
                 NavigationLink { NotificationsView() } label: { Label("Notifications", systemImage: "bell.badge") }
             }
             Section("Shop") {

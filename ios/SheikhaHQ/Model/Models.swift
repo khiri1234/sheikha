@@ -247,3 +247,69 @@ func fabricsSold(_ list: [Sale]) -> [FabricSold] {
     }
     return map.values.sorted { $0.total > $1.total }
 }
+
+/// A choice in the Type and Paid by lists – ids match the web POS.
+struct PurchaseOption: Identifiable, Hashable {
+    let id: String
+    let label: String
+    init(_ id: String, _ label: String) { self.id = id; self.label = label }
+}
+
+/// A supplier bill entered under Purchases (purchases/{id}) – same fields as the web POS.
+struct Purchase: Identifiable, Hashable {
+    static let types: [PurchaseOption] = [
+        .init("stock", "Fabric stock"), .init("rent", "Rent"), .init("utilities", "Electricity, water & internet"),
+        .init("supplies", "Shop supplies & packing"), .init("transport", "Transport & delivery"),
+        .init("repairs", "Repairs & maintenance"), .init("services", "Services & fees"), .init("other", "Other")
+    ]
+    static let payments: [PurchaseOption] = [
+        .init("bank", "Bank transfer"), .init("cash", "Cash"), .init("card", "Card"), .init("cheque", "Cheque"), .init("credit", "On credit (not paid yet)")
+    ]
+    static func typeLabel(_ id: String) -> String { types.first { $0.id == id }?.label ?? id }
+    static func paymentLabel(_ id: String) -> String { payments.first { $0.id == id }?.label ?? id }
+
+    var id: String
+    /// bill date as YYYY-MM-DD
+    var date: String
+    var supplier: String
+    var trn: String
+    var invNo: String
+    /// branch id, or "hq" for head office
+    var branch: String
+    var cat: String
+    var desc: String
+    var net: Double
+    var vat: Double
+    var total: Double
+    var paid: String
+    var ts: Double
+    var by: String
+
+    init(_ d: [String: Any]) {
+        id = str(d["id"]); date = str(d["date"]); supplier = str(d["supplier"]); trn = str(d["trn"]); invNo = str(d["invNo"])
+        branch = str(d["branch"]).isEmpty ? "hq" : str(d["branch"]); cat = str(d["cat"]); desc = str(d["desc"])
+        net = num(d["net"]); vat = num(d["vat"]); total = num(d["total"]); paid = str(d["paid"])
+        ts = num(d["ts"]); by = str(d["by"])
+    }
+    /// A new, empty bill dated today.
+    init() {
+        self.init(["id": "p" + UUID().uuidString.prefix(10).lowercased(), "date": Fmt.ymd(Date()), "cat": "stock", "paid": "bank", "branch": "hq"])
+    }
+    var dict: [String: Any] {
+        ["id": id, "date": date, "supplier": supplier, "trn": trn, "invNo": invNo, "branch": branch, "cat": cat, "desc": desc,
+         "net": net, "vat": vat, "total": total, "paid": paid, "ts": ts, "by": by]
+    }
+    var day: Date { Fmt.parseYMD(date) ?? Date() }
+    var isUnpaid: Bool { paid == "credit" }
+}
+
+struct PurchaseTotals {
+    var bills = 0, net = 0.0, vat = 0.0, total = 0.0, unpaid = 0.0
+    init(_ list: [Purchase]) {
+        for p in list {
+            bills += 1; net += p.net; vat += p.vat; total += p.total
+            if p.isUnpaid { unpaid += p.total }
+        }
+        net = r2(net); vat = r2(vat); total = r2(total); unpaid = r2(unpaid)
+    }
+}
