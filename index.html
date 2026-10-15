@@ -189,6 +189,8 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
 .rc .rq{display:flex;justify-content:space-between;gap:8px;color:#333}
 .rc .kv{display:flex;justify-content:space-between;padding:1px 0}
 .rc .kv.t{font-size:15px;font-weight:700;padding-top:4px}
+.rc .bcw{text-align:center;margin-top:10px}
+.rc .bc{display:block;width:100%;max-width:260px;height:44px;margin:0 auto 2px}
 .rc .fine{font-size:11px;color:#444}
 #printArea{display:none}
 
@@ -1231,6 +1233,19 @@ $('#btnCash').onclick=()=>payModal('cash');
 $('#btnCard').onclick=()=>payModal('card');
 
 /* ---------- receipt ---------- */
+// Code 128 (set B) barcode of the invoice number, as an SVG, so a scanner can find the sale.
+// C128: bar/space widths of the 106 symbols, six digits each.
+const C128='212222222122222221121223121322131222122213122312132212221213221312231212112232122132122231113222123122123221223211221132221231213212223112312131311222321122321221312212322112322211212123212321232121111323131123131321112313132113132311211313231113231311112133112331132131113123113321133121313121211331231131213113213311213131311123311321331121312113312311332111314111221411431111111224111422121124121421141122141221112214112412122114122411142112142211241211221114413111241112134111111242121142121241114212124112124211411212421112421211212141214121412121111143111341131141114113114311411113411311113141114131311141411131211412211214211232';
+function barcodeSVG(text){
+  const codes=Array.from(String(text),ch=>ch.charCodeAt(0)-32);
+  if(!codes.length||codes.some(v=>v<0||v>94))return '';
+  const vals=[104].concat(codes);
+  vals.push(vals.reduce((sum,v,i)=>sum+v*(i||1),0)%103);
+  const w=vals.map(v=>C128.substr(v*6,6)).join('')+'2331112';
+  let x=10,bars='';
+  for(let i=0;i<w.length;i++){const n=+w[i];if(i%2===0)bars+='<rect x="'+x+'" width="'+n+'" height="40"/>';x+=n}
+  return '<svg class="bc" viewBox="0 0 '+(x+10)+' 40" preserveAspectRatio="none" shape-rendering="crispEdges" role="img" aria-label="Barcode '+esc(text)+'"><g fill="#000">'+bars+'</g></svg>';
+}
 function receiptHTML(s){
   const taxInv=!!settings.trn;
   const br=s.branch?branchById(s.branch):null;
@@ -1253,7 +1268,8 @@ function receiptHTML(s){
     '<div class="kv"><span>Paid by</span><b>'+(s.method==='cash'?'Cash':'Card')+'</b></div>'+
     (s.method==='cash'?'<div class="kv"><span>Cash received</span><span>'+fmt(s.tendered)+'</span></div><div class="kv"><span>Change</span><span>'+fmt(s.change)+'</span></div>':(s.ref?'<div class="kv"><span>Card ref.</span><span>'+esc(s.ref)+'</span></div>':''))+
     (s.status==='void'?'<hr><div class="c"><b>*** VOIDED ***</b></div>':'')+
-    '<hr><div class="c fine">'+esc(settings.footer)+'<br>'+esc(settings.footerAr)+'</div></div>';
+    '<hr><div class="c fine">'+esc(settings.footer)+'<br>'+esc(settings.footerAr)+'</div>'+
+    (s.no?'<div class="bcw">'+barcodeSVG(s.no)+'<div class="fine">'+esc(s.no)+'</div></div>':'')+'</div>';
 }
 function doPrint(html,paper){
   let st=document.getElementById('pageStyle');
