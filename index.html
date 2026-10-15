@@ -190,6 +190,8 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
 .rc .kv{display:flex;justify-content:space-between;padding:1px 0}
 .rc .kv.t{font-size:15px;font-weight:700;padding-top:4px}
 .rc .bcw{text-align:center;margin-top:10px}
+.rc .kv>span:first-child small{display:block;text-align:left;font-family:var(--sans);font-size:11px;color:#444;line-height:1.2}
+.rc .kv.t>span:first-child small{font-size:12px;font-weight:700;color:#111}
 .rc .bc{display:block;width:100%;max-width:260px;height:44px;margin:0 auto 2px}
 .rc .fine{font-size:11px;color:#444}
 #printArea{display:none}
@@ -1247,6 +1249,8 @@ function barcodeSVG(text){
   return '<svg class="bc" viewBox="0 0 '+(x+10)+' 40" preserveAspectRatio="none" shape-rendering="crispEdges" role="img" aria-label="Barcode '+esc(text)+'"><g fill="#000">'+bars+'</g></svg>';
 }
 function receiptHTML(s){
+  // English label with the Arabic underneath
+  const L=(en,ar)=>en+'<small dir="rtl">'+ar+'</small>';
   const taxInv=!!settings.trn;
   const br=s.branch?branchById(s.branch):null;
   const addr=(br&&br.address)||settings.address,phone=(br&&br.phone)||settings.phone;
@@ -1255,19 +1259,19 @@ function receiptHTML(s){
     '<div class="c"><h3>'+esc(settings.name)+'</h3><div class="ar">'+esc(settings.nameAr)+'</div>'+
     (s.branchName?'<div class="fine"><b>'+esc(s.branchName)+'</b></div>':'')+
     (addr?'<div class="fine">'+esc(addr)+'</div>':'')+
-    (phone?'<div class="fine">Tel: '+esc(phone)+'</div>':'')+
-    (taxInv?'<div class="fine">TRN: '+esc(settings.trn)+'</div>':'')+'</div>'+
+    (phone?'<div class="fine">Tel: <span dir="ltr">'+esc(phone)+'</span> · <bdi>هاتف</bdi></div>':'')+
+    (taxInv?'<div class="fine">TRN: <span dir="ltr">'+esc(settings.trn)+'</span> · <bdi>الرقم الضريبي</bdi></div>':'')+'</div>'+
     '<hr><div class="c"><b>'+(taxInv?'TAX INVOICE – فاتورة ضريبية':'RECEIPT – إيصال')+'</b></div><hr>'+
-    '<div class="kv"><span>No.</span><b>'+esc(s.no)+'</b></div><div class="kv"><span>Date</span><span>'+fmtDate(s.ts)+'</span></div>'+(s.cashier?'<div class="kv"><span>Cashier</span><span>'+esc(s.cashier)+'</span></div>':'')+'<hr>'+
+    '<div class="kv"><span>'+L('No.','رقم الفاتورة')+'</span><b>'+esc(s.no)+'</b></div><div class="kv"><span>'+L('Date','التاريخ')+'</span><span>'+fmtDate(s.ts)+'</span></div>'+(s.cashier?'<div class="kv"><span>'+L('Cashier','الكاشير')+'</span><span>'+esc(s.cashier)+'</span></div>':'')+'<hr>'+
     rows+'<hr>'+
-    '<div class="kv"><span>Items (incl. VAT)</span><span>'+fmt(s.sumGross)+'</span></div>'+
-    (s.disc>0?'<div class="kv"><span>Discount'+(s.discount.type==='pct'?' ('+s.discount.value+'%)':'')+'</span><span>− '+fmt(s.disc)+'</span></div>':'')+
-    '<div class="kv"><span>Amount excl. VAT</span><span>'+fmt(s.net)+'</span></div>'+
-    '<div class="kv"><span>VAT '+s.vatRate+'%</span><span>'+fmt(s.vat)+'</span></div>'+
-    '<div class="kv t"><span>TOTAL (AED)</span><span>'+fmt(s.total)+'</span></div><hr>'+
-    '<div class="kv"><span>Paid by</span><b>'+(s.method==='cash'?'Cash':'Card')+'</b></div>'+
-    (s.method==='cash'?'<div class="kv"><span>Cash received</span><span>'+fmt(s.tendered)+'</span></div><div class="kv"><span>Change</span><span>'+fmt(s.change)+'</span></div>':(s.ref?'<div class="kv"><span>Card ref.</span><span>'+esc(s.ref)+'</span></div>':''))+
-    (s.status==='void'?'<hr><div class="c"><b>*** VOIDED ***</b></div>':'')+
+    '<div class="kv"><span>'+L('Items (incl. VAT)','المجموع شامل الضريبة')+'</span><span>'+fmt(s.sumGross)+'</span></div>'+
+    (s.disc>0?'<div class="kv"><span>'+L('Discount'+(s.discount&&s.discount.type==='pct'?' ('+s.discount.value+'%)':''),'الخصم')+'</span><span>− '+fmt(s.disc)+'</span></div>':'')+
+    '<div class="kv"><span>'+L('Amount excl. VAT','المبلغ بدون الضريبة')+'</span><span>'+fmt(s.net)+'</span></div>'+
+    '<div class="kv"><span>'+L('VAT '+s.vatRate+'%','ضريبة القيمة المضافة '+s.vatRate+'%')+'</span><span>'+fmt(s.vat)+'</span></div>'+
+    '<div class="kv t"><span>'+L('TOTAL (AED)','الإجمالي (درهم)')+'</span><span>'+fmt(s.total)+'</span></div><hr>'+
+    '<div class="kv"><span>'+L('Paid by','طريقة الدفع')+'</span><b>'+(s.method==='cash'?'Cash نقداً':'Card بطاقة')+'</b></div>'+
+    (s.method==='cash'?'<div class="kv"><span>'+L('Cash received','المبلغ المستلم')+'</span><span>'+fmt(s.tendered)+'</span></div><div class="kv"><span>'+L('Change','الباقي')+'</span><span>'+fmt(s.change)+'</span></div>':(s.ref?'<div class="kv"><span>'+L('Card ref.','مرجع البطاقة')+'</span><span>'+esc(s.ref)+'</span></div>':''))+
+    (s.status==='void'?'<hr><div class="c"><b>*** VOIDED – ملغاة ***</b></div>':'')+
     '<hr><div class="c fine">'+esc(settings.footer)+'<br>'+esc(settings.footerAr)+'</div>'+
     (s.no?'<div class="bcw">'+barcodeSVG(s.no)+'<div class="fine">'+esc(s.no)+'</div></div>':'')+'</div>';
 }
