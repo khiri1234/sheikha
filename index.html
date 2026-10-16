@@ -431,6 +431,11 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
 .mini.danger{color:var(--red);border-color:#EBC9C0}
 .pur-amt{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .ghost.danger-t{color:var(--red);border-color:#EBC9C0}
+.edit-bar{display:flex;gap:10px;align-items:center;justify-content:space-between;background:#FFF4D6;border-bottom:1px solid #F0D58A;padding:9px 18px;font-size:12.5px;font-weight:600;color:#7A5300}
+.edit-bar .link{white-space:nowrap;color:var(--red)}
+.edit-diff{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;background:#FFF4D6;border:1px solid #F0D58A;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:13px;color:#7A5300}
+.eb-find{display:flex;gap:10px;align-items:flex-end}
+.eb-msg{min-height:18px;margin:8px 0 0;font-size:13px;color:var(--text-dim)}
 .tag.pur-due{background:#FDECEA;color:#A8322A}
 .pur-warn{background:#FDF1EA;border:1px solid #F6CDB5;border-radius:10px;padding:12px 14px;color:var(--till-dark);font-size:13px}
 @media (max-width:640px){.pur-amt{grid-template-columns:1fr}}
@@ -496,6 +501,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
       <button class="nav-btn active" data-view="sale"><span class="ic">🧾</span>Sale</button>
       <button class="nav-btn" data-view="shift" hidden><span class="ic">🕘</span>Shift</button>
       <button class="nav-btn" data-view="held"><span class="ic">⏸️</span>Held Bills<span class="nav-count" id="heldCount" hidden></span></button>
+      <button class="nav-btn" data-view="edit"><span class="ic">✏️</span>Edit Bill</button>
       <button class="nav-btn" data-view="items"><span class="ic">🧵</span>Items</button>
       <button class="nav-btn" data-view="purchases" hidden><span class="ic">🛒</span>Purchases</button>
       <button class="nav-btn" data-view="reports"><span class="ic">📊</span>Reports</button>
@@ -537,9 +543,10 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
         </div>
         <div class="ticket" aria-label="Current bill">
           <div class="ticket-head">
-            <div style="display:flex;align-items:center;gap:8px"><button class="ghost back" id="btnBack" aria-label="Back to fabrics">‹ Back</button><b>Current Bill</b></div>
+            <div style="display:flex;align-items:center;gap:8px"><button class="ghost back" id="btnBack" aria-label="Back to fabrics">‹ Back</button><b id="ticketTitle">Current Bill</b></div>
             <div class="hr"><button class="link" id="btnClear">Clear</button><span id="itemCount" class="pill">0 items</span></div>
           </div>
+          <div class="edit-bar" id="editBar" hidden><span id="editBarText"></span><button class="link" id="btnEditCancel" type="button">Cancel edit</button></div>
           <div class="cart-list" id="lines"></div>
           <div class="disc-row">
             <span>Discount</span>
@@ -580,6 +587,14 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
         <div><h1>Held Bills</h1><div class="sub">Parked bills waiting to be resumed · <span id="heldSync" class="sync-note"></span></div></div>
       </div>
       <div id="heldList"></div>
+    </section>
+
+    <!-- EDIT BILL VIEW -->
+    <section id="view-edit" hidden>
+      <div class="topbar">
+        <div><h1>Edit Bill</h1><div class="sub">Scan the barcode on the receipt or type the invoice number, then change the bill and take payment again. It keeps the same invoice number.</div></div>
+      </div>
+      <div class="page-body card" id="editPage"></div>
     </section>
 
     <!-- ITEMS VIEW -->
@@ -728,12 +743,14 @@ function logAct(type,text){
 const saved=store.get('sk_cart',{cart:[],discount:{type:'pct',value:''}});
 let cart=saved.cart||[];
 let discount=saved.discount||{type:'pct',value:''};
+// the paid bill being changed (Edit Bill), or null for a new sale
+let editing=saved.editing||null;
 
 
 const saveSettings=()=>store.set('sk_settings',settings);
 const saveItems=()=>store.set('sk_items3',items);
 const saveSales=()=>{store.set('sk_sales',sales);store.set('sk_seq',seq)};
-const saveCart=()=>store.set('sk_cart',{cart,discount});
+const saveCart=()=>store.set('sk_cart',{cart,discount,editing});
 
 /* ---------- calculations ---------- */
 function calcLine(l){
@@ -908,7 +925,10 @@ function renderCart(){
   $('#tVat').textContent='AED '+fmt(t.vat);
   $('#tTotal').textContent='AED '+fmt(t.total);
   const canPay=!!(t.count&&t.total>0);
-  $('#btnCash').disabled=!canPay;$('#btnCard').disabled=!canPay;$('#btnHold').disabled=!cart.length;
+  $('#btnCash').disabled=!canPay;$('#btnCard').disabled=!canPay;$('#btnHold').disabled=!cart.length||!!editing;
+  $('#ticketTitle').textContent=editing?'Editing '+editing.no:'Current Bill';
+  $('#editBar').hidden=!editing;
+  if(editing)$('#editBarText').textContent='Editing '+editing.no+' – was AED '+fmt(editing.total)+'. Change the lines, then take payment to save.';
   sideToday();
   $('#cbCount').textContent=t.count?t.count+(t.count===1?' line':' lines')+' – view bill':'Bill is empty';
   $('#cbTotal').textContent='AED '+fmt(t.total);
@@ -928,6 +948,7 @@ $('#discVal').addEventListener('input',e=>{discount.value=e.target.value;saveCar
 $('#discType').addEventListener('change',e=>{discount.type=e.target.value;saveCart();renderCart()});
 $('#btnClear').onclick=async()=>{
   if(!cart.length)return;
+  if(editing){cancelEdit();return}
   if(await askConfirm('Clear this bill?','All lines will be removed.','Clear bill',true)){logAct('Bill','Bill cleared ('+cart.length+(cart.length===1?' line':' lines')+')');cart=[];discount={type:'pct',value:''};saveCart();renderCart()}
 };
 $('#cartbar').onclick=()=>document.body.classList.add('cart-open');
@@ -936,7 +957,7 @@ $('#btnBack').onclick=()=>document.body.classList.remove('cart-open');
 /* ---------- cloud (Firebase) ----------
    Shared:      config/shop, config/vatin, items/*        (head office writes)
    Per branch:  branches/{id}            branch details   (head office writes)
-                branches/{id}/sales/*    one doc per sale (create; void only)
+                branches/{id}/sales/*    one doc per sale (create; void; edit keeps no. + history)
                 branches/{id}/held/*     held bills
                 branches/{id}/logs/*     activity log
                 branches/{id}/meta/counters  invoice + held-bill numbers
@@ -1069,7 +1090,7 @@ function watchToday(){
 }
 function applyRole(){
   const role=CLOUD?C.role:'local';
-  const allow={dashboard:['hq'],shift:['branch'],sale:['local','branch'],held:['local','branch'],items:['local','hq'],purchases:['local','hq'],reports:['local','branch','hq'],branches:['hq'],settings:['local','hq']};
+  const allow={dashboard:['hq'],shift:['branch'],sale:['local','branch'],held:['local','branch'],edit:['local','branch'],items:['local','hq'],purchases:['local','hq'],reports:['local','branch','hq'],branches:['hq'],settings:['local','hq']};
   $$('.nav-btn').forEach(b=>{b.hidden=!(allow[b.dataset.view]||[]).includes(role)});
   $('#who').hidden=!CLOUD||!C.role;
   if(CLOUD&&C.role){$('#whoEmail').textContent=C.email;netState()}
@@ -1115,6 +1136,40 @@ function saveSale(sale){
   Object.assign(sale,{branch:C.branch,branchName:brName(C.branch),by:C.email,cashier:cashierName(),cashierId:S.cashier?S.cashier.id:'',shiftId:S.shift?S.shift.id:''});
   salesCol(C.branch).doc(sale.id).set(sale).catch(e=>{console.error(e);toast('Sale '+sale.no+' was not saved online: '+(e.code||e.message))});
 }
+// Edit Bill: the same invoice (id, number, date) with the new lines and payment.
+// The bill as it was before is kept in its edits list.
+function saveEditedSale(old,sale){
+  const before={};
+  ['lines','discount','sumGross','disc','net','vat','total','method','tendered','change','ref','cashier'].forEach(k=>{if(old[k]!==undefined)before[k]=old[k]});
+  const by=cashierName()||(CLOUD?C.email:'');
+  sale.edits=(old.edits||[]).concat([{at:Date.now(),by,before}]);
+  sale.editedAt=Date.now();sale.editedBy=by;
+  ['branch','branchName','by','cashier','cashierId','shiftId'].forEach(k=>{if(old[k]!==undefined)sale[k]=old[k]});
+  if(!CLOUD){sales=sales.map(x=>x.id===sale.id?sale:x);saveSales();return}
+  salesCache.clear();
+  salesCol(sale.branch).doc(sale.id).set(sale).catch(e=>{console.error(e);toast('Changes to '+sale.no+' were not saved online: '+(e.code||e.message))});
+}
+async function startEdit(s){
+  if(s.status==='void'){toast(s.no+' is void and can’t be edited');return}
+  if(editing&&editing.id===s.id){go('sale');return}
+  if(cart.length&&!editing){
+    if(!(await askConfirm('Hold the open bill?','The bill on the till will be held so you can edit '+s.no+'. Resume it later under Held Bills.','Hold and edit',false)))return;
+    await holdCurrent();
+  }
+  editing=JSON.parse(JSON.stringify(s));
+  cart=s.lines.map(l=>({id:l.id||uid(),itemId:l.itemId||'custom',name:l.name,unit:l.unit,price:+l.price,qty:+l.qty,mode:l.mode}));
+  discount={type:(s.discount&&s.discount.type)||'pct',value:s.discount&&+s.discount.value?String(s.discount.value):''};
+  saveCart();logAct('Edit','Started editing '+s.no);
+  go('sale');renderCart();
+  if(innerWidth<=900)document.body.classList.add('cart-open');
+  toast('Editing '+s.no);
+}
+async function cancelEdit(){
+  if(!editing)return;
+  if(!(await askConfirm('Stop editing '+editing.no+'?','The bill stays as it was (AED '+fmt(editing.total)+'). Your changes are discarded.','Stop editing',true)))return;
+  logAct('Edit','Edit of '+editing.no+' cancelled');
+  editing=null;cart=[];discount={type:'pct',value:''};saveCart();renderCart();
+}
 function voidSale(s){
   s.status='void';s.voidedAt=Date.now();
   if(!CLOUD){saveSales();return}
@@ -1142,6 +1197,7 @@ async function holdCurrent(){
   renderHeld();
   return h;
 }
+$('#btnEditCancel').onclick=()=>cancelEdit();
 $('#btnHold').onclick=async()=>{const b=$('#btnHold');b.disabled=true;const h=await holdCurrent();if(h){document.body.classList.remove('cart-open');toast('Bill held as #'+h.no)}};
 // take a held bill off the shared list; returns null if another device already took it
 async function takeHeld(id){
@@ -1169,6 +1225,7 @@ $('#heldList').addEventListener('click',async e=>{
     r.disabled=true;
     const h=await takeHeld(r.dataset.resume);
     if(!h){toast('That bill was already resumed or deleted on another device');renderHeld();return}
+    if(editing){toast('Finish or cancel editing '+editing.no+' first');r.disabled=false;return}
     const swapped=cart.length?await holdCurrent():null;
     cart=h.cart;discount=h.discount||{type:'pct',value:''};saveCart();
     logAct('Bill','Resumed held bill #'+h.no);
@@ -1182,6 +1239,55 @@ $('#heldList').addEventListener('click',async e=>{
   }
 });
 
+/* ---------- edit bill ---------- */
+const EB={day:null,q:''};
+async function findSale(no){
+  no=String(no||'').trim().toUpperCase();
+  if(!no)return null;
+  if(!CLOUD)return sales.find(x=>String(x.no).toUpperCase()===no)||null;
+  const q=await salesCol(C.branch).where('no','==',no).limit(1).get();
+  return q.empty?null:q.docs[0].data();
+}
+function renderEditPage(){
+  if(!EB.day)EB.day=ymd(Date.now());
+  const host=$('#editPage');
+  host.innerHTML='<form id="ebFind" class="eb-find"><label class="fld" style="flex:1;margin:0"><span>Invoice number</span><input id="ebNo" autocomplete="off" placeholder="Scan the receipt barcode or type e.g. '+esc(((branchById(C.branch)||{}).code||'INV')+'-000101')+'" value="'+esc(EB.q)+'"></label><button class="btn primary" type="submit">Find bill</button></form>'+
+    '<div id="ebMsg" class="eb-msg"></div>'+
+    '<div class="filters"><button class="mini" data-eday="-1">‹ Prev</button><label class="fld sm"><span>Bills on</span><input type="date" id="ebDay" value="'+EB.day+'"></label><button class="mini" data-eday="1">Next ›</button><button class="mini" data-eday="0">Today</button></div>'+
+    '<div id="ebList"><div class="loading">Loading…</div></div>';
+  const no=$('#ebNo');
+  setTimeout(()=>no.focus(),30);
+  $('#ebFind').onsubmit=async e=>{
+    e.preventDefault();EB.q=no.value;
+    $('#ebMsg').textContent='Looking for '+no.value.trim()+'…';
+    try{
+      const sl=await findSale(no.value);
+      if(!sl){$('#ebMsg').textContent='No bill '+no.value.trim()+(CLOUD?' at '+brName(C.branch):'')+'. Check the number.';return}
+      $('#ebMsg').textContent='';showEditCandidate(sl);
+    }catch(err){$('#ebMsg').textContent='Could not search: '+(err.code||err.message)}
+  };
+  $('#ebDay').onchange=e=>{if(e.target.value){EB.day=e.target.value;drawEditList()}};
+  $$('[data-eday]',host).forEach(b=>b.onclick=()=>{const d=+b.dataset.eday;EB.day=d===0?ymd(Date.now()):ymd(new Date(EB.day+'T12:00:00').getTime()+d*864e5);$('#ebDay').value=EB.day;drawEditList()});
+  drawEditList();
+}
+async function drawEditList(){
+  const host=$('#ebList');if(!host)return;
+  host.innerHTML='<div class="loading">Loading…</div>';
+  let list;
+  try{list=(await salesIn(EB.day,EB.day)).slice().reverse()}catch(e){host.innerHTML='<p class="none">Could not load: '+esc(e.code||e.message)+'</p>';return}
+  if(!list.length){host.innerHTML='<p class="none">No bills on '+esc(nice(EB.day))+'.</p>';return}
+  host.innerHTML=tbl([['Invoice'],['Time'],['Lines'],['Payment'],['Total',1],['']],
+    list.map(x=>trow([esc(x.no)+(x.editedAt?' <span class="tag">edited</span>':''),fmtTime(x.ts),esc(x.lines.map(l=>l.name).join(', ')),x.method==='cash'?'Cash':'Card',fmt(x.total),
+      x.status==='void'?'<span class="tag">void</span>':'<button class="mini" data-ev="'+esc(x.id)+'">View</button> <button class="mini" data-ee="'+esc(x.id)+'">Edit</button>'],'llllrl',x.status==='void'?'void':'')));
+  $$('[data-ee]',host).forEach(b=>b.onclick=()=>{const x=list.find(y=>y.id===b.dataset.ee);if(x)startEdit(x)});
+  $$('[data-ev]',host).forEach(b=>b.onclick=()=>{const x=list.find(y=>y.id===b.dataset.ev);if(x)showEditCandidate(x)});
+}
+function showEditCandidate(sl){
+  const m=modal('<div class="paper">'+receiptHTML(sl)+'</div><div class="actions"><button class="ghost" id="ecClose">Close</button>'+(sl.status==='void'?'':'<button class="primary" id="ecEdit">Edit this bill</button>')+'</div>');
+  $('#ecClose',m.el).onclick=()=>m.close();
+  if(sl.status!=='void')$('#ecEdit',m.el).onclick=()=>{m.close();startEdit(sl)};
+}
+
 /* ---------- payment ---------- */
 function payModal(startMethod){
   const t=totals();
@@ -1189,8 +1295,9 @@ function payModal(startMethod){
   let method='cash';
   const cands=[...new Set([5,10,50,100,500].map(x=>Math.ceil(t.total/x)*x))].filter(v=>v>t.total).slice(0,4);
   const m=modal(
-    '<h2>Take payment</h2><p class="sub">Choose how the customer is paying.</p>'+
-    '<div class="paytotal"><span>Amount due</span><b class="num">AED '+fmt(t.total)+'</b></div>'+
+    '<h2>'+(editing?'Save '+esc(editing.no):'Take payment')+'</h2><p class="sub">'+(editing?'Enter the payment for the whole new total, as if the bill were paid again today.':'Choose how the customer is paying.')+'</p>'+
+    (editing?(()=>{const d=r2(t.total-editing.total);return '<div class="edit-diff"><span>Before: AED '+fmt(editing.total)+' ('+(editing.method==='cash'?'cash':'card')+')</span><b>'+(d>0?'Customer pays AED '+fmt(d)+' more':d<0?'Give back AED '+fmt(-d):'Same total')+'</b></div>'})():'')+
+    '<div class="paytotal"><span>'+(editing?'New total':'Amount due')+'</span><b class="num">AED '+fmt(t.total)+'</b></div>'+
     '<div class="seg big" id="pm"><button data-m="cash" class="on">Cash</button><button data-m="card">Card</button></div>'+
     '<div id="cashPane"><label class="fld"><span>Cash received</span><div class="money"><i>AED</i><input id="tend" class="num" inputmode="decimal" placeholder="0.00"></div></label>'+
     '<div class="quick"><button data-amt="'+t.total+'">Exact</button>'+cands.map(v=>'<button data-amt="'+v+'">'+v+'</button>').join('')+'</div>'+
@@ -1208,10 +1315,10 @@ function payModal(startMethod){
       box.className='change '+(v===0?'':(ch>=0?'ok':'bad'));
       box.innerHTML='<span>'+(ch>=0||v===0?'Change to give':'Still to collect')+'</span><b class="num">AED '+fmt(v===0?0:Math.abs(ch))+'</b>';
       $m('#payGo').disabled=!(v>0&&ch>=0);
-      $m('#payGo').textContent='Complete sale';
+      $m('#payGo').textContent=editing?'Save changes':'Complete sale';
     }else{
       $m('#payGo').disabled=false;
-      $m('#payGo').textContent='Card approved – complete sale';
+      $m('#payGo').textContent=editing?'Card approved – save changes':'Card approved – complete sale';
     }
   }
   $m('#tend').addEventListener('input',upd);
@@ -1227,16 +1334,20 @@ function payModal(startMethod){
   $m('#payCancel').onclick=()=>m.close();
   $m('#payGo').onclick=()=>{
     const tendered=method==='cash'?parseFloat($m('#tend').value)||0:t.total;
+    const ed=editing;
     const sale={
-      id:uid(),no:nextInvoiceNo(),ts:Date.now(),
+      id:ed?ed.id:uid(),no:ed?ed.no:nextInvoiceNo(),ts:ed?ed.ts:Date.now(),
       lines:cart.map(l=>Object.assign({},l,calcLine(l))),
       discount:{type:discount.type,value:parseFloat(discount.value)||0},
       sumGross:t.sumGross,disc:t.disc,net:t.net,vat:t.vat,total:t.total,vatRate:settings.vat,
       method,tendered,change:method==='cash'?r2(tendered-t.total):0,
       ref:method==='card'?$m('#ref').value.trim():'',status:'paid'
     };
-    saveSale(sale);logAct('Sale',sale.no+' – AED '+fmt(sale.total)+' paid by '+sale.method+' ('+sale.lines.length+(sale.lines.length===1?' line':' lines')+')');
-    cart=[];discount={type:'pct',value:''};saveCart();renderCart();
+    if(ed){
+      saveEditedSale(ed,sale);
+      logAct('Edit',sale.no+' edited – AED '+fmt(ed.total)+' ('+ed.method+') → AED '+fmt(sale.total)+' ('+sale.method+')');
+    }else{saveSale(sale);logAct('Sale',sale.no+' – AED '+fmt(sale.total)+' paid by '+sale.method+' ('+sale.lines.length+(sale.lines.length===1?' line':' lines')+')')}
+    cart=[];discount={type:'pct',value:''};editing=null;saveCart();renderCart();
     m.close();
     document.body.classList.remove('cart-open');
     checkBackupNag();
@@ -1277,7 +1388,8 @@ function receiptHTML(s){
     (phone?'<div class="fine">Tel: <span dir="ltr">'+esc(phone)+'</span> · <bdi>هاتف</bdi></div>':'')+
     (taxInv?'<div class="fine">TRN: <span dir="ltr">'+esc(settings.trn)+'</span> · <bdi>الرقم الضريبي</bdi></div>':'')+'</div>'+
     '<hr><div class="c"><b>'+(taxInv?'TAX INVOICE – <bdi>فاتورة ضريبية</bdi>':'RECEIPT – <bdi>إيصال</bdi>')+'</b></div><hr>'+
-    '<div class="kv"><span>'+L('No.','رقم الفاتورة')+'</span><b>'+esc(s.no)+'</b></div><div class="kv dt"><span>'+L('Date','التاريخ')+'</span><span>'+fmtDate(s.ts)+'</span></div>'+(s.cashier?'<div class="kv"><span>'+L('Cashier','الكاشير')+'</span><span>'+esc(s.cashier)+'</span></div>':'')+'<hr>'+
+    '<div class="kv"><span>'+L('No.','رقم الفاتورة')+'</span><b>'+esc(s.no)+'</b></div><div class="kv dt"><span>'+L('Date','التاريخ')+'</span><span>'+fmtDate(s.ts)+'</span></div>'+(s.cashier?'<div class="kv"><span>'+L('Cashier','الكاشير')+'</span><span>'+esc(s.cashier)+'</span></div>':'')+
+    (s.editedAt?'<div class="kv dt"><span>'+L('Edited','عُدّلت')+'</span><span>'+fmtDate(s.editedAt)+'</span></div>':'')+'<hr>'+
     rows+'<hr>'+
     '<div class="kv"><span>'+L('Items (incl. VAT)','المجموع')+'</span><span>'+fmt(s.sumGross)+'</span></div>'+
     (s.disc>0?'<div class="kv"><span>'+L('Discount'+(s.discount&&s.discount.type==='pct'?' ('+s.discount.value+'%)':''),'الخصم')+'</span><span>− '+fmt(s.disc)+'</span></div>':'')+
@@ -1479,7 +1591,7 @@ function reportsModal(tab){
     else if(R.tab==='vat')filt='<div class="filters">'+dateF('Period from','vf')+dateF('Period to','vt')+'<div class="qk">'+quick('data-vq',[['month','This month'],['lastmonth','Last month'],['quarter','This quarter'],['lastquarter','Last quarter']])+'</div></div>';
     else if(R.tab==='shifts')filt='<div class="filters">'+dateF('From','from')+dateF('To','to')+brSel()+'<div class="qk">'+quick('data-q',[['month','This month'],['lastmonth','Last month'],['today','Today']])+'</div></div>';
     else if(R.tab==='items')filt='<div class="filters">'+dateF('From','from')+dateF('To','to')+brSel()+'<div class="qk">'+quick('data-q',[['month','This month'],['lastmonth','Last month'],['today','Today']])+'</div></div>';
-    else filt='<div class="filters">'+brSel()+selF('Show','act',[['all','Everything'],['Sale','Sales'],['Void','Voids'],['Bill','Bill changes'],['Item','Items'],['Purchase','Purchases'],['Settings','Settings'],['Report','Reports'],['Data','Data']])+'</div>';
+    else filt='<div class="filters">'+brSel()+selF('Show','act',[['all','Everything'],['Sale','Sales'],['Void','Voids'],['Bill','Bill changes'],['Edit','Edited bills'],['Item','Items'],['Purchase','Purchases'],['Settings','Settings'],['Report','Reports'],['Data','Data']])+'</div>';
     const head='<div class="rhead modal-only"><h2>Reports</h2><button class="ghost" id="rClose">Close</button></div>'+
       '<div class="rtabs">'+T.map(t=>'<button data-t="'+t[0]+'" class="'+(R.tab===t[0]?'on':'')+'">'+t[1]+'</button>').join('')+'</div>'+filt;
     $('#rBody',m.el).innerHTML=head+'<div class="loading">Loading…</div>';
@@ -2395,7 +2507,7 @@ function sideToday(){
   $('#sideToday').textContent='AED '+fmt(agg(list).total);
 }
 let curView='sale';
-const VIEWS={dashboard:()=>renderDashboard(),shift:()=>renderShiftPage(),sale:null,held:()=>renderHeld(),items:itemsModal,purchases:()=>renderPurchases(),reports:()=>reportsModal(),branches:()=>renderBranches(),settings:()=>{settingsModal();renderBackup()}};
+const VIEWS={dashboard:()=>renderDashboard(),shift:()=>renderShiftPage(),sale:null,held:()=>renderHeld(),edit:()=>renderEditPage(),items:itemsModal,purchases:()=>renderPurchases(),reports:()=>reportsModal(),branches:()=>renderBranches(),settings:()=>{settingsModal();renderBackup()}};
 function go(v){
   if(!(v in VIEWS)||!viewAllowed(v))v=CLOUD&&isHQ()?'dashboard':'sale';
   curView=v;

@@ -229,3 +229,20 @@ credit, **Copy for Excel** and **Print**. **Reports → VAT 201** fills box 9 fr
 these bills automatically; typing figures into box 9 overrides that for the
 period. Branches don't see purchases. The Sheikha HQ iPhone app has the same list
 under **More → Purchases** (build 12 or later).
+
+### 16. Edit Bill
+**One-time:** the database rules gained a section that lets a branch edit its own
+bills. Publish [`firestore.rules`](firestore.rules) again (copy it into **Firebase →
+Firestore Database → Rules → Publish**, or run `firebase deploy --only firestore:rules`).
+Until then, edits made at a branch are refused by the server.
+
+**At the branch:** **Edit Bill** in the left menu → scan the barcode on the receipt
+(or type the invoice number, or pick the bill from the day's list) → **Edit this
+bill**. The bill opens on the till, marked *Editing B7-000101*. Change lines, prices
+or the discount, then press **Cash** or **Card** and enter the payment for the whole
+new total. The bill keeps its number and date; the receipt shows *Edited* with the
+time, and the bill as it was before is kept in its history (activity log: *Edited
+bills*). **Cancel edit** leaves the bill unchanged. Voided bills can't be edited.
+
+Note: a Z report already printed for a closed shift is not recalculated when one of
+its bills is edited later.
