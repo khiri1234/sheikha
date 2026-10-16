@@ -595,7 +595,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
     <!-- EDIT BILL VIEW -->
     <section id="view-edit" hidden>
       <div class="topbar">
-        <div><h1>Edit Bill</h1><div class="sub">Scan the barcode on the receipt or type the invoice number, then change the bill and take payment again. It keeps the same invoice number.</div></div>
+        <div><h1>Edit Bill</h1><div class="sub">Scan the barcode on the receipt or type the invoice number, then edit or void the bill. An edited bill keeps the same invoice number.</div></div>
       </div>
       <div class="page-body card" id="editPage"></div>
     </section>
@@ -1304,14 +1304,28 @@ async function drawEditList(){
   if(!list.length){host.innerHTML='<p class="none">No bills on '+esc(nice(EB.day))+'.</p>';return}
   host.innerHTML=tbl([['Invoice'],['Time'],['Lines'],['Payment'],['Total',1],['']],
     list.map(x=>trow([esc(x.no)+(x.editedAt?' <span class="tag">edited</span>':''),fmtTime(x.ts),esc(x.lines.map(l=>l.name).join(', ')),x.method==='cash'?'Cash':'Card',fmt(x.total),
-      x.status==='void'?'<span class="tag">void</span>':'<button class="mini" data-ev="'+esc(x.id)+'">View</button> <button class="mini" data-ee="'+esc(x.id)+'">Edit</button>'],'llllrl',x.status==='void'?'void':'')));
+      x.status==='void'?'<span class="tag">void</span>':'<button class="mini" data-ev="'+esc(x.id)+'">View</button> <button class="mini" data-ee="'+esc(x.id)+'">Edit</button> <button class="mini danger" data-ex="'+esc(x.id)+'">Void</button>'],'llllrl',x.status==='void'?'void':'')));
   $$('[data-ee]',host).forEach(b=>b.onclick=()=>{const x=list.find(y=>y.id===b.dataset.ee);if(x)startEdit(x)});
   $$('[data-ev]',host).forEach(b=>b.onclick=()=>{const x=list.find(y=>y.id===b.dataset.ev);if(x)showEditCandidate(x)});
+  $$('[data-ex]',host).forEach(b=>b.onclick=async()=>{const x=list.find(y=>y.id===b.dataset.ex);if(x&&await confirmVoid(x))drawEditList()});
 }
 function showEditCandidate(sl){
-  const m=modal('<div class="paper">'+receiptHTML(sl)+'</div><div class="actions"><button class="ghost" id="ecClose">Close</button>'+(sl.status==='void'?'':'<button class="primary" id="ecEdit">Edit this bill</button>')+'</div>');
+  const live=sl.status!=='void';
+  const m=modal('<div class="paper">'+receiptHTML(sl)+'</div><div class="actions"><button class="ghost" id="ecClose">Close</button>'+(live?'<button class="ghost danger-t" id="ecVoid">Void bill</button><button class="primary" id="ecEdit">Edit this bill</button>':'')+'</div>');
   $('#ecClose',m.el).onclick=()=>m.close();
-  if(sl.status!=='void')$('#ecEdit',m.el).onclick=()=>{m.close();startEdit(sl)};
+  if(!live)return;
+  $('#ecEdit',m.el).onclick=()=>{m.close();startEdit(sl)};
+  $('#ecVoid',m.el).onclick=async()=>{if(await confirmVoid(sl)){m.close();if(curView==='edit')drawEditList()}};
+}
+// void a paid bill (it stays on record, marked void, and leaves every total)
+async function confirmVoid(sl){
+  if(sl.status==='void')return false;
+  if(!(await askConfirm('Void '+sl.no+'?','AED '+fmt(sl.total)+' paid by '+(sl.method==='cash'?'cash':'card')+'. The bill stays on record marked VOID and is removed from all totals and the Z report. This cannot be undone.','Void bill',true)))return false;
+  voidSale(sl);salesCache.clear();
+  logAct('Void',sl.no+' voided (AED '+fmt(sl.total)+', '+sl.method+')');
+  if(editing&&editing.id===sl.id){editing=null;cart=[];discount={type:'pct',value:''};saveCart();renderCart()}
+  sideToday();toast(sl.no+' voided');
+  return true;
 }
 
 /* ---------- payment ---------- */
