@@ -7,8 +7,8 @@ rules_version = '2';
 // Who can do what:
 //   head office  – everything: settings, fabrics, branches, purchases, all branches' data
 //   branch login – read settings and fabrics; read and add its own branch's
-//                  sales, held bills, shifts and log; void (not edit or delete)
-//                  its sales; a closed shift (Z report) can't be changed
+//                  sales, held bills, shifts and log; void (never delete)
+//                  or edit its sales (Edit Bill); a closed shift (Z report) can't be changed
 //   anyone else  – nothing
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -52,13 +52,20 @@ service cloud.firestore {
       allow read: if isHQ() || isBranch(b);
       allow write: if isHQ();
 
-      // sales can be added and voided, never edited or deleted
+      // sales can be added, voided, and edited by their branch (Edit Bill) – never deleted.
+      // An edit keeps the invoice number, date and branch, and stores the old version in "edits".
       match /sales/{id} {
         allow read: if isHQ() || isBranch(b);
         allow create: if isBranch(b) && request.resource.data.branch == b;
         allow update: if (isHQ() || isBranch(b))
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'voidedAt', 'voidedBy'])
           && request.resource.data.status == 'void';
+        allow update: if isBranch(b) && resource.data.status == 'paid'
+          && request.resource.data.status == 'paid'
+          && request.resource.data.branch == b
+          && request.resource.data.no == resource.data.no
+          && request.resource.data.ts == resource.data.ts
+          && request.resource.data.edits.size() == resource.data.get('edits', []).size() + 1;
       }
 
       match /held/{id} {
