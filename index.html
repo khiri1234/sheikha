@@ -1390,7 +1390,8 @@ function receiptHTML(s){
   const taxInv=!!settings.trn;
   const br=s.branch?branchById(s.branch):null;
   const addr=(br&&br.address)||settings.address,phone=(br&&br.phone)||settings.phone;
-  const rows=s.lines.map(l=>'<div class="rl"><div>'+esc(l.name)+'</div><div class="rq"><span>'+l.qty+' '+us(l.unit)+' × '+fmt(l.price)+' ('+(l.mode==='incl'?'incl. VAT':'excl. VAT')+')</span><b>'+fmt(l.gross)+'</b></div></div>').join('');
+  // item lines show the price per unit including VAT, whichever way it was typed in
+  const rows=s.lines.map(l=>'<div class="rl"><div>'+esc(l.name)+'</div><div class="rq"><span>'+l.qty+' '+us(l.unit)+' × '+fmt(l.mode==='incl'?+l.price:r2(l.gross/(+l.qty||1)))+'</span><b>'+fmt(l.gross)+'</b></div></div>').join('');
   return '<div class="rc">'+
     '<div class="c"><h3>'+esc(settings.name)+'</h3><div class="ar">'+esc(settings.nameAr)+'</div>'+
     (s.branchName?'<div class="fine"><b>'+esc(s.branchName)+'</b></div>':'')+
