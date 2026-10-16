@@ -1387,7 +1387,7 @@ function receiptHTML(s){
     (addr?'<div class="fine">'+esc(addr)+'</div>':'')+
     (phone?'<div class="fine">Tel: <span dir="ltr">'+esc(phone)+'</span> · <bdi>هاتف</bdi></div>':'')+
     (taxInv?'<div class="fine">TRN: <span dir="ltr">'+esc(settings.trn)+'</span> · <bdi>الرقم الضريبي</bdi></div>':'')+'</div>'+
-    '<hr><div class="c"><b>'+(taxInv?'TAX INVOICE – <bdi>فاتورة ضريبية</bdi>':'RECEIPT – <bdi>إيصال</bdi>')+'</b></div><hr>'+
+    '<hr><div class="c"><b>'+'TAX INVOICE – <bdi>فاتورة ضريبية</bdi>'+'</b></div><hr>'+
     '<div class="kv"><span>'+L('No.','رقم الفاتورة')+'</span><b>'+esc(s.no)+'</b></div><div class="kv dt"><span>'+L('Date','التاريخ')+'</span><span>'+fmtDate(s.ts)+'</span></div>'+(s.cashier?'<div class="kv"><span>'+L('Cashier','الكاشير')+'</span><span>'+esc(s.cashier)+'</span></div>':'')+
     (s.editedAt?'<div class="kv dt"><span>'+L('Edited','عُدّلت')+'</span><span>'+fmtDate(s.editedAt)+'</span></div>':'')+'<hr>'+
     rows+'<hr>'+
