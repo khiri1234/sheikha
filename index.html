@@ -1001,7 +1001,7 @@ const todayStart=()=>{const d=new Date();d.setHours(0,0,0,0);return d.getTime()}
 
 function gate(state,msg){
   const g=$('#gate');
-  if(!state){g.hidden=true;return}
+  if(!state){g.hidden=true;focusScan();return}
   g.hidden=false;
   const head='<div class="gb"><img class="logo" src="icon-192.png" alt="Sheikha Textiles"><div><b>'+esc(settings.name)+'</b><small>'+esc(settings.nameAr)+' · Point of Sale</small></div></div>';
   if(state==='login'){
@@ -1084,7 +1084,7 @@ async function startSession(user){
       if(!snap.exists)return;
       C.branches=[snap.data()];brand();
       // cashier list changed: ask for a PIN if needed, drop the PIN screen if no longer needed
-      if(needCashier()){if($('#gate').hidden)pinGate()}else if(C.role)$('#gate').hidden=true;
+      if(needCashier()){if($('#gate').hidden)pinGate()}else if(C.role){$('#gate').hidden=true;focusScan()}
       updateWho();
     });
     listen(heldCol(),snap=>{held=snap.docs.map(d=>d.data());renderHeld()});
@@ -1798,7 +1798,7 @@ function pinGate(msg){
       if(!c){pin='';dots();$('#pinErr').textContent='PIN not recognised. Try again.';const b=$('#gateBox');b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake');return}
       S.cashier={id:c.id,name:c.name};store.set(cashierKey(),S.cashier);
       document.removeEventListener('keydown',onKey);
-      g.hidden=true;logAct('Shift',c.name+' started on the till');updateWho();renderShiftState();
+      g.hidden=true;logAct('Shift',c.name+' started on the till');updateWho();renderShiftState();focusScan();
     }
   };
   const onKey=e=>{if(g.hidden){document.removeEventListener('keydown',onKey);return}if(/^[0-9]$/.test(e.key))press(e.key);else if(e.key==='Backspace')press('b');else if(e.key==='Escape')press('c')};
@@ -2549,6 +2549,7 @@ function tick(){$('#clock').textContent=new Date().toLocaleString('en-GB',{weekd
 
 applyTheme();applyRole();brand();renderGrid();renderCart();renderHeld();checkBackupNag();tick();setInterval(tick,30000);
 if(!CLOUD)focusScan();
+addEventListener('focus',()=>{if(!document.activeElement||document.activeElement===document.body)focusScan()});
 if(CLOUD)bootCloud();
 // keep the app on this computer so it opens without internet (and can be installed)
 if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))navigator.serviceWorker.register('sw.js').catch(e=>console.warn('Offline support unavailable',e));
