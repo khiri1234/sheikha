@@ -257,3 +257,16 @@ window first (press **Enter** to print). To print with no window at all on a bra
 2. Right-click the shortcut used to open the POS → **Properties** → in **Target**, add
    ` --kiosk-printing` at the very end (after a space) → **OK**.
 3. Close every Chrome window, then open the POS from that shortcut.
+
+### 18. Cash + card on one bill (split payment)
+When a customer pays part by card and the rest in cash, press **Cash and card** (or **F5**)
+on the sale screen, or choose **Cash + Card** in the payment window.
+
+1. Type the **card part** and charge it on the card machine, then press **Enter**.
+2. The window shows the **cash part to collect**. Type the cash received (or press
+   **Enter** for the exact amount) and give the change shown.
+
+The receipt shows both parts. Reports, the dashboard, the shift close and Z report and
+the Sheikha HQ app count the cash part as cash and the card part as card, so the cash
+drawer count stays correct. In **Reports → Invoices** you can filter by *Cash + Card*,
+and the CSV export has *Cash part* and *Card part* columns.

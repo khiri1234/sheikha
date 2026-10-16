@@ -147,9 +147,8 @@ struct DemoData {
     private static func shift(for b: Branch, day: Int, sales: [Sale], openAt: Date, closeAt: Date, open: Bool,
                               rng: inout RNG, zNo: inout [String: Int]) -> Shift {
         let paid = sales.filter { !$0.isVoid }
-        let cashSales = paid.filter { !$0.isCard }, cardSales = paid.filter(\.isCard)
-        let cash = r2(cashSales.reduce(0) { $0 + $1.total })
-        let card = r2(cardSales.reduce(0) { $0 + $1.total })
+        let cash = r2(paid.reduce(0) { $0 + $1.cashPart })
+        let card = r2(paid.reduce(0) { $0 + $1.cardPart })
         let float = 300.0
 
         var moves: [[String: Any]] = []
@@ -172,7 +171,7 @@ struct DemoData {
         let summary: [String: Any] = [
             "bills": Double(paid.count), "gross": r2(paid.reduce(0) { $0 + $1.sumGross }), "disc": r2(paid.reduce(0) { $0 + $1.disc }),
             "net": r2(paid.reduce(0) { $0 + $1.net }), "vat": r2(paid.reduce(0) { $0 + $1.vat }), "total": total,
-            "cash": cash, "card": card, "cashN": Double(cashSales.count), "cardN": Double(cardSales.count),
+            "cash": cash, "card": card, "cashN": Double(paid.filter { $0.cashPart > 0 }.count), "cardN": Double(paid.filter { $0.cardPart > 0 }.count),
             "voidN": Double(voided.count), "voidTotal": r2(voided.reduce(0) { $0 + $1.total }),
             "paidOut": paidOut, "paidIn": 0.0, "expectedCash": expected, "byCashier": byCashier
         ]

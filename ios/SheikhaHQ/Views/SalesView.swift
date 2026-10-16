@@ -39,7 +39,7 @@ struct SalesView: View {
                             Spacer()
                             VStack(alignment: .trailing, spacing: 2) {
                                 Text(Fmt.amount(s.total)).font(.callout.monospaced().bold()).foregroundStyle(s.isVoid ? .secondary : .primary).strikethrough(s.isVoid)
-                                Text(s.isVoid ? "Void" : (s.isCard ? "Card" : "Cash")).font(.caption2).foregroundStyle(s.isVoid ? Brand.bad : .secondary)
+                                Text(s.isVoid ? "Void" : s.methodName).font(.caption2).foregroundStyle(s.isVoid ? Brand.bad : .secondary)
                             }
                         }
                     }
@@ -77,7 +77,11 @@ struct InvoiceDetailView: View {
                 LabeledContent("Date", value: Fmt.dateTime(sale.date))
                 LabeledContent("Branch", value: store.branchName(sale.branch))
                 if !sale.cashier.isEmpty { LabeledContent("Cashier", value: sale.cashier) }
-                LabeledContent("Paid by", value: sale.isCard ? "Card" + (sale.ref.isEmpty ? "" : " (\(sale.ref))") : "Cash")
+                LabeledContent("Paid by", value: sale.methodName + (sale.ref.isEmpty || !(sale.isCard || sale.isSplit) ? "" : " (\(sale.ref))"))
+                if sale.isSplit {
+                    LabeledContent("Card part", value: Fmt.aed(sale.cardAmt))
+                    LabeledContent("Cash part", value: Fmt.aed(sale.cashAmt))
+                }
                 if sale.isVoid { Label("Voided", systemImage: "xmark.circle.fill").foregroundStyle(Brand.bad) }
             }
             Section("Items") {
