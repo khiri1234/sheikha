@@ -143,6 +143,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
 .qchips button:hover{border-color:var(--till);color:var(--till-dark)}
 .ask{font-weight:700;margin:6px 0 8px}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pay-btn kbd{font:600 11px var(--mono);padding:1px 5px;border-radius:4px;border:1px solid currentColor;opacity:.75;margin-left:4px}
 .vbtn{border:2px solid var(--line);background:#fff;border-radius:12px;padding:12px;text-align:left}
 .vbtn:focus-visible,.vbtn:focus{outline:none;border-color:var(--till);box-shadow:0 0 0 3px rgba(225,85,12,.25)}
 .vbtn:hover:not(:disabled){border-color:var(--till);background:#FDF1EA}
@@ -563,8 +564,8 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
           <div class="ticket-foot">
             <div class="trow grand"><span>Total</span><span id="tTotal">AED 0.00</span></div>
             <div class="pay-row">
-              <button class="pay-btn cash" id="btnCash" disabled>💵 Cash</button>
-              <button class="pay-btn card" id="btnCard" disabled>💳 Card</button>
+              <button class="pay-btn cash" id="btnCash" disabled>💵 Cash <kbd>F3</kbd></button>
+              <button class="pay-btn card" id="btnCard" disabled>💳 Card <kbd>F2</kbd></button>
             </div>
             <button class="hold-btn" id="btnHold" disabled>⏸️ Hold this bill</button>
             <div class="perf"></div>
@@ -1382,6 +1383,18 @@ function payModal(startMethod){
   if(startMethod==='card')$('#pm [data-m="card"]',m.el).click();
 }
 $('#btnCash').onclick=()=>payModal('cash');
+// F2 = card, F3 = cash on the sale screen; in the payment window they switch the payment type
+document.addEventListener('keydown',e=>{
+  if(e.key!=='F2'&&e.key!=='F3')return;
+  if(curView!=='sale'||!$('#gate').hidden)return;
+  const method=e.key==='F2'?'card':'cash';
+  const pm=modalStack.length&&$('#pm',modalStack[modalStack.length-1].el);
+  if(pm){e.preventDefault();const b=$('[data-m="'+method+'"]',pm);if(b)b.click();return}
+  if(modalStack.length)return;
+  const btn=$(method==='card'?'#btnCard':'#btnCash');
+  e.preventDefault();
+  if(!btn.disabled)payModal(method);else toast('Add items to the bill first');
+});
 $('#btnCard').onclick=()=>payModal('card');
 
 /* ---------- receipt ---------- */
