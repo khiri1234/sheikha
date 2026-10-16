@@ -184,7 +184,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
 .paper{background:#fff;color:#111;border-radius:6px;padding:16px 14px;margin:0 auto 14px;width:100%;max-width:320px;font-size:13px;box-shadow:0 0 0 1px var(--line)}
 /* Receipt: thermal printers turn grey into faint dots and lose thin strokes,
    so everything is solid black, semi-bold, in a sans font (Inter + IBM Plex Sans Arabic) */
-.rc{font-size:12.5px;color:#000;font-family:var(--sans);font-weight:600;font-variant-numeric:tabular-nums;line-height:1.35}
+.rc{font-size:12px;color:#000;font-family:var(--sans);font-weight:600;font-variant-numeric:tabular-nums;line-height:1.35}
 .rc .c{text-align:center}
 .rc h3{margin:0;font-family:var(--display);font-size:18px;font-weight:700;letter-spacing:.04em}
 .rc .ar{font-size:17px;font-weight:700;margin:2px 0}
@@ -194,12 +194,12 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
 .rc .rq{display:flex;justify-content:space-between;gap:8px}
 .rc .rq b{white-space:nowrap}
 .rc .kv{display:flex;justify-content:space-between;padding:2px 0}
-.rc .kv.t{font-size:16px;font-weight:800;margin-top:10px;padding-top:10px;border-top:1.5px dashed #000}
+.rc .kv.t{font-size:15px;font-weight:800;margin-top:10px;padding-top:10px;border-top:1.5px dashed #000}
 .rc .bcw{text-align:center;margin-top:10px}
-.rc .kv>span:first-child small{display:block;font-size:12.5px;font-weight:600;line-height:1.2}
-.rc .kv.t>span:first-child small{font-size:14px;font-weight:800}
+.rc .kv>span:first-child small{display:block;font-size:12px;font-weight:600;line-height:1.2}
+.rc .kv.t>span:first-child small{font-size:13px;font-weight:800}
 /* bilingual rows: English label | amount | Arabic label on the right edge (one line each) */
-.rc .kv:has(>span:first-child small){display:grid;grid-template-columns:auto minmax(0,1fr) minmax(30%,auto);column-gap:6px;align-items:baseline}
+.rc .kv:has(>span:first-child small){display:grid;grid-template-columns:auto minmax(0,1fr) minmax(28%,auto);column-gap:5px;align-items:baseline}
 .rc .kv:has(>span:first-child small)>:nth-child(2){white-space:nowrap}
 .rc .kv:has(>span:first-child small)>span:first-child{display:contents}
 .rc .kv:has(>span:first-child small)>:nth-child(2){order:1;text-align:right}
@@ -209,7 +209,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
 .rc .kv.dt:has(>span:first-child small)>:nth-child(2){text-align:center}
 .rc .bc{display:block;width:100%;max-width:260px;height:46px;margin:0 auto 2px}
 .rc .fine{font-size:12px}
-.rc bdi{font-family:'IBM Plex Sans Arabic',var(--sans)}
+.rc bdi{font-family:'IBM Plex Sans Arabic',var(--sans);white-space:nowrap}
 #printArea{display:none}
 
 /* Reports */
