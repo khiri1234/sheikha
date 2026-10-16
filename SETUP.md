@@ -246,3 +246,14 @@ bills*). **Cancel edit** leaves the bill unchanged. Voided bills can't be edited
 
 Note: a Z report already printed for a closed shift is not recalculated when one of
 its bills is edited later.
+
+### 17. Print receipts without the print window
+**Complete sale** prints the receipt straight away. Chrome normally shows its print
+window first (press **Enter** to print). To print with no window at all on a branch PC:
+
+1. Make the receipt printer the Windows **default printer** (Settings → Bluetooth &
+   devices → Printers & scanners → the receipt printer → **Set as default**; turn off
+   *Let Windows manage my default printer*).
+2. Right-click the shortcut used to open the POS → **Properties** → in **Target**, add
+   ` --kiosk-printing` at the very end (after a space) → **OK**.
+3. Close every Chrome window, then open the POS from that shortcut.
