@@ -1438,10 +1438,12 @@ function receiptModal(s){
   const m=modal('<h2>Sale complete</h2><p class="sub">'+esc(s.no)+' – AED '+fmt(s.total)+' paid by '+(s.method==='cash'?'cash':'card')+'.</p>'+
     (s.method==='cash'&&s.change>0?'<div class="paytotal"><span>Give change</span><b class="num">AED '+fmt(s.change)+'</b></div>':'')+
     '<div class="paper">'+receiptHTML(s)+'</div>'+
-    '<div class="actions"><button class="ghost" id="rPrint">Print receipt</button><button class="primary" id="rDone">New sale</button></div>');
+    '<div class="actions"><button class="ghost" id="rPrint">Print again</button><button class="primary" id="rDone">New sale</button></div>');
   $('#rPrint',m.el).onclick=()=>doPrint(receiptHTML(s));
   $('#rDone',m.el).onclick=()=>m.close();
   $('#rDone',m.el).focus();
+  // print straight away after Complete sale; "Print receipt" prints another copy
+  setTimeout(()=>doPrint(receiptHTML(s)),150);
 }
 
 /* ---------- sales history ---------- */
