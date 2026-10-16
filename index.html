@@ -538,6 +538,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
           </form>
           <div class="sort-row" id="sortRow">
             <span>Sort:</span>
+            <button type="button" class="sort-chip" data-sort="code">Barcode<i class="sort-ind"></i></button>
             <button type="button" class="sort-chip" data-sort="name">Name<i class="sort-ind"></i></button>
             <button type="button" class="sort-chip" data-sort="price">Price<i class="sort-ind"></i></button>
             <button type="button" class="sort-chip" data-sort="cat">Category<i class="sort-ind"></i></button>
@@ -819,7 +820,9 @@ function fmtTime(ts){return new Date(ts).toLocaleTimeString('en-GB',{hour:'2-dig
 const isToday=ts=>new Date(ts).toDateString()===new Date().toDateString();
 
 /* ---------- catalog ---------- */
-let gridSort=store.get('sk_sort',{f:'',dir:1});
+let gridSort=store.get('sk_sort2',{f:'code',dir:1});
+// barcode order: numbers compared as numbers (2 before 10); fabrics without a barcode go last
+const byCode=(a,b)=>{const x=String(a.barcode||'').trim(),y=String(b.barcode||'').trim();if(!x!==!y)return x?-1:1;return x.localeCompare(y,undefined,{numeric:true})};
 let gridQuery='';
 function gridItems(){
   const q=gridQuery.trim().toLowerCase();
@@ -831,6 +834,7 @@ function gridItems(){
     list=list.slice().sort((a,b)=>{
       if(f==='price'){const pa=+a.price||0,pb=+b.price||0;if(!pa!==!pb)return pa?-1:1;return (pa-pb)*d||byName(a,b)}
       if(f==='cat')return (catIx(a.cat)-catIx(b.cat))*d||byName(a,b);
+      if(f==='code'){const x=String(a.barcode||'').trim(),y=String(b.barcode||'').trim();if(!x!==!y)return x?-1:1;return byCode(a,b)*d||byName(a,b)}
       return byName(a,b)*d;
     });
   }
@@ -839,12 +843,12 @@ function gridItems(){
 function renderGrid(){
   $$('#sortRow [data-sort]').forEach(b=>{const on=b.dataset.sort===gridSort.f;b.classList.toggle('active',on);$('.sort-ind',b).textContent=on?(gridSort.dir>0?'▲':'▼'):''});
   const list=gridItems();
-  $('#grid').innerHTML=list.map(i=>'<button class="prod-card" data-id="'+esc(i.id)+'"><div class="sw '+weaveOf(i.cat)+'" style="--c:'+esc(i.color)+'"></div><div class="pb"><div class="nm">'+esc(i.name)+'</div>'+(i.price?'<div class="pr">AED '+fmt(+i.price)+'</div><div class="st">'+UNITS[i.unit].per+'</div>':'<div class="st">Price entered at sale</div>')+'</div></button>').join('')||'<div class="empty-cart">'+(items.length?'No fabric matches “'+esc(gridQuery)+'”.':CLOUD?'No fabrics yet – head office adds them under Items.':'No items yet – add one under Items.')+'</div>';
+  $('#grid').innerHTML=list.map(i=>'<button class="prod-card" data-id="'+esc(i.id)+'"><div class="sw '+weaveOf(i.cat)+'" style="--c:'+esc(i.color)+'"></div><div class="pb"><div class="nm">'+esc(i.name)+'</div>'+(i.barcode?'<div class="st num">#'+esc(i.barcode)+'</div>':'')+(i.price?'<div class="pr">AED '+fmt(+i.price)+'</div><div class="st">'+UNITS[i.unit].per+'</div>':'<div class="st">Price entered at sale</div>')+'</div></button>').join('')||'<div class="empty-cart">'+(items.length?'No fabric matches “'+esc(gridQuery)+'”.':CLOUD?'No fabrics yet – head office adds them under Items.':'No items yet – add one under Items.')+'</div>';
 }
 $('#sortRow').addEventListener('click',e=>{
   const b=e.target.closest('[data-sort]');if(!b)return;
   gridSort=gridSort.f===b.dataset.sort?{f:gridSort.f,dir:-gridSort.dir}:{f:b.dataset.sort,dir:1};
-  store.set('sk_sort',gridSort);renderGrid();
+  store.set('sk_sort2',gridSort);renderGrid();
 });
 $('#scanInput').addEventListener('input',e=>{gridQuery=e.target.value;renderGrid()});
 $('#scanForm').addEventListener('submit',async e=>{
@@ -1733,7 +1737,7 @@ function reportsModal(tab){
 function itemsModal(){
   const m=modal('<div id="itemsBody"></div>',{page:'#itemsPage'});
   function draw(){
-    $('#itemsBody',m.el).innerHTML='<div class="list">'+items.map(i=>'<div class="li"><div class="sw '+weaveOf(i.cat)+'" style="--c:'+esc(i.color)+';width:34px;height:34px;border-radius:8px"></div><div><b>'+esc(i.name)+'</b><br><small>'+esc((CATS.find(c=>c.id===i.cat)||{}).label||'')+' – '+UNITS[i.unit].per+(i.price?' – <span class="num">AED '+fmt(+i.price)+'</span>':'')+(i.barcode?' – <span class="num">'+esc(i.barcode)+'</span>':'')+'</small></div><button class="mini" data-e="'+i.id+'">Edit</button></div>').join('')+'</div>';
+    $('#itemsBody',m.el).innerHTML='<div class="list">'+items.slice().sort((a,b)=>byCode(a,b)||a.name.localeCompare(b.name)).map(i=>'<div class="li"><div class="sw '+weaveOf(i.cat)+'" style="--c:'+esc(i.color)+';width:34px;height:34px;border-radius:8px"></div><div><b>'+esc(i.name)+'</b><br><small>'+esc((CATS.find(c=>c.id===i.cat)||{}).label||'')+' – '+UNITS[i.unit].per+(i.price?' – <span class="num">AED '+fmt(+i.price)+'</span>':'')+(i.barcode?' – <span class="num">'+esc(i.barcode)+'</span>':'')+'</small></div><button class="mini" data-e="'+i.id+'">Edit</button></div>').join('')+'</div>';
     $$('[data-e]',m.el).forEach(b=>b.onclick=()=>itemForm(items.find(i=>i.id===b.dataset.e),draw));
   }
   draw();
