@@ -869,7 +869,7 @@ function itemModal(item,line){
     '<div class="fld"><span id="mQtyLbl">Quantity</span><div class="step"><button type="button" id="mMinus" aria-label="Less">−</button><input id="mQty" class="num" inputmode="decimal" value="'+esc(st.qty)+'"><button type="button" id="mPlus" aria-label="More">+</button></div><div class="qchips">'+[1,2,3,5,10].map(n=>'<button type="button" data-q="'+n+'">'+n+'</button>').join('')+'</div></div>'+
     '<label class="fld"><span id="mPriceLbl">Price</span><div class="money"><i>AED</i><input id="mPrice" class="num" inputmode="decimal" aria-label="Price" placeholder="0.00" value="'+esc(st.price)+'"></div></label>'+
     '<div class="ask">Is the price you entered including VAT?</div>'+
-    '<div class="two"><button class="vbtn" data-mode="incl"><strong>Includes VAT</strong><span class="tot num"></span><small class="num"></small></button><button class="vbtn" data-mode="excl"><strong>Excludes VAT</strong><span class="tot num"></span><small class="num"></small></button></div>'
+    '<div class="two"><button class="vbtn" data-mode="excl"><strong>Excludes VAT</strong><span class="tot num"></span><small class="num"></small></button><button class="vbtn" data-mode="incl"><strong>Includes VAT</strong><span class="tot num"></span><small class="num"></small></button></div>'
   );
   const $m=s=>$(s,m.el);
   const unit=()=>custom?$m('#mUnit').value:st.unit;
@@ -908,11 +908,11 @@ function itemModal(item,line){
     toast(line?'Line updated':'Added to bill');
   });
   refresh();
-  // Enter moves on: name → quantity → price → "Includes VAT" (Enter there adds the line; ← → switch VAT choice)
+  // Enter moves on: name → quantity → price → "Excludes VAT" (Enter there adds the line; ← → switch VAT choice)
   const next=(el,to)=>el.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();const t=to();if(t){t.focus();if(t.select)t.select()}}});
   if(custom)next($m('#mName'),()=>$m('#mQty'));
   next($m('#mQty'),()=>$m('#mPrice'));
-  next($m('#mPrice'),()=>{const b=$m('.vbtn[data-mode="'+(line?line.mode:'incl')+'"]');return b&&!b.disabled?b:null});
+  next($m('#mPrice'),()=>{const b=$m('.vbtn[data-mode="'+(line?line.mode:'excl')+'"]');return b&&!b.disabled?b:null});
   $$('.vbtn',m.el).forEach(b=>b.addEventListener('keydown',e=>{
     if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();const o=$m('.vbtn[data-mode="'+(b.dataset.mode==='incl'?'excl':'incl')+'"]');if(o&&!o.disabled)o.focus()}
   }));
