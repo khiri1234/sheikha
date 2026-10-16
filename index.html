@@ -144,6 +144,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
 .ask{font-weight:700;margin:6px 0 8px}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .vbtn{border:2px solid var(--line);background:#fff;border-radius:12px;padding:12px;text-align:left}
+.vbtn:focus-visible,.vbtn:focus{outline:none;border-color:var(--till);box-shadow:0 0 0 3px rgba(225,85,12,.25)}
 .vbtn:hover:not(:disabled){border-color:var(--till);background:#FDF1EA}
 .vbtn:disabled{opacity:.45;cursor:not-allowed}
 .vbtn strong{display:block;font-size:14px}
@@ -517,7 +518,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
     <!-- SALE VIEW -->
     <section id="view-sale">
       <div class="topbar">
-        <div><h1>New Sale</h1><div class="sub">Scan a barcode, search below, or tap a fabric – then enter the price and choose with or without VAT</div></div>
+        <div><h1>New Sale</h1><div class="sub">Scan a barcode, search below, or tap a fabric – then enter the quantity and price, and choose with or without VAT</div></div>
         <div class="pill clock-pill"><i class="dot"></i><span id="clock"></span></div>
       </div>
       <div class="backup-nag" id="backupNag" hidden>
@@ -865,8 +866,8 @@ function itemModal(item,line){
     '<h2>'+esc(custom?'Custom item':item.name)+'</h2>'+
     '<p class="sub" id="mSub"></p>'+
     (custom?'<div class="two-f"><label class="fld"><span>Item name</span><input id="mName" placeholder="e.g. Buttons" value="'+esc(st.name)+'"></label><label class="fld"><span>Sold by</span><select id="mUnit">'+Object.keys(UNITS).map(k=>'<option value="'+k+'"'+(st.unit===k?' selected':'')+'>'+UNITS[k].name+'</option>').join('')+'</select></label></div>':'')+
-    '<label class="fld"><div class="money"><i>AED</i><input id="mPrice" class="num" inputmode="decimal" aria-label="Price" placeholder="0.00" value="'+esc(st.price)+'"></div></label>'+
     '<div class="fld"><span id="mQtyLbl">Quantity</span><div class="step"><button type="button" id="mMinus" aria-label="Less">−</button><input id="mQty" class="num" inputmode="decimal" value="'+esc(st.qty)+'"><button type="button" id="mPlus" aria-label="More">+</button></div><div class="qchips">'+[1,2,3,5,10].map(n=>'<button type="button" data-q="'+n+'">'+n+'</button>').join('')+'</div></div>'+
+    '<label class="fld"><span id="mPriceLbl">Price</span><div class="money"><i>AED</i><input id="mPrice" class="num" inputmode="decimal" aria-label="Price" placeholder="0.00" value="'+esc(st.price)+'"></div></label>'+
     '<div class="ask">Is the price you entered including VAT?</div>'+
     '<div class="two"><button class="vbtn" data-mode="incl"><strong>Includes VAT</strong><span class="tot num"></span><small class="num"></small></button><button class="vbtn" data-mode="excl"><strong>Excludes VAT</strong><span class="tot num"></span><small class="num"></small></button></div>'
   );
@@ -876,6 +877,7 @@ function itemModal(item,line){
     const u=UNITS[unit()]||UNITS.m;
     $m('#mSub').textContent=line?'Editing this line':'';
     $m('#mQtyLbl').textContent='Quantity ('+u.name.toLowerCase()+'s)';
+    $m('#mPriceLbl').textContent='Price '+u.per+' (AED)';
     const p=parseFloat($m('#mPrice').value), q=parseFloat($m('#mQty').value);
     const ok=p>0&&q>0;
     $$('.vbtn',m.el).forEach(b=>{
@@ -906,7 +908,15 @@ function itemModal(item,line){
     toast(line?'Line updated':'Added to bill');
   });
   refresh();
-  setTimeout(()=>{const f=custom&&!line?$m('#mName'):$m('#mPrice');f.focus();if(f.select)f.select()},30);
+  // Enter moves on: name → quantity → price → "Includes VAT" (Enter there adds the line; ← → switch VAT choice)
+  const next=(el,to)=>el.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();const t=to();if(t){t.focus();if(t.select)t.select()}}});
+  if(custom)next($m('#mName'),()=>$m('#mQty'));
+  next($m('#mQty'),()=>$m('#mPrice'));
+  next($m('#mPrice'),()=>{const b=$m('.vbtn[data-mode="'+(line?line.mode:'incl')+'"]');return b&&!b.disabled?b:null});
+  $$('.vbtn',m.el).forEach(b=>b.addEventListener('keydown',e=>{
+    if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();const o=$m('.vbtn[data-mode="'+(b.dataset.mode==='incl'?'excl':'incl')+'"]');if(o&&!o.disabled)o.focus()}
+  }));
+  setTimeout(()=>{const f=custom&&!line?$m('#mName'):$m('#mQty');f.focus();if(f.select)f.select()},30);
 }
 
 /* ---------- cart ---------- */
@@ -1816,7 +1826,7 @@ function renderShiftState(){
   $('#shiftWarn').textContent='Shifts and Z reports are switched off until head office publishes the updated database rules (SETUP.md step 6). You can keep selling.';
   if(need)$('#shiftOpenCard').innerHTML=openShiftForm();bindOpenShift('#shiftOpenCard');
   const sub=$('#view-sale .topbar .sub');
-  if(sub)sub.innerHTML=S.shift?'<span class="shift-pill">● <b>Shift open</b> since '+esc(fmtTime(S.shift.openedAt))+' · opened by '+esc(S.shift.openedBy||'')+'</span>':'Scan a barcode, search below, or tap a fabric – then enter the price and choose with or without VAT';
+  if(sub)sub.innerHTML=S.shift?'<span class="shift-pill">● <b>Shift open</b> since '+esc(fmtTime(S.shift.openedAt))+' · opened by '+esc(S.shift.openedBy||'')+'</span>':'Scan a barcode, search below, or tap a fabric – then enter the quantity and price, and choose with or without VAT';
   if(curView==='shift')renderShiftPage();
 }
 function openShiftForm(){
