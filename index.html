@@ -143,6 +143,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
 .qchips button:hover{border-color:var(--till);color:var(--till-dark)}
 .ask{font-weight:700;margin:6px 0 8px}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.link kbd{font:600 10px var(--mono);padding:0 4px;border-radius:4px;border:1px solid currentColor;opacity:.75;margin-left:2px}
 .pay-btn kbd{font:600 11px var(--mono);padding:1px 5px;border-radius:4px;border:1px solid currentColor;opacity:.75;margin-left:4px}
 .vbtn{border:2px solid var(--line);background:#fff;border-radius:12px;padding:12px;text-align:left}
 .vbtn:focus-visible,.vbtn:focus{outline:none;border-color:var(--till);box-shadow:0 0 0 3px rgba(225,85,12,.25)}
@@ -546,7 +547,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
         <div class="ticket" aria-label="Current bill">
           <div class="ticket-head">
             <div style="display:flex;align-items:center;gap:8px"><button class="ghost back" id="btnBack" aria-label="Back to fabrics">‹ Back</button><b id="ticketTitle">Current Bill</b></div>
-            <div class="hr"><button class="link" id="btnClear">Clear</button><span id="itemCount" class="pill">0 items</span></div>
+            <div class="hr"><button class="link" id="btnClear">Clear <kbd>F11</kbd></button><span id="itemCount" class="pill">0 items</span></div>
           </div>
           <div class="edit-bar" id="editBar" hidden><span id="editBarText"></span><button class="link" id="btnEditCancel" type="button">Cancel edit</button></div>
           <div class="cart-list" id="lines"></div>
@@ -1383,8 +1384,9 @@ function payModal(startMethod){
   if(startMethod==='card')$('#pm [data-m="card"]',m.el).click();
 }
 $('#btnCash').onclick=()=>payModal('cash');
-// F2 = card, F3 = cash on the sale screen; in the payment window they switch the payment type
+// F2 = card, F3 = cash on the sale screen; in the payment window they switch the payment type. F11 = clear the bill
 document.addEventListener('keydown',e=>{
+  if(e.key==='F11'&&curView==='sale'&&$('#gate').hidden&&!modalStack.length){e.preventDefault();if(cart.length||editing)$('#btnClear').click();return}
   if(e.key!=='F2'&&e.key!=='F3')return;
   if(curView!=='sale'||!$('#gate').hidden)return;
   const method=e.key==='F2'?'card':'cash';
