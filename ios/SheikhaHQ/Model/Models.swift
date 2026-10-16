@@ -86,6 +86,8 @@ struct Sale: Identifiable, Hashable {
     var change: Double
     var ref: String
     var vatRate: Double
+    var cashAmt: Double
+    var cardAmt: Double
 
     init(_ d: [String: Any]) {
         id = str(d["id"]); no = str(d["no"]); ts = num(d["ts"])
@@ -95,10 +97,16 @@ struct Sale: Identifiable, Hashable {
         sumGross = num(d["sumGross"]); disc = num(d["disc"]); net = num(d["net"]); vat = num(d["vat"]); total = num(d["total"])
         tendered = num(d["tendered"]); change = num(d["change"]); ref = str(d["ref"])
         vatRate = d["vatRate"] == nil ? 5 : num(d["vatRate"])
+        cashAmt = num(d["cashAmt"]); cardAmt = num(d["cardAmt"])
     }
     var date: Date { Date(timeIntervalSince1970: ts / 1000) }
     var isVoid: Bool { status == "void" }
     var isCard: Bool { method == "card" }
+    var isSplit: Bool { method == "split" }
+    /// Cash and card parts of the bill (a split bill counts in both).
+    var cashPart: Double { isSplit ? cashAmt : (isCard ? 0 : total) }
+    var cardPart: Double { isSplit ? cardAmt : (isCard ? total : 0) }
+    var methodName: String { isSplit ? "Cash + Card" : (isCard ? "Card" : "Cash") }
 }
 
 struct CashMove: Identifiable, Hashable {
@@ -217,7 +225,8 @@ struct Totals {
         for s in list {
             if s.isVoid { voidN += 1; voidTotal += s.total; continue }
             bills += 1; gross += s.sumGross; disc += s.disc; net += s.net; vat += s.vat; total += s.total
-            if s.isCard { card += s.total; cardN += 1 } else { cash += s.total; cashN += 1 }
+            if s.cardPart > 0 { card += s.cardPart; cardN += 1 }
+            if s.cashPart > 0 { cash += s.cashPart; cashN += 1 }
         }
         gross = r2(gross); disc = r2(disc); net = r2(net); vat = r2(vat); total = r2(total)
         cash = r2(cash); card = r2(card); voidTotal = r2(voidTotal)
