@@ -789,12 +789,19 @@ function modal(html,opts={}){
   const back=document.createElement('div');back.className='back-drop';
   back.innerHTML='<div class="modal'+(opts.wide?' wide':'')+(opts.xl?' xl':'')+'" role="dialog" aria-modal="true">'+html+'</div>';
   $('#modals').appendChild(back);
-  const api={el:back.firstElementChild,close(){const i=modalStack.indexOf(api);if(i>-1)modalStack.splice(i,1);back.remove();if(opts.onClose)opts.onClose()}};
+  const api={el:back.firstElementChild,close(){const i=modalStack.indexOf(api);if(i>-1)modalStack.splice(i,1);back.remove();if(opts.onClose)opts.onClose();focusScan()}};
   back.addEventListener('mousedown',e=>{if(e.target===back)api.close()});
   modalStack.push(api);
   return api;
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modalStack.length)modalStack[modalStack.length-1].close()});
+// on the sale screen the cursor goes back to the scan box after every window closes, ready for the next item
+function focusScan(){
+  setTimeout(()=>{
+    if(modalStack.length||curView!=='sale'||innerWidth<=900||!$('#gate').hidden)return;
+    const el=$('#scanInput');if(el&&document.activeElement!==el){el.focus();el.select()}
+  },0);
+}
 function askConfirm(title,text,okLabel,danger){
   return new Promise(res=>{
     const m=modal('<h2>'+esc(title)+'</h2><p class="sub">'+esc(text)+'</p><div class="actions"><button class="ghost" data-no>Cancel</button><button class="primary'+(danger?' danger':'')+'" data-yes>'+esc(okLabel)+'</button></div>');
@@ -947,7 +954,7 @@ function renderCart(){
 }
 $('#lines').addEventListener('click',e=>{
   const d=e.target.closest('[data-del]');
-  if(d){const rl=cart.find(l=>l.id===d.dataset.del);if(rl)logAct('Bill','Removed '+rl.name+' from bill');cart=cart.filter(l=>l.id!==d.dataset.del);saveCart();renderCart();return}
+  if(d){const rl=cart.find(l=>l.id===d.dataset.del);if(rl)logAct('Bill','Removed '+rl.name+' from bill');cart=cart.filter(l=>l.id!==d.dataset.del);saveCart();renderCart();focusScan();return}
   const row=e.target.closest('.cart-row');if(!row)return;
   const l=cart.find(x=>x.id===row.dataset.id);if(!l)return;
   const item=l.itemId==='custom'?CUSTOM:(items.find(i=>i.id===l.itemId)||{id:l.itemId,name:l.name,unit:l.unit,color:'#5B6390',cat:'other'});
@@ -2534,6 +2541,7 @@ $$('.nav-btn').forEach(b=>b.onclick=()=>go(b.dataset.view));
 function tick(){$('#clock').textContent=new Date().toLocaleString('en-GB',{weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}
 
 applyTheme();applyRole();brand();renderGrid();renderCart();renderHeld();checkBackupNag();tick();setInterval(tick,30000);
+if(!CLOUD)focusScan();
 if(CLOUD)bootCloud();
 // keep the app on this computer so it opens without internet (and can be installed)
 if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))navigator.serviceWorker.register('sw.js').catch(e=>console.warn('Offline support unavailable',e));
