@@ -845,11 +845,18 @@ $('#sortRow').addEventListener('click',e=>{
   store.set('sk_sort',gridSort);renderGrid();
 });
 $('#scanInput').addEventListener('input',e=>{gridQuery=e.target.value;renderGrid()});
-$('#scanForm').addEventListener('submit',e=>{
+$('#scanForm').addEventListener('submit',async e=>{
   e.preventDefault();
   const raw=$('#scanInput').value.trim();if(!raw)return;
   const q=raw.toLowerCase();
-  const item=items.find(i=>i.barcode&&String(i.barcode).toLowerCase()===q)||items.find(i=>i.name.toLowerCase()===q)||gridItems()[0];
+  const exact=items.find(i=>i.barcode&&String(i.barcode).toLowerCase()===q)||items.find(i=>i.name.toLowerCase()===q);
+  // a receipt barcode (invoice number such as B7-000101) opens that bill for editing
+  if(!exact&&/^[a-z0-9]{1,8}-[a-z0-9]{4,}$/i.test(raw)){
+    let sl=null;
+    try{sl=await findSale(raw)}catch(err){console.warn('Bill lookup failed',err)}
+    if(sl){$('#scanInput').value='';gridQuery='';renderGrid();showEditCandidate(sl);return}
+  }
+  const item=exact||gridItems()[0];
   if(!item){toast('No fabric found for “'+raw+'”');$('#scanInput').select();return}
   $('#scanInput').value='';gridQuery='';renderGrid();
   itemModal(item,null);
