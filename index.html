@@ -843,7 +843,7 @@ function gridItems(){
 function renderGrid(){
   $$('#sortRow [data-sort]').forEach(b=>{const on=b.dataset.sort===gridSort.f;b.classList.toggle('active',on);$('.sort-ind',b).textContent=on?(gridSort.dir>0?'▲':'▼'):''});
   const list=gridItems();
-  $('#grid').innerHTML=list.map(i=>'<button class="prod-card" data-id="'+esc(i.id)+'"><div class="sw '+weaveOf(i.cat)+'" style="--c:'+esc(i.color)+'"></div><div class="pb"><div class="nm">'+esc(i.name)+'</div>'+(i.price?'<div class="pr">AED '+fmt(+i.price)+'</div><div class="st">'+UNITS[i.unit].per+'</div>':'<div class="st">Price entered at sale</div>')+'</div></button>').join('')||'<div class="empty-cart">'+(items.length?'No fabric matches “'+esc(gridQuery)+'”.':CLOUD?'No fabrics yet – head office adds them under Items.':'No items yet – add one under Items.')+'</div>';
+  $('#grid').innerHTML=list.map(i=>'<button class="prod-card" data-id="'+esc(i.id)+'"><div class="sw '+weaveOf(i.cat)+'" style="--c:'+esc(i.color)+'"></div><div class="pb"><div class="nm">'+esc(i.name)+'</div>'+(i.barcode?'<div class="st num">#'+esc(i.barcode)+'</div>':'')+(i.price?'<div class="pr">AED '+fmt(+i.price)+'</div><div class="st">'+UNITS[i.unit].per+'</div>':'<div class="st">Price entered at sale</div>')+'</div></button>').join('')||'<div class="empty-cart">'+(items.length?'No fabric matches “'+esc(gridQuery)+'”.':CLOUD?'No fabrics yet – head office adds them under Items.':'No items yet – add one under Items.')+'</div>';
 }
 $('#sortRow').addEventListener('click',e=>{
   const b=e.target.closest('[data-sort]');if(!b)return;
