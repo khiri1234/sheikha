@@ -1369,7 +1369,14 @@ function payModal(startMethod){
     $m('#cashPane').hidden=method!=='cash';
     $m('#cardPane').hidden=method!=='card';
     upd();
-    if(method==='cash')$m('#tend').focus();
+    if(method==='cash')$m('#tend').focus();else $m('#ref').focus();
+  });
+  // Enter completes the payment (cash with nothing typed = exact amount)
+  m.el.addEventListener('keydown',e=>{
+    if(e.key!=='Enter'||e.target.id==='payCancel')return;
+    e.preventDefault();
+    if(method==='cash'&&!$m('#tend').value.trim()){$m('#tend').value=t.total;upd()}
+    if(!$m('#payGo').disabled)$m('#payGo').click();
   });
   $m('#payCancel').onclick=()=>m.close();
   $m('#payGo').onclick=()=>{
