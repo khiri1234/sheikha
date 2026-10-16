@@ -547,7 +547,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
         <div class="ticket" aria-label="Current bill">
           <div class="ticket-head">
             <div style="display:flex;align-items:center;gap:8px"><button class="ghost back" id="btnBack" aria-label="Back to fabrics">‹ Back</button><b id="ticketTitle">Current Bill</b></div>
-            <div class="hr"><button class="link" id="btnClear">Clear <kbd>F11</kbd></button><span id="itemCount" class="pill">0 items</span></div>
+            <div class="hr"><button class="link" id="btnClear">Clear <kbd>F4</kbd></button><span id="itemCount" class="pill">0 items</span></div>
           </div>
           <div class="edit-bar" id="editBar" hidden><span id="editBarText"></span><button class="link" id="btnEditCancel" type="button">Cancel edit</button></div>
           <div class="cart-list" id="lines"></div>
@@ -1384,9 +1384,9 @@ function payModal(startMethod){
   if(startMethod==='card')$('#pm [data-m="card"]',m.el).click();
 }
 $('#btnCash').onclick=()=>payModal('cash');
-// F2 = card, F3 = cash on the sale screen; in the payment window they switch the payment type. F11 = clear the bill
+// F2 = card, F3 = cash on the sale screen; in the payment window they switch the payment type. F4 or F11 = clear the bill
 document.addEventListener('keydown',e=>{
-  if(e.key==='F11'&&curView==='sale'&&$('#gate').hidden&&!modalStack.length){e.preventDefault();if(cart.length||editing)$('#btnClear').click();return}
+  if((e.key==='F4'||e.key==='F11')&&curView==='sale'&&$('#gate').hidden&&!modalStack.length){e.preventDefault();if(cart.length||editing)$('#btnClear').click();return}
   if(e.key!=='F2'&&e.key!=='F3')return;
   if(curView!=='sale'||!$('#gate').hidden)return;
   const method=e.key==='F2'?'card':'cash';
