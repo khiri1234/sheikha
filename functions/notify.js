@@ -65,7 +65,9 @@ function dailyMessage(branches, sales, open, prefs) {
     .sort((x, y) => y.t - x.t);
   const voids = sales.length - paid.length;
   const idle = per.filter(x => x.t === 0).length;
-  const parts = [paid.length + ' bill' + (paid.length === 1 ? '' : 's')];
+  const rets = paid.filter(s => s.kind === 'return').length, bills = paid.length - rets;
+  const parts = [bills + ' bill' + (bills === 1 ? '' : 's')];
+  if (rets) parts.push(rets + ' return' + (rets === 1 ? '' : 's'));
   if (per.length && per[0].t > 0) parts.push('best: ' + per[0].b.name + ' AED ' + money(per[0].t));
   if (idle) parts.push(idle + ' branch' + (idle === 1 ? '' : 'es') + ' with no sales');
   if (voids) parts.push(voids + ' void' + (voids === 1 ? '' : 's'));
