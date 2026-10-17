@@ -110,6 +110,7 @@ struct ZDetailView: View {
                 LabeledContent("Cash (\(Fmt.qty(s.cashN)))", value: Fmt.amount(s.cash))
                 LabeledContent("Card (\(Fmt.qty(s.cardN)))", value: Fmt.amount(s.card))
                 if s.voidN > 0 { LabeledContent("Voided (\(Fmt.qty(s.voidN)))", value: Fmt.amount(s.voidTotal)) }
+                if s.retN > 0 { LabeledContent("Returns (\(Fmt.qty(s.retN)))", value: "− " + Fmt.amount(s.retTotal)) }
             }
             if !s.byCashier.isEmpty {
                 Section("By cashier") {
@@ -150,6 +151,7 @@ struct ZDetailView: View {
         l += ["", "Sales: \(Fmt.aed(s.total)) (\(Fmt.qty(s.bills)) bills)", "Cash: \(Fmt.aed(s.cash)) · Card: \(Fmt.aed(s.card))",
               "Excl. VAT: \(Fmt.amount(s.net)) · VAT: \(Fmt.amount(s.vat))"]
         if s.voidN > 0 { l.append("Voided: \(Fmt.qty(s.voidN)) (\(Fmt.aed(s.voidTotal)))") }
+        if s.retN > 0 { l.append("Returns: \(Fmt.qty(s.retN)) (refunded \(Fmt.aed(s.retTotal)))") }
         if !s.byCashier.isEmpty { l += ["", "By cashier:"] + s.byCashier.keys.sorted().map { "• \($0): \(Fmt.aed(s.byCashier[$0]?.total ?? 0))" } }
         l += ["", "Cash drawer:", "Float \(Fmt.amount(shift.openingFloat)) + cash sales \(Fmt.amount(s.cash))" + (s.paidIn > 0 ? " + paid in \(Fmt.amount(s.paidIn))" : "") + (s.paidOut > 0 ? " − paid out \(Fmt.amount(s.paidOut))" : "") + " = expected *\(Fmt.amount(shift.expectedCash))*"]
         l += shift.moves.map { "  \($0.isOut ? "Paid out" : "Paid in") \(Fmt.amount($0.amount)) – \($0.reason)" }

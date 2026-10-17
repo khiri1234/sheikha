@@ -26,6 +26,7 @@ struct SalesView: View {
                 LabeledContent("VAT", value: Fmt.amount(t.vat))
                 LabeledContent("Cash · Card", value: Fmt.amount(t.cash) + " · " + Fmt.amount(t.card))
                 if t.voidN > 0 { LabeledContent("Voided", value: "\(t.voidN) · \(Fmt.amount(t.voidTotal))") }
+                if t.retN > 0 { LabeledContent("Returns", value: "\(t.retN) · − \(Fmt.amount(t.retTotal))") }
             }
             Section(loading ? "Invoices – loading…" : "Invoices (\(sales.count))") {
                 if sales.isEmpty && !loading { Text("No invoices for this day.").foregroundStyle(.secondary) }
@@ -77,7 +78,11 @@ struct InvoiceDetailView: View {
                 LabeledContent("Date", value: Fmt.dateTime(sale.date))
                 LabeledContent("Branch", value: store.branchName(sale.branch))
                 if !sale.cashier.isEmpty { LabeledContent("Cashier", value: sale.cashier) }
-                LabeledContent("Paid by", value: sale.methodName + (sale.ref.isEmpty || !(sale.isCard || sale.isSplit) ? "" : " (\(sale.ref))"))
+                if sale.isReturn {
+                    LabeledContent("Credit note for", value: sale.origNo)
+                    if !sale.reason.isEmpty { LabeledContent("Reason", value: sale.reason) }
+                }
+                LabeledContent(sale.isReturn ? "Refunded by" : "Paid by", value: sale.methodName + (sale.ref.isEmpty || !(sale.isCard || sale.isSplit) ? "" : " (\(sale.ref))"))
                 if sale.isSplit {
                     LabeledContent("Card part", value: Fmt.aed(sale.cardAmt))
                     LabeledContent("Cash part", value: Fmt.aed(sale.cashAmt))

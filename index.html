@@ -505,7 +505,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
       <button class="nav-btn active" data-view="sale"><span class="ic">🧾</span>Sale</button>
       <button class="nav-btn" data-view="shift" hidden><span class="ic">🕘</span>Shift</button>
       <button class="nav-btn" data-view="held"><span class="ic">⏸️</span>Held Bills<span class="nav-count" id="heldCount" hidden></span></button>
-      <button class="nav-btn" data-view="edit"><span class="ic">✏️</span>Edit Bill</button>
+      <button class="nav-btn" data-view="edit"><span class="ic">✏️</span>Edit / Return</button>
       <button class="nav-btn" data-view="items"><span class="ic">🧵</span>Items</button>
       <button class="nav-btn" data-view="purchases" hidden><span class="ic">🛒</span>Purchases</button>
       <button class="nav-btn" data-view="reports"><span class="ic">📊</span>Reports</button>
@@ -598,7 +598,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
     <!-- EDIT BILL VIEW -->
     <section id="view-edit" hidden>
       <div class="topbar">
-        <div><h1>Edit Bill</h1><div class="sub">Scan the barcode on the receipt or type the invoice number, then edit or void the bill. An edited bill keeps the same invoice number.</div></div>
+        <div><h1>Edit or Return a Bill</h1><div class="sub">Scan the barcode on the receipt or type the invoice number, then edit, void or return items for a refund. An edited bill keeps the same invoice number; a return makes a credit note (CN).</div></div>
       </div>
       <div class="page-body card" id="editPage"></div>
     </section>
@@ -859,7 +859,7 @@ $('#scanForm').addEventListener('submit',async e=>{
   const q=raw.toLowerCase();
   const exact=items.find(i=>i.barcode&&String(i.barcode).toLowerCase()===q)||items.find(i=>i.name.toLowerCase()===q);
   // a receipt barcode (invoice number such as B7-000101) opens that bill for editing
-  if(!exact&&/^[a-z0-9]{1,8}-[a-z0-9]{4,}$/i.test(raw)){
+  if(!exact&&/^(cn-)?[a-z0-9]{1,8}-[a-z0-9]{4,}$/i.test(raw)){
     let sl=null;
     try{sl=await findSale(raw)}catch(err){console.warn('Bill lookup failed',err)}
     if(sl){$('#scanInput').value='';gridQuery='';renderGrid();showEditCandidate(sl);return}
@@ -1183,7 +1183,9 @@ function saveEditedSale(old,sale){
 }
 async function startEdit(s){
   if(s.status==='void'){toast(s.no+' is void and can’t be edited');return}
+  if(isReturn(s)){toast('A credit note can’t be edited – void it and make the return again');return}
   if(editing&&editing.id===s.id){go('sale');return}
+  if((await returnsOf(s)).length){toast(s.no+' has items returned and can’t be edited – void the credit note first');return}
   if(cart.length&&!editing){
     if(!(await askConfirm('Hold the open bill?','The bill on the till will be held so you can edit '+s.no+'. Resume it later under Held Bills.','Hold and edit',false)))return;
     await holdCurrent();
@@ -1310,28 +1312,117 @@ async function drawEditList(){
   if(!list.length){host.innerHTML='<p class="none">No bills on '+esc(nice(EB.day))+'.</p>';return}
   host.innerHTML=tbl([['Invoice'],['Time'],['Lines'],['Payment'],['Total',1],['']],
     list.map(x=>trow([esc(x.no)+(x.editedAt?' <span class="tag">edited</span>':''),fmtTime(x.ts),esc(x.lines.map(l=>l.name).join(', ')),payName(x),fmt(x.total),
-      x.status==='void'?'<span class="tag">void</span>':'<button class="mini" data-ev="'+esc(x.id)+'">View</button> <button class="mini" data-ee="'+esc(x.id)+'">Edit</button> <button class="mini danger" data-ex="'+esc(x.id)+'">Void</button>'],'llllrl',x.status==='void'?'void':'')));
+      x.status==='void'?'<span class="tag">void</span>':'<button class="mini" data-ev="'+esc(x.id)+'">View</button> '+(isReturn(x)?'<span class="tag">credit note</span> ':'<button class="mini" data-ee="'+esc(x.id)+'">Edit</button> <button class="mini" data-er="'+esc(x.id)+'">Return</button> ')+'<button class="mini danger" data-ex="'+esc(x.id)+'">Void</button>'],'llllrl',x.status==='void'?'void':'')));
+  $$('[data-er]',host).forEach(b=>b.onclick=()=>{const x=list.find(y=>y.id===b.dataset.er);if(x)returnModal(x)});
   $$('[data-ee]',host).forEach(b=>b.onclick=()=>{const x=list.find(y=>y.id===b.dataset.ee);if(x)startEdit(x)});
   $$('[data-ev]',host).forEach(b=>b.onclick=()=>{const x=list.find(y=>y.id===b.dataset.ev);if(x)showEditCandidate(x)});
   $$('[data-ex]',host).forEach(b=>b.onclick=async()=>{const x=list.find(y=>y.id===b.dataset.ex);if(x&&await confirmVoid(x))drawEditList()});
 }
 function showEditCandidate(sl){
   const live=sl.status!=='void';
-  const m=modal('<div class="paper">'+receiptHTML(sl)+'</div><div class="actions"><button class="ghost" id="ecClose">Close</button>'+(live?'<button class="ghost danger-t" id="ecVoid">Void bill</button><button class="primary" id="ecEdit">Edit this bill</button>':'')+'</div>');
+  const ret=isReturn(sl);
+  const m=modal('<div class="paper">'+receiptHTML(sl)+'</div><div class="actions"><button class="ghost" id="ecClose">Close</button>'+(live?'<button class="ghost danger-t" id="ecVoid">Void '+(ret?'credit note':'bill')+'</button>'+(ret?'<button class="ghost" id="ecPrint">Print</button>':'<button class="ghost" id="ecRet">Return items</button><button class="primary" id="ecEdit">Edit this bill</button>'):'')+'</div>');
   $('#ecClose',m.el).onclick=()=>m.close();
   if(!live)return;
-  $('#ecEdit',m.el).onclick=()=>{m.close();startEdit(sl)};
+  if(ret)$('#ecPrint',m.el).onclick=()=>doPrint(receiptHTML(sl));
+  else{$('#ecEdit',m.el).onclick=()=>{m.close();startEdit(sl)};$('#ecRet',m.el).onclick=()=>{m.close();returnModal(sl)}}
   $('#ecVoid',m.el).onclick=async()=>{if(await confirmVoid(sl)){m.close();if(curView==='edit')drawEditList()}};
 }
 // void a paid bill (it stays on record, marked void, and leaves every total)
 async function confirmVoid(sl){
   if(sl.status==='void')return false;
-  if(!(await askConfirm('Void '+sl.no+'?','AED '+fmt(sl.total)+' paid by '+payName(sl).toLowerCase()+'. The bill stays on record marked VOID and is removed from all totals and the Z report. This cannot be undone.','Void bill',true)))return false;
+  if(!isReturn(sl)&&(await returnsOf(sl)).length){toast(sl.no+' has items returned – void its credit note first');return false}
+  if(!(await askConfirm('Void '+sl.no+'?',(isReturn(sl)?'Refund of AED '+fmt(-sl.total)+' for '+sl.origNo+'. The credit note stays on record marked VOID and the refund is taken out of all totals, so the items count as sold again.':'AED '+fmt(sl.total)+' paid by '+payName(sl).toLowerCase()+'. The bill stays on record marked VOID and is removed from all totals and the Z report.')+' This cannot be undone.','Void bill',true)))return false;
   voidSale(sl);salesCache.clear();
   logAct('Void',sl.no+' voided (AED '+fmt(sl.total)+', '+sl.method+')');
   if(editing&&editing.id===sl.id){editing=null;cart=[];discount={type:'pct',value:''};saveCart();renderCart()}
   sideToday();toast(sl.no+' voided');
   return true;
+}
+
+/* ---------- returns (credit notes) ---------- */
+// A return is saved as a credit note: a bill with kind 'return', minus amounts, and the
+// original bill's id and number. It takes the refund out of sales, VAT and the cash drawer.
+function isReturn(s){return !!s&&s.kind==='return'}
+async function returnsOf(sl){
+  if(!sl||isReturn(sl))return [];
+  if(!CLOUD)return sales.filter(x=>x.origId===sl.id&&x.status!=='void');
+  const q=await salesCol(sl.branch||C.branch).where('origId','==',sl.id).get();
+  return q.docs.map(d=>d.data()).filter(x=>x.status!=='void');
+}
+async function returnModal(sl){
+  if(sl.status==='void'||isReturn(sl))return;
+  if(CLOUD&&!isBranchUser()){toast('Returns are made on the branch till, so the refund comes out of that branch’s cash drawer');return}
+  if(editing&&editing.id===sl.id){toast('Finish or cancel editing '+sl.no+' first');return}
+  let prev;
+  try{prev=await returnsOf(sl)}catch(e){toast('Could not check earlier returns: '+(e.code||e.message));return}
+  const done=sl.lines.map((l,i)=>r2(prev.reduce((n,c)=>n+c.lines.filter(x=>x.src===i).reduce((k,x)=>k-(+x.qty),0),0)));
+  const left=sl.lines.map((l,i)=>r2((+l.qty)-done[i]));
+  const prevTotal=r2(prev.reduce((n,c)=>n-c.total,0));
+  if(left.every(q=>q<=0)){toast('Everything on '+sl.no+' has already been returned');return}
+  let method=sl.method==='card'?'card':'cash';
+  const m=modal('<h2>Return items – '+esc(sl.no)+'</h2><p class="sub">Bill of '+fmtDate(sl.ts)+', AED '+fmt(sl.total)+' paid by '+payName(sl).toLowerCase()+'. Enter how much of each fabric comes back.'+(prev.length?' Already refunded: AED '+fmt(prevTotal)+' ('+prev.map(c=>esc(c.no)).join(', ')+').':'')+'</p>'+
+    '<div class="tw"><table class="tbl"><thead><tr><th>Fabric</th><th class="r">Sold</th><th class="r">Can return</th><th class="r">Return</th></tr></thead><tbody>'+
+    sl.lines.map((l,i)=>'<tr><td>'+esc(l.name)+'</td><td class="r num">'+l.qty+' '+us(l.unit)+'</td><td class="r num">'+left[i]+'</td><td class="r"><input class="num rq-in" data-ri="'+i+'" inputmode="decimal" placeholder="0" style="width:80px;text-align:right"'+(left[i]<=0?' disabled':'')+'></td></tr>').join('')+
+    '</tbody></table></div>'+
+    '<div class="quick" style="margin:10px 0"><button id="rtAll">Return everything left</button></div>'+
+    '<div class="paytotal"><span>Refund to customer</span><b class="num" id="rtAmt">AED 0.00</b></div>'+
+    '<div class="seg big" id="rtm"><button data-m="cash"'+(method==='cash'?' class="on"':'')+'>Cash refund</button><button data-m="card"'+(method==='card'?' class="on"':'')+'>Card refund</button></div>'+
+    '<label class="fld"><span>Reason (optional)</span><input id="rtWhy" placeholder="e.g. wrong colour"></label>'+
+    '<div class="actions"><button class="ghost" id="rtCancel">Cancel</button><button class="primary" id="rtGo" disabled>Refund</button></div>');
+  const $m=q=>$(q,m.el),ins=$$('.rq-in',m.el);
+  const f=sl.sumGross>0?sl.total/sl.sumGross:0;
+  function calc(){
+    const lines=[];let sumGross=0,sumNet=0,bad=false;
+    ins.forEach(inp=>{
+      const i=+inp.dataset.ri,l=sl.lines[i],q=r2(parseFloat(inp.value)||0);
+      if(q<0||q>left[i]){bad=true;inp.classList.add('bad')}else inp.classList.remove('bad');
+      if(q<=0||q>left[i])return;
+      const part=q/(+l.qty||1),gross=r2(l.gross*part),net=r2(l.net*part);
+      sumGross+=gross;sumNet+=net;
+      lines.push(Object.assign({},l,{id:uid(),qty:-q,gross:-gross,net:-net,vat:-r2(gross-net),src:i}));
+    });
+    sumGross=r2(sumGross);
+    const all=sl.lines.every((l,i)=>{const inp=ins.find(x=>+x.dataset.ri===i);return r2(parseFloat(inp.value)||0)===left[i]});
+    // returning everything that is left refunds exactly what was paid, without rounding cents
+    let total=all?r2(sl.total-prevTotal):r2(sumGross*f);
+    if(total>r2(sl.total-prevTotal))total=r2(sl.total-prevTotal);
+    const net=sumGross>0?r2(sumNet*total/sumGross):0;
+    return {lines,sumGross,disc:r2(sumGross-total),total,net,vat:r2(total-net),bad};
+  }
+  function upd(){
+    const c=calc();
+    $m('#rtAmt').textContent='AED '+fmt(c.total);
+    $m('#rtGo').disabled=c.bad||!c.lines.length||c.total<=0;
+    $m('#rtGo').textContent=c.total>0?'Refund AED '+fmt(c.total)+' in '+(method==='card'?'card':'cash'):'Refund';
+  }
+  ins.forEach(inp=>{
+    inp.addEventListener('input',upd);
+    inp.addEventListener('keydown',e=>{if(e.key!=='Enter')return;e.preventDefault();const nx=ins.slice(ins.indexOf(inp)+1).find(x=>!x.disabled);if(nx)nx.focus();else if(!$m('#rtGo').disabled)$m('#rtGo').click()});
+  });
+  $m('#rtAll').onclick=()=>{ins.forEach(inp=>{const i=+inp.dataset.ri;if(left[i]>0)inp.value=left[i]});upd()};
+  $$('#rtm button',m.el).forEach(b=>b.onclick=()=>{method=b.dataset.m;$$('#rtm button',m.el).forEach(x=>x.classList.toggle('on',x===b));upd()});
+  $m('#rtCancel').onclick=()=>m.close();
+  $m('#rtGo').onclick=()=>{
+    const c=calc();if(c.bad||!c.lines.length||c.total<=0)return;
+    const cn={
+      id:uid(),no:'CN-'+nextInvoiceNo().replace(/^INV-/,''),ts:Date.now(),kind:'return',origId:sl.id,origNo:sl.no,
+      lines:c.lines,discount:{type:'pct',value:0},sumGross:-c.sumGross,disc:-c.disc,net:-c.net,vat:-c.vat,total:-c.total,
+      vatRate:sl.vatRate||settings.vat,method,tendered:0,change:0,ref:'',reason:$m('#rtWhy').value.trim(),status:'paid'
+    };
+    saveSale(cn);salesCache.clear();
+    logAct('Return',cn.no+' – refund AED '+fmt(c.total)+' in '+method+' for '+sl.no+(cn.reason?' ('+cn.reason+')':''));
+    m.close();sideToday();
+    if(curView==='edit')drawEditList();
+    const r=modal('<h2>Refund AED '+fmt(c.total)+'</h2><p class="sub">'+(method==='card'?'Refund it to the customer’s card on the card machine.':'Give the customer AED '+fmt(c.total)+' from the cash drawer.')+' Credit note '+esc(cn.no)+' is printing.</p>'+
+      '<div class="paper">'+receiptHTML(cn)+'</div><div class="actions"><button class="ghost" id="cnPrint">Print again</button><button class="primary" id="cnDone">Done</button></div>');
+    $('#cnPrint',r.el).onclick=()=>doPrint(receiptHTML(cn));
+    $('#cnDone',r.el).onclick=()=>r.close();
+    $('#cnDone',r.el).focus();
+    setTimeout(()=>doPrint(receiptHTML(cn)),300);
+  };
+  setTimeout(()=>{const f0=ins.find(x=>!x.disabled);if(f0)f0.focus()},30);
+  upd();
 }
 
 /* ---------- payment ---------- */
@@ -1466,6 +1557,9 @@ function barcodeSVG(text){
   return '<svg class="bc" viewBox="0 0 '+(x+10)+' 40" preserveAspectRatio="none" shape-rendering="crispEdges" role="img" aria-label="Barcode '+esc(text)+'"><g fill="#000">'+bars+'</g></svg>';
 }
 function receiptHTML(s){
+  // a credit note is stored with minus amounts; it prints them as positive refund amounts
+  const CN=isReturn(s);
+  if(CN)s=Object.assign({},s,{lines:s.lines.map(l=>Object.assign({},l,{qty:-l.qty,gross:-l.gross,net:-l.net,vat:-l.vat})),sumGross:-s.sumGross,disc:-s.disc,net:-s.net,vat:-s.vat,total:-s.total,discount:null});
   // English label with the Arabic underneath
   const L=(en,ar)=>en+'<small dir="rtl">'+ar+'</small>';
   const taxInv=!!settings.trn;
@@ -1479,19 +1573,21 @@ function receiptHTML(s){
     (addr?'<div class="fine">'+esc(addr)+'</div>':'')+
     (phone?'<div class="fine">Tel: <span dir="ltr">'+esc(phone)+'</span> · <bdi>هاتف</bdi></div>':'')+
     (taxInv?'<div class="fine">TRN: <span dir="ltr">'+esc(settings.trn)+'</span> · <bdi>الرقم الضريبي</bdi></div>':'')+'</div>'+
-    '<hr><div class="c"><b>'+'TAX INVOICE – <bdi>فاتورة ضريبية</bdi>'+'</b></div><hr>'+
+    '<hr><div class="c"><b>'+(CN?'TAX CREDIT NOTE – <bdi>إشعار دائن</bdi>':'TAX INVOICE – <bdi>فاتورة ضريبية</bdi>')+'</b></div><hr>'+
     '<div class="kv dt"><span>'+L('No.','رقم الفاتورة')+'</span><b>'+esc(s.no)+'</b></div><div class="kv dt"><span>'+L('Date','التاريخ')+'</span><span>'+fmtDate(s.ts)+'</span></div>'+(s.cashier?'<div class="kv dt"><span>'+L('Cashier','الكاشير')+'</span><span>'+esc(s.cashier)+'</span></div>':'')+
+    (CN?'<div class="kv dt"><span>'+L('For invoice','الفاتورة الأصلية')+'</span><b>'+esc(s.origNo||'')+'</b></div>':'')+
     (s.editedAt?'<div class="kv dt"><span>'+L('Edited','عُدّلت')+'</span><span>'+fmtDate(s.editedAt)+'</span></div>':'')+'<hr>'+
     rows+'<hr>'+
     '<div class="kv"><span>'+L('Items (incl. VAT)','المجموع')+'</span><span>'+fmt(s.sumGross)+'</span></div>'+
     (s.disc>0?'<div class="kv"><span>'+L('Discount'+(s.discount&&s.discount.type==='pct'?' ('+s.discount.value+'%)':''),'الخصم')+'</span><span>− '+fmt(s.disc)+'</span></div>':'')+
     '<div class="kv"><span>'+L('Amount excl. VAT','قبل الضريبة')+'</span><span>'+fmt(s.net)+'</span></div>'+
     '<div class="kv"><span>'+L('VAT '+s.vatRate+'%','الضريبة '+s.vatRate+'%')+'</span><span>'+fmt(s.vat)+'</span></div>'+
-    '<div class="kv t"><span>'+L('TOTAL (AED)','الإجمالي')+'</span><span>'+fmt(s.total)+'</span></div><hr>'+
-    '<div class="kv"><span>'+L('Paid by','طريقة الدفع')+'</span><b>'+payName(s,1)+'</b></div>'+
+    '<div class="kv t"><span>'+(CN?L('REFUND (AED)','المبلغ المسترد'):L('TOTAL (AED)','الإجمالي'))+'</span><span>'+fmt(s.total)+'</span></div><hr>'+
+    '<div class="kv"><span>'+(CN?L('Refunded by','الاسترداد'):L('Paid by','طريقة الدفع'))+'</span><b>'+payName(s,1)+'</b></div>'+
+    (CN&&s.reason?'<div class="kv"><span>'+L('Reason','السبب')+'</span><span>'+esc(s.reason)+'</span></div>':'')+
     (s.method==='split'?'<div class="kv"><span>'+L('Card amount','بالبطاقة')+'</span><span>'+fmt(s.cardAmt)+'</span></div><div class="kv"><span>'+L('Cash amount','نقداً')+'</span><span>'+fmt(s.cashAmt)+'</span></div>':'')+
     (s.method==='split'&&s.ref?'<div class="kv"><span>'+L('Card ref.','مرجع البطاقة')+'</span><span>'+esc(s.ref)+'</span></div>':'')+
-    (s.method!=='card'?'<div class="kv"><span>'+L('Cash received','المدفوع')+'</span><span>'+fmt(s.tendered)+'</span></div><div class="kv"><span>'+L('Change','الباقي')+'</span><span>'+fmt(s.change)+'</span></div>':(s.ref?'<div class="kv"><span>'+L('Card ref.','مرجع البطاقة')+'</span><span>'+esc(s.ref)+'</span></div>':''))+
+    (s.method!=='card'&&!CN?'<div class="kv"><span>'+L('Cash received','المدفوع')+'</span><span>'+fmt(s.tendered)+'</span></div><div class="kv"><span>'+L('Change','الباقي')+'</span><span>'+fmt(s.change)+'</span></div>':(s.ref?'<div class="kv"><span>'+L('Card ref.','مرجع البطاقة')+'</span><span>'+esc(s.ref)+'</span></div>':''))+
     (s.status==='void'?'<hr><div class="c"><b>*** VOIDED – <bdi>ملغاة</bdi> ***</b></div>':'')+
     '<hr><div class="c fine">'+esc(settings.footer)+'<br><bdi>'+esc(settings.footerAr)+'</bdi></div>'+
     (s.no?'<div class="bcw">'+barcodeSVG(s.no)+'<div class="fine">'+esc(s.no)+'</div></div>':'')+'</div>';
@@ -1542,18 +1638,18 @@ function quickRange(n,full){
 // how much of a bill was paid in cash / by card (split bills count in both)
 function cashOf(s){return s.method==='split'?(+s.cashAmt||0):s.method==='card'?0:s.total}
 function cardOf(s){return s.method==='split'?(+s.cardAmt||0):s.method==='card'?s.total:0}
-function payName(s,ar){return s.method==='split'?(ar?'Cash+Card':'Cash + Card'):s.method==='card'?(ar?'Card <bdi>بطاقة</bdi>':'Card'):(ar?'Cash <bdi>نقداً</bdi>':'Cash')}
+function payName(s,ar){if(isReturn(s))return ar?(s.method==='card'?'Card':'Cash'):(s.method==='card'?'Card':'Cash')+' refund';return s.method==='split'?(ar?'Cash+Card':'Cash + Card'):s.method==='card'?(ar?'Card <bdi>بطاقة</bdi>':'Card'):(ar?'Cash <bdi>نقداً</bdi>':'Cash')}
 function agg(list){
   const paid=list.filter(s=>s.status!=='void'),voids=list.filter(s=>s.status==='void');
   const sum=(a,f)=>r2(a.reduce((x,s)=>x+f(s),0));
-  const cash=paid.filter(s=>cashOf(s)>0),card=paid.filter(s=>cardOf(s)>0);
-  return {bills:paid.length,gross:sum(paid,s=>s.sumGross),disc:sum(paid,s=>s.disc),net:sum(paid,s=>s.net),vat:sum(paid,s=>s.vat),total:sum(paid,s=>s.total),
+  const cash=paid.filter(s=>cashOf(s)>0),card=paid.filter(s=>cardOf(s)>0),rets=paid.filter(isReturn);
+  return {bills:paid.length-rets.length,retN:rets.length,retTotal:sum(rets,s=>-s.total),gross:sum(paid,s=>s.sumGross),disc:sum(paid,s=>s.disc),net:sum(paid,s=>s.net),vat:sum(paid,s=>s.vat),total:sum(paid,s=>s.total),
     cash:sum(paid,cashOf),card:sum(paid,cardOf),cashN:cash.length,cardN:card.length,voidN:voids.length,voidTotal:sum(voids,s=>s.total)};
 }
 function byItem(list){
   const map={};
   list.filter(s=>s.status!=='void').forEach(s=>{
-    const f=s.sumGross>0?s.total/s.sumGross:0;
+    const f=s.sumGross?s.total/s.sumGross:0;
     s.lines.forEach(l=>{
       const k=l.name+'|'+l.unit;
       const o=map[k]||(map[k]={name:l.name,unit:l.unit,qty:0,net:0,vat:0,total:0});
@@ -1573,7 +1669,7 @@ function billsBlock(list,actions,showBr){
   const a=agg(list),showC=CLOUD;
   const head=[['Invoice']].concat(showBr?[['Branch']]:[],[['Date & time']],showC?[['Cashier']]:[],[['Payment'],['Excl. VAT',1],['VAT',1],['Total',1],['Status']],actions?[['']]:[]);
   const pat=(showBr?'llll':'lll')+(showC?'l':'')+'rrrl'+(actions?'l':'');
-  const rows=list.map(s=>trow([esc(s.no)].concat(showBr?[esc(brName(s.branch))]:[],[fmtDate(s.ts)],showC?[esc(s.cashier||'')]:[],[payName(s),fmt(s.net),fmt(s.vat),fmt(s.total),s.status==='void'?'Void':'Paid'],
+  const rows=list.map(s=>trow([esc(s.no)].concat(showBr?[esc(brName(s.branch))]:[],[fmtDate(s.ts)],showC?[esc(s.cashier||'')]:[],[payName(s),fmt(s.net),fmt(s.vat),fmt(s.total),s.status==='void'?'Void':isReturn(s)?'Return of '+esc(s.origNo||''):'Paid'],
     actions?['<button class="mini" data-v="'+esc(s.id)+'">View</button> '+(s.status!=='void'?'<button class="mini" data-x="'+esc(s.id)+'">Void</button>':'')]:[]),pat,s.status==='void'?'void':''));
   return list.length?tbl(head,rows,trow(['Total ('+a.bills+' paid bills)'].concat(showBr?['']:[],showC?['']:[],['','',fmt(a.net),fmt(a.vat),fmt(a.total),''],actions?['']:[]),pat,'sum')):'<p class="none">No invoices for this selection.</p>';
 }
@@ -1593,7 +1689,7 @@ function itemsBlock(list){
 function dailyBody(list,showBr){
   const a=agg(list);
   return '<div class="stats">'+statBox('Bills',a.bills)+statBox('Net sales excl. VAT',aed(a.net))+statBox('VAT collected',aed(a.vat))+statBox('Total sales',aed(a.total))+
-    statBox('Cash ('+a.cashN+' bills)',aed(a.cash))+statBox('Card ('+a.cardN+' bills)',aed(a.card))+statBox('Discounts given',aed(a.disc))+statBox('Voided ('+a.voidN+')',aed(a.voidTotal))+'</div>'+
+    statBox('Cash ('+a.cashN+' bills)',aed(a.cash))+statBox('Card ('+a.cardN+' bills)',aed(a.card))+statBox('Discounts given',aed(a.disc))+statBox('Voided ('+a.voidN+')',aed(a.voidTotal))+(a.retN?statBox('Returns ('+a.retN+')','− '+aed(a.retTotal)):'')+'</div>'+
     (showBr?'<h3 class="rs">Sales by branch</h3>'+branchBlock(list):'')+
     '<h3 class="rs">Sales by fabric</h3>'+itemsBlock(list)+'<h3 class="rs">Bills</h3>'+billsBlock(list,false,showBr);
 }
@@ -1687,7 +1783,7 @@ function reportsModal(tab){
     const rng=()=>nice(R.from)+' to '+nice(R.to);
     const showBr=hq&&R.br==='all';
     if(R.tab==='daily')filt='<div class="filters"><button class="mini" data-day="-1">‹ Prev</button>'+dateF('Date','day')+'<button class="mini" data-day="1">Next ›</button><button class="mini" data-day="0">Today</button>'+brSel()+'</div>';
-    else if(R.tab==='inv')filt='<div class="filters">'+dateF('From','from')+dateF('To','to')+brSel()+selF('Payment','method',[['all','All'],['cash','Cash'],['card','Card'],['split','Cash + Card']])+selF('Status','status',[['all','All'],['paid','Paid'],['void','Void']])+'<div class="qk">'+quick('data-q',[['month','This month'],['lastmonth','Last month'],['today','Today']])+'</div></div>';
+    else if(R.tab==='inv')filt='<div class="filters">'+dateF('From','from')+dateF('To','to')+brSel()+selF('Payment','method',[['all','All'],['cash','Cash'],['card','Card'],['split','Cash + Card']])+selF('Status','status',[['all','All'],['paid','Paid'],['return','Returns (credit notes)'],['void','Void']])+'<div class="qk">'+quick('data-q',[['month','This month'],['lastmonth','Last month'],['today','Today']])+'</div></div>';
     else if(R.tab==='vat')filt='<div class="filters">'+dateF('Period from','vf')+dateF('Period to','vt')+'<div class="qk">'+quick('data-vq',[['month','This month'],['lastmonth','Last month'],['quarter','This quarter'],['lastquarter','Last quarter']])+'</div></div>';
     else if(R.tab==='shifts')filt='<div class="filters">'+dateF('From','from')+dateF('To','to')+brSel()+'<div class="qk">'+quick('data-q',[['month','This month'],['lastmonth','Last month'],['today','Today']])+'</div></div>';
     else if(R.tab==='items')filt='<div class="filters">'+dateF('From','from')+dateF('To','to')+brSel()+'<div class="qk">'+quick('data-q',[['month','This month'],['lastmonth','Last month'],['today','Today']])+'</div></div>';
@@ -1701,9 +1797,9 @@ function reportsModal(tab){
         shown=await salesIn(R.day,R.day,R.br);
         title='Daily sales report';period=nice(R.day);body=pbody=dailyBody(shown,showBr);
       }else if(R.tab==='inv'){
-        shown=(await salesIn(R.from,R.to,R.br)).filter(s=>(R.method==='all'||(s.method||'cash')===R.method)&&(R.status==='all'||(R.status==='void')===(s.status==='void')));
+        shown=(await salesIn(R.from,R.to,R.br)).filter(s=>(R.method==='all'||(s.method||'cash')===R.method)&&(R.status==='all'||(R.status==='void'?s.status==='void':s.status!=='void'&&(R.status==='return')===isReturn(s))));
         title='Invoices report';period=rng();body=billsBlock(shown,true,showBr);pbody=billsBlock(shown,false,showBr);
-        csv=csvOf([['Invoice'].concat(hq?['Branch']:[],['Date','Time','Payment','Excl VAT','VAT','Total','Cash part','Card part','Status','Card ref'])].concat(shown.map(s=>[s.no].concat(hq?[brName(s.branch)]:[],[ymd(s.ts),fmtTime(s.ts),s.method,s.net.toFixed(2),s.vat.toFixed(2),s.total.toFixed(2),cashOf(s).toFixed(2),cardOf(s).toFixed(2),s.status==='void'?'void':'paid',s.ref||'']))));
+        csv=csvOf([['Invoice'].concat(hq?['Branch']:[],['Date','Time','Payment','Excl VAT','VAT','Total','Cash part','Card part','Status','Card ref','Original invoice'])].concat(shown.map(s=>[s.no].concat(hq?[brName(s.branch)]:[],[ymd(s.ts),fmtTime(s.ts),s.method,s.net.toFixed(2),s.vat.toFixed(2),s.total.toFixed(2),cashOf(s).toFixed(2),cardOf(s).toFixed(2),s.status==='void'?'void':isReturn(s)?'return':'paid',s.ref||'',s.origNo||'']))));
       }else if(R.tab==='vat'){
         shown=await salesIn(R.vf,R.vt,'all');
         title='VAT 201 return – working';period=nice(R.vf)+' to '+nice(R.vt);body=vatBody(shown,R.vf,R.vt,true);pbody=vatBody(shown,R.vf,R.vt,false);
@@ -1759,7 +1855,7 @@ function reportsModal(tab){
     $$('[data-zv]',m.el).forEach(b=>b.onclick=()=>{const x=zShown.find(y=>y.id===b.dataset.zv);if(x)showZ(x,x.summary,'Z')});
     $$('[data-x]',m.el).forEach(b=>b.onclick=async()=>{
       const s=shown.find(x=>x.id===b.dataset.x);if(!s)return;
-      if(await askConfirm('Void '+s.no+'?','This sale will be removed from all report totals. It stays in the list marked as void.','Void sale',true)){voidSale(s);logAct('Void',s.no+' voided (AED '+fmt(s.total)+', '+s.method+')');draw()}
+      if(await confirmVoid(s))draw();
     });
   }
   draw();
@@ -1938,9 +2034,9 @@ function openShift(float){
 }
 function shiftSummary(sh,list){
   const a=agg(list),byC={};
-  list.filter(x=>x.status!=='void').forEach(x=>{const k=x.cashier||'—';const o=byC[k]||(byC[k]={bills:0,total:0,cash:0,card:0});o.bills++;o.total=r2(o.total+x.total);o.cash=r2(o.cash+cashOf(x));o.card=r2(o.card+cardOf(x))});
+  list.filter(x=>x.status!=='void').forEach(x=>{const k=x.cashier||'—';const o=byC[k]||(byC[k]={bills:0,total:0,cash:0,card:0});if(!isReturn(x))o.bills++;o.total=r2(o.total+x.total);o.cash=r2(o.cash+cashOf(x));o.card=r2(o.card+cardOf(x))});
   const moves=sh.moves||[],paidOut=r2(moves.filter(m=>m.type==='out').reduce((n,m)=>n+m.amount,0)),paidIn=r2(moves.filter(m=>m.type==='in').reduce((n,m)=>n+m.amount,0));
-  return {bills:a.bills,gross:a.gross,disc:a.disc,net:a.net,vat:a.vat,total:a.total,cash:a.cash,card:a.card,cashN:a.cashN,cardN:a.cardN,voidN:a.voidN,voidTotal:a.voidTotal,byCashier:byC,paidOut,paidIn,moves,expectedCash:r2((+sh.openingFloat||0)+a.cash-paidOut+paidIn)};
+  return {bills:a.bills,gross:a.gross,disc:a.disc,net:a.net,vat:a.vat,total:a.total,cash:a.cash,card:a.card,cashN:a.cashN,cardN:a.cardN,voidN:a.voidN,voidTotal:a.voidTotal,retN:a.retN,retTotal:a.retTotal,byCashier:byC,paidOut,paidIn,moves,expectedCash:r2((+sh.openingFloat||0)+a.cash-paidOut+paidIn)};
 }
 function zReportHTML(sh,sum,kind){
   const br=branchById(sh.branch)||{};const kv=(k,v,cls)=>'<div class="kv'+(cls?' '+cls:'')+'"><span>'+k+'</span><span>'+v+'</span></div>';
@@ -1950,9 +2046,9 @@ function zReportHTML(sh,sum,kind){
     '<hr><div class="c"><b>'+(kind==='Z'?'Z REPORT – END OF SHIFT':'X REPORT – SHIFT SO FAR')+'</b>'+(closed&&sh.zNo?'<br><b>'+esc(sh.zNo)+'</b>':'')+'</div><hr>'+
     kv('Opened',fmtDate(sh.openedAt))+kv('Opened by',esc(sh.openedBy||''))+(closed?kv('Closed',fmtDate(sh.closedAt))+kv('Closed by',esc(sh.closedBy||'')):kv('Printed',fmtDate(Date.now())))+'<hr>'+
     kv('Bills',sum.bills)+kv('Items (incl. VAT)',fmt(sum.gross))+(sum.disc?kv('Discounts','− '+fmt(sum.disc)):'')+kv('Amount excl. VAT',fmt(sum.net))+kv('VAT '+settings.vat+'%',fmt(sum.vat))+kv('TOTAL (AED)',fmt(sum.total),'t')+'<hr>'+
-    kv('Cash ('+sum.cashN+')',fmt(sum.cash))+kv('Card ('+sum.cardN+')',fmt(sum.card))+kv('Voided ('+sum.voidN+')',fmt(sum.voidTotal))+'<hr>'+
+    kv('Cash ('+sum.cashN+')',fmt(sum.cash))+kv('Card ('+sum.cardN+')',fmt(sum.card))+kv('Voided ('+sum.voidN+')',fmt(sum.voidTotal))+(sum.retN?kv('Returns ('+sum.retN+')','− '+fmt(sum.retTotal)):'')+'<hr>'+
     '<div class="c"><b>BY CASHIER</b></div>'+Object.keys(sum.byCashier).map(k=>{const o=sum.byCashier[k];return kv(esc(k)+' ('+o.bills+')',fmt(o.total))}).join('')+(Object.keys(sum.byCashier).length?'':'<div class="fine c">No sales</div>')+'<hr>'+
-    '<div class="c"><b>CASH DRAWER</b></div>'+kv('Opening float',fmt(sh.openingFloat))+kv('+ Cash sales',fmt(sum.cash))+
+    '<div class="c"><b>CASH DRAWER</b></div>'+kv('Opening float',fmt(sh.openingFloat))+kv(sum.retN?'+ Cash sales less refunds':'+ Cash sales',fmt(sum.cash))+
     (sum.paidIn?kv('+ Cash paid in',fmt(sum.paidIn)):'')+(sum.paidOut?kv('− Cash paid out',fmt(sum.paidOut)):'')+
     ((sum.moves||[]).length?(sum.moves||[]).map(mv=>'<div class="rq fine"><span>'+fmtTime(mv.ts)+' '+(mv.type==='out'?'OUT':'IN')+' · '+esc(mv.reason||'')+(mv.cashier?' ('+esc(mv.cashier)+')':'')+'</span><span>'+(mv.type==='out'?'−':'+')+fmt(mv.amount)+'</span></div>').join(''):'')+
     kv('= Expected cash',fmt(sum.expectedCash),'t')+
@@ -1978,6 +2074,7 @@ function zText(sh,sum,kind){
   L.push('Excl. VAT: '+fmt(sum.net)+' · VAT: '+fmt(sum.vat));
   if(sum.disc)L.push('Discounts: '+fmt(sum.disc));
   if(sum.voidN)L.push('Voided: '+sum.voidN+' (AED '+fmt(sum.voidTotal)+')');
+  if(sum.retN)L.push('Returns: '+sum.retN+' (refunded AED '+fmt(sum.retTotal)+')');
   const by=Object.keys(sum.byCashier||{});
   if(by.length){L.push('');L.push('By cashier:');by.forEach(k=>{const o=sum.byCashier[k];L.push('• '+k+': AED '+fmt(o.total)+' ('+o.bills+')')})}
   L.push('');L.push('Cash drawer:');

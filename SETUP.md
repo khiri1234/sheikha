@@ -270,3 +270,22 @@ The receipt shows both parts. Reports, the dashboard, the shift close and Z repo
 the Sheikha HQ app count the cash part as cash and the card part as card, so the cash
 drawer count stays correct. In **Reports → Invoices** you can filter by *Cash + Card*,
 and the CSV export has *Cash part* and *Card part* columns.
+
+### 19. Returns and refunds (credit notes)
+When a customer brings fabric back, go to **Edit / Return** in the left menu and scan
+the receipt barcode (or type the invoice number). Scanning the receipt on the sale
+screen opens the same bill.
+
+1. Press **Return items** (or **Return** in the list of bills).
+2. Type how much of each fabric comes back (or **Return everything left**).
+3. Choose **Cash refund** or **Card refund**, add a reason if you like, and press **Refund**.
+4. A **Tax credit note** (number starting **CN-**) prints. Give the cash back, or refund
+   the card on the card machine.
+
+A bill can be returned in several parts; the POS remembers what was already returned.
+The credit note takes the refund off the day's sales, the VAT 201 and the fabric
+totals, and a cash refund comes off the expected cash in the drawer and the Z report.
+A bill with a return can't be edited or voided; void its credit note first if the
+return was a mistake. Returns are made on the branch till, not from head office.
+The Sheikha HQ app shows returns too (build 14). To get the "returns" count in the
+evening summary notification, redeploy the functions: `firebase deploy --only functions`.
