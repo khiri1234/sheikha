@@ -1965,8 +1965,13 @@ function pinGate(msg){
     if(k==='c')pin='';else if(k==='b')pin=pin.slice(0,-1);else if(pin.length<4)pin+=k;
     dots();
     if(pin.length===4){
+      // after 5 wrong PINs the pad locks: 30 s, then longer each time
+      const lk=store.get('sk_pinlock',{n:0,until:0});
+      if(Date.now()<lk.until){pin='';dots();$('#pinErr').textContent='Too many wrong PINs. Try again in '+Math.ceil((lk.until-Date.now())/1000)+' seconds.';return}
       const h=await pinHash(C.branch,pin),c=activeCashiers().find(x=>x.pin===h);
-      if(!c){pin='';dots();$('#pinErr').textContent='PIN not recognised. Try again.';const b=$('#gateBox');b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake');return}
+      if(c)store.set('sk_pinlock',{n:0,until:0});
+      else{lk.n++;if(lk.n>=5&&lk.n%5===0){lk.until=Date.now()+30000*(lk.n/5);logAct('Shift','Cashier PIN pad locked after '+lk.n+' wrong PINs')}store.set('sk_pinlock',lk)}
+      if(!c){pin='';dots();$('#pinErr').textContent=Date.now()<lk.until?'Too many wrong PINs. Try again in '+Math.ceil((lk.until-Date.now())/1000)+' seconds.':'PIN not recognised. Try again.';const b=$('#gateBox');b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake');return}
       S.cashier={id:c.id,name:c.name};store.set(cashierKey(),S.cashier);
       document.removeEventListener('keydown',onKey);
       g.hidden=true;logAct('Shift',c.name+' started on the till');updateWho();renderShiftState();focusScan();
