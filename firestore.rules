@@ -63,9 +63,12 @@ service cloud.firestore {
         allow update: if isBranch(b) && resource.data.status == 'paid'
           && request.resource.data.status == 'paid'
           && request.resource.data.branch == b
+          && resource.data.get('kind', '') != 'return'
+          && request.resource.data.get('kind', '') == resource.data.get('kind', '')
           && request.resource.data.no == resource.data.no
           && request.resource.data.ts == resource.data.ts
-          && request.resource.data.edits.size() == resource.data.get('edits', []).size() + 1;
+          && request.resource.data.edits.size() == resource.data.get('edits', []).size() + 1
+          && request.resource.data.edits.hasAll(resource.data.get('edits', []));
       }
 
       match /held/{id} {
@@ -83,13 +86,22 @@ service cloud.firestore {
       match /shifts/{id} {
         allow read: if isHQ() || isBranch(b);
         allow create: if isBranch(b) && request.resource.data.branch == b && request.resource.data.status == 'open';
-        allow update: if isBranch(b) && resource.data.status == 'open';
+        // while open: the float, opening time and branch can't be changed, and petty cash
+        // movements can only be added, never changed or removed
+        allow update: if isBranch(b) && resource.data.status == 'open'
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['id', 'branch', 'openingFloat', 'openedAt', 'openedBy'])
+          && request.resource.data.get('moves', []).hasAll(resource.data.get('moves', []));
       }
 
-      // invoice, held-bill and Z-report counters
+      // invoice, held-bill and Z-report counters: they only ever go up, so an invoice or
+      // Z-report number can't be handed out twice
       match /meta/{id} {
         allow read: if isHQ() || isBranch(b);
-        allow write: if isBranch(b);
+        allow create: if isBranch(b);
+        allow update: if isBranch(b)
+          && request.resource.data.get('invNext', 0) >= resource.data.get('invNext', 0)
+          && request.resource.data.get('heldSeq', 0) >= resource.data.get('heldSeq', 0)
+          && request.resource.data.get('zSeq', 0) >= resource.data.get('zSeq', 0);
       }
     }
   }
