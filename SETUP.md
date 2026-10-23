@@ -289,3 +289,21 @@ A bill with a return can't be edited or voided; void its credit note first if th
 return was a mistake. Returns are made on the branch till, not from head office.
 The Sheikha HQ app shows returns too (build 14). To get the "returns" count in the
 evening summary notification, redeploy the functions: `firebase deploy --only functions`.
+
+### 20. Open the cash drawer after each receipt
+The cash drawer plugs into the back of the receipt printer (the small phone-style
+socket marked **DK** or **Drawer**), not into the computer. The printer opens it when
+it prints, if its Windows driver is set to:
+
+1. Windows **Settings → Bluetooth & devices → Printers & scanners →** the receipt
+   printer → **Printing preferences** (or **Printer properties → Device settings**).
+2. Find **Cash drawer** (on some drivers under *Peripherals*, *Document settings* or
+   *Advanced*) and choose **Drawer #1 – Open after printing** (Epson: *Cash Drawer →
+   Drawer #1, After printing*; Xprinter/Rongta: *Cash drawer → Open after print*).
+   If there are two drawer pins and nothing happens, try **Drawer #2**.
+3. **OK**, then complete a test sale. With `--kiosk-printing` (section 17) the drawer
+   opens right after the receipt prints, with no clicks.
+
+The drawer then opens for every print from that printer (card sales, Print again and Z
+reports too). If the printer's utility has a **pulse/kick time**, 100–200 ms works for
+most drawers.
