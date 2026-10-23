@@ -110,5 +110,5 @@ async function dailySummary(now = new Date()) {
   await send(msg);
   return msg;
 }
-exports.dailySummary = onSchedule({ schedule: '0 23 * * *', timeZone: TIME_ZONE }, () => dailySummary());
+exports.dailySummary = onSchedule({ schedule: '59 23 * * *', timeZone: TIME_ZONE }, () => dailySummary());
 exports.dailySummary.__run = dailySummary; // for local testing

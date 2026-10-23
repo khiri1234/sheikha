@@ -51,7 +51,7 @@ struct NotificationsView: View {
                 }
             }
             Section {
-                Toggle("Daily summary at 11 pm", isOn: $daily)
+                Toggle("Daily summary at 11:59 pm", isOn: $daily)
             } footer: {
                 Text("Total sales, best branch, voids and shifts still open.")
             }

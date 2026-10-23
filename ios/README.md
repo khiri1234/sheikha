@@ -77,7 +77,7 @@ upload a new TestFlight build – increase `CURRENT_PROJECT_VERSION` in `project
 
 ## Push notifications
 The app alerts head office when a shift is closed, cash is short or over, a sale is voided,
-a large payout is made, and with a daily summary at 11 pm. One-time setup (Apple push key,
+a large payout is made, and with a daily summary at 11:59 pm. One-time setup (Apple push key,
 uploading it to Firebase, `firebase deploy --only functions`) is in
 [SETUP.md, step 14](../SETUP.md#14-push-notifications-on-the-head-office-iphone).
 After running `xcodegen`, check **Signing & Capabilities** shows **Push Notifications** and
