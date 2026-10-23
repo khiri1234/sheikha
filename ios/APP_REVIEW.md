@@ -69,7 +69,7 @@ Z REPORTS
 • Send any Z report by WhatsApp
 
 NOTIFICATIONS
-• Shift closed, cash short or over, voids and large payouts, and a daily summary at 11 pm
+• Shift closed, cash short or over, voids and large payouts, and a daily summary at 11:59 pm
 
 Face ID lock, light and dark mode. Sign-in is for the Sheikha Textiles head office only.
 ```

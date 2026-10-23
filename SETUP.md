@@ -159,7 +159,7 @@ totals, branch ranking and anything needing attention by WhatsApp or email.
 ### 14. Push notifications on the head-office iPhone
 The **Sheikha HQ** iPhone app can alert head office when a shift is closed (Z
 report), when the cash is short or over, when a sale is voided, when a large petty
-cash payout is made, and with a daily sales summary at 11 pm. A small program in
+cash payout is made, and with a daily sales summary at 11:59 pm. A small program in
 Firebase (*Cloud Functions*, in the [`functions`](functions) folder) watches the
 database and sends the alerts. It needs to be set up once:
 
