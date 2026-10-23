@@ -307,3 +307,26 @@ it prints, if its Windows driver is set to:
 The drawer then opens for every print from that printer (card sales, Print again and Z
 reports too). If the printer's utility has a **pulse/kick time**, 100–200 ms works for
 most drawers.
+
+### 21. Move the website to Firebase Hosting (then make GitHub private)
+Firebase Hosting is free, sends the POS with strict security headers, and lets the
+GitHub repository be private. The tills keep working on the old address until step 4.
+
+1. On the Mac, in the `sheikha` folder: `git pull --autostash`, then
+   `firebase deploy --only hosting`. It prints an address like
+   `https://sheikha-pos.web.app`.
+2. Test that address on one computer: sign in with a branch login, make a test sale,
+   print it, and sign in as head office. (Tell Claude if anything doesn't work.)
+3. Firebase console → **Hosting → Add custom domain** → `sheikha.hatef.cc`. Firebase
+   shows one or two DNS records. In **GoDaddy → DNS** for `hatef.cc`, delete the old
+   `sheikha` CNAME (to `khiri1234.github.io`) and add exactly the records Firebase shows.
+   The padlock certificate can take up to a few hours.
+4. Do the switch when every till shows it is online (no sales waiting to upload). If a
+   till used the `khiri1234.github.io/sheikha` address, open `https://sheikha.hatef.cc`
+   on it and sign in again.
+5. Google Cloud → APIs & Services → Credentials → *Browser key* → Websites: add
+   `https://sheikha-pos.web.app/*` next to `https://sheikha.hatef.cc/*`.
+6. GitHub → the repository → **Settings → Pages** → unpublish, then **Settings → General
+   → Danger Zone → Change visibility → Private**.
+
+After the move, publish updates with `firebase deploy --only hosting` (after `git pull`).

@@ -20,9 +20,11 @@ service cloud.firestore {
     function isBranch(b) { return signedIn() && exists(loginDoc()) && get(loginDoc()).data.branch == b; }
     function isStaff() { return isHQ() || (signedIn() && exists(loginDoc())); }
 
-    // shop settings (config/shop) and VAT 201 inputs (config/vatin)
+    // shop settings (config/shop) and VAT 201 inputs (config/vatin) are read by the tills;
+    // the head-office phones (config/devices) and notification settings (config/notify)
+    // are for head office only
     match /config/{doc} {
-      allow read: if isStaff();
+      allow read: if isHQ() || (isStaff() && doc in ['shop', 'vatin']);
       allow write: if isHQ();
     }
 
@@ -56,7 +58,8 @@ service cloud.firestore {
       // An edit keeps the invoice number, date and branch, and stores the old version in "edits".
       match /sales/{id} {
         allow read: if isHQ() || isBranch(b);
-        allow create: if isBranch(b) && request.resource.data.branch == b;
+        allow create: if isBranch(b) && request.resource.data.branch == b
+          && request.resource.data.status == 'paid';
         allow update: if (isHQ() || isBranch(b))
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'voidedAt', 'voidedBy'])
           && request.resource.data.status == 'void';
@@ -78,7 +81,7 @@ service cloud.firestore {
 
       match /logs/{id} {
         allow read: if isHQ() || isBranch(b);
-        allow create: if isBranch(b);
+        allow create: if isBranch(b) && request.resource.data.branch == b;
       }
 
       // shifts: opened with the cash float, closed once with the cash count (Z report);
