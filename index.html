@@ -105,7 +105,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
 .pay-btn.cash{background:var(--till)}
 .pay-btn.card{background:#14171C}
 .pay-btn:disabled{opacity:.4;cursor:not-allowed}
-.pay-btn.split{grid-column:1/-1;padding:10px 8px;font-size:13px;background:#fff;color:var(--ink);box-shadow:inset 0 0 0 1.5px #C9CED6}
+.pay-btn.split,.pay-btn.bank{padding:10px 6px;font-size:12.5px;background:#fff;color:var(--ink);box-shadow:inset 0 0 0 1.5px #C9CED6}
 .perf{height:14px;background:radial-gradient(circle,var(--bg) 5px,transparent 5.5px) repeat-x;background-size:16px 14px;background-position:6px -7px;border-top:1px dashed var(--line)}
 .cartbar{display:none}
 
@@ -571,7 +571,8 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
             <div class="pay-row">
               <button class="pay-btn cash" id="btnCash" disabled>💵 Cash <kbd>F3</kbd></button>
               <button class="pay-btn card" id="btnCard" disabled>💳 Card <kbd>F2</kbd></button>
-              <button class="pay-btn split" id="btnSplit" disabled>💵 + 💳 Cash and card <kbd>F5</kbd></button>
+              <button class="pay-btn split" id="btnSplit" disabled>💵+💳 Cash &amp; card <kbd>F5</kbd></button>
+              <button class="pay-btn bank" id="btnBank" disabled>🏦 Bank transfer <kbd>F6</kbd></button>
             </div>
             <button class="hold-btn" id="btnHold" disabled>⏸️ Hold this bill</button>
             <div class="perf"></div>
@@ -959,7 +960,7 @@ function renderCart(){
   $('#tVat').textContent='AED '+fmt(t.vat);
   $('#tTotal').textContent='AED '+fmt(t.total);
   const canPay=!!(t.count&&t.total>0);
-  $('#btnCash').disabled=!canPay;$('#btnCard').disabled=!canPay;$('#btnSplit').disabled=!canPay;$('#btnHold').disabled=!cart.length||!!editing;
+  $('#btnCash').disabled=!canPay;$('#btnCard').disabled=!canPay;$('#btnSplit').disabled=!canPay;$('#btnBank').disabled=!canPay;$('#btnHold').disabled=!cart.length||!!editing;
   $('#ticketTitle').textContent=editing?'Editing '+editing.no:'Current Bill';
   $('#editBar').hidden=!editing;
   if(editing)$('#editBarText').textContent='Editing '+editing.no+' – was AED '+fmt(editing.total)+'. Change the lines, then take payment to save.';
@@ -1363,14 +1364,14 @@ async function returnModal(sl){
   const left=sl.lines.map((l,i)=>r2((+l.qty)-done[i]));
   const prevTotal=r2(prev.reduce((n,c)=>n-c.total,0));
   if(left.every(q=>q<=0)){toast('Everything on '+sl.no+' has already been returned');return}
-  let method=sl.method==='card'?'card':'cash';
+  let method=sl.method==='card'?'card':sl.method==='bank'?'bank':'cash';
   const m=modal('<h2>Return items – '+esc(sl.no)+'</h2><p class="sub">Bill of '+fmtDate(sl.ts)+', AED '+fmt(sl.total)+' paid by '+payName(sl).toLowerCase()+'. Enter how much of each fabric comes back.'+(prev.length?' Already refunded: AED '+fmt(prevTotal)+' ('+prev.map(c=>esc(c.no)).join(', ')+').':'')+'</p>'+
     '<div class="tw"><table class="tbl"><thead><tr><th>Fabric</th><th class="r">Sold</th><th class="r">Can return</th><th class="r">Return</th></tr></thead><tbody>'+
     sl.lines.map((l,i)=>'<tr><td>'+esc(l.name)+'</td><td class="r num">'+l.qty+' '+us(l.unit)+'</td><td class="r num">'+left[i]+'</td><td class="r"><input class="num rq-in" data-ri="'+i+'" inputmode="decimal" placeholder="0" style="width:80px;text-align:right"'+(left[i]<=0?' disabled':'')+'></td></tr>').join('')+
     '</tbody></table></div>'+
     '<div class="quick" style="margin:10px 0"><button id="rtAll">Return everything left</button></div>'+
     '<div class="paytotal"><span>Refund to customer</span><b class="num" id="rtAmt">AED 0.00</b></div>'+
-    '<div class="seg big" id="rtm"><button data-m="cash"'+(method==='cash'?' class="on"':'')+'>Cash refund</button><button data-m="card"'+(method==='card'?' class="on"':'')+'>Card refund</button></div>'+
+    '<div class="seg big" id="rtm"><button data-m="cash"'+(method==='cash'?' class="on"':'')+'>Cash refund</button><button data-m="card"'+(method==='card'?' class="on"':'')+'>Card refund</button><button data-m="bank"'+(method==='bank'?' class="on"':'')+'>Bank refund</button></div>'+
     '<label class="fld"><span>Reason (optional)</span><input id="rtWhy" placeholder="e.g. wrong colour"></label>'+
     '<div class="actions"><button class="ghost" id="rtCancel">Cancel</button><button class="primary" id="rtGo" disabled>Refund</button></div>');
   const $m=q=>$(q,m.el),ins=$$('.rq-in',m.el);
@@ -1397,7 +1398,7 @@ async function returnModal(sl){
     const c=calc();
     $m('#rtAmt').textContent='AED '+fmt(c.total);
     $m('#rtGo').disabled=c.bad||!c.lines.length||c.total<=0;
-    $m('#rtGo').textContent=c.total>0?'Refund AED '+fmt(c.total)+' in '+(method==='card'?'card':'cash'):'Refund';
+    $m('#rtGo').textContent=c.total>0?'Refund AED '+fmt(c.total)+' '+(method==='card'?'to card':method==='bank'?'by bank transfer':'in cash'):'Refund';
   }
   ins.forEach(inp=>{
     inp.addEventListener('input',upd);
@@ -1417,7 +1418,7 @@ async function returnModal(sl){
     logAct('Return',cn.no+' – refund AED '+fmt(c.total)+' in '+method+' for '+sl.no+(cn.reason?' ('+cn.reason+')':''));
     m.close();sideToday();
     if(curView==='edit')drawEditList();
-    const r=modal('<h2>Refund AED '+fmt(c.total)+'</h2><p class="sub">'+(method==='card'?'Refund it to the customer’s card on the card machine.':'Give the customer AED '+fmt(c.total)+' from the cash drawer.')+' Credit note '+esc(cn.no)+' is printing.</p>'+
+    const r=modal('<h2>Refund AED '+fmt(c.total)+'</h2><p class="sub">'+(method==='card'?'Refund it to the customer’s card on the card machine.':method==='bank'?'Transfer AED '+fmt(c.total)+' back to the customer’s bank account.':'Give the customer AED '+fmt(c.total)+' from the cash drawer.')+' Credit note '+esc(cn.no)+' is printing.</p>'+
       '<div class="paper">'+receiptHTML(cn)+'</div><div class="actions"><button class="ghost" id="cnPrint">Print again</button><button class="primary" id="cnDone">Done</button></div>');
     $('#cnPrint',r.el).onclick=()=>doPrint(receiptHTML(cn));
     $('#cnDone',r.el).onclick=()=>r.close();
@@ -1438,7 +1439,9 @@ function payModal(startMethod){
     '<h2>'+(editing?'Save '+esc(editing.no):'Take payment')+'</h2><p class="sub">'+(editing?'Enter the payment for the whole new total, as if the bill were paid again today.':'Choose how the customer is paying.')+'</p>'+
     (editing?(()=>{const d=r2(t.total-editing.total);return '<div class="edit-diff"><span>Before: AED '+fmt(editing.total)+' ('+payName(editing).toLowerCase()+')</span><b>'+(d>0?'Customer pays AED '+fmt(d)+' more':d<0?'Give back AED '+fmt(-d):'Same total')+'</b></div>'})():'')+
     '<div class="paytotal"><span>'+(editing?'New total':'Amount due')+'</span><b class="num">AED '+fmt(t.total)+'</b></div>'+
-    '<div class="seg big" id="pm"><button data-m="cash" class="on">Cash</button><button data-m="card">Card</button><button data-m="split">Cash + Card</button></div>'+
+    '<div class="seg big" id="pm"><button data-m="cash" class="on">Cash</button><button data-m="card">Card</button><button data-m="split">Cash + Card</button><button data-m="bank">Bank</button></div>'+
+    '<div id="bankPane" hidden><p class="sub" style="margin-bottom:12px">Check that the bank transfer has arrived (or see the customer’s transfer confirmation), then confirm here.</p>'+
+    '<label class="fld"><span>Transfer reference (optional)</span><input id="bRef" placeholder="e.g. bank reference or sender name"></label></div>'+
     '<div id="splitPane" hidden><label class="fld"><span>Card part (on the card machine)</span><div class="money"><i>AED</i><input id="cardAmt" class="num" inputmode="decimal" placeholder="0.00"></div></label>'+
     '<div class="change" id="cashDue"><span>Cash part to collect</span><b class="num">AED '+fmt(t.total)+'</b></div>'+
     '<label class="fld"><span>Cash received</span><div class="money"><i>AED</i><input id="sTend" class="num" inputmode="decimal" placeholder="0.00"></div></label>'+
@@ -1470,6 +1473,9 @@ function payModal(startMethod){
       box.innerHTML='<span>'+(ch>=0||v===0?'Change to give':'Still to collect')+'</span><b class="num">AED '+fmt(v===0||!okC?0:Math.abs(ch))+'</b>';
       $m('#payGo').disabled=!(okC&&v>0&&ch>=0);
       $m('#payGo').textContent=editing?'Card approved – save changes':'Card approved – complete sale';
+    }else if(method==='bank'){
+      $m('#payGo').disabled=false;
+      $m('#payGo').textContent=editing?'Transfer received – save changes':'Transfer received – complete sale';
     }else{
       $m('#payGo').disabled=false;
       $m('#payGo').textContent=editing?'Card approved – save changes':'Card approved – complete sale';
@@ -1483,8 +1489,9 @@ function payModal(startMethod){
     $m('#cashPane').hidden=method!=='cash';
     $m('#cardPane').hidden=method!=='card';
     $m('#splitPane').hidden=method!=='split';
+    $m('#bankPane').hidden=method!=='bank';
     upd();
-    if(method==='cash')$m('#tend').focus();else if(method==='split')$m('#cardAmt').focus();else $m('#ref').focus();
+    if(method==='cash')$m('#tend').focus();else if(method==='split')$m('#cardAmt').focus();else if(method==='bank')$m('#bRef').focus();else $m('#ref').focus();
   });
   // Enter completes the payment (cash with nothing typed = exact amount)
   m.el.addEventListener('keydown',e=>{
@@ -1510,7 +1517,7 @@ function payModal(startMethod){
       discount:{type:discount.type,value:parseFloat(discount.value)||0},
       sumGross:t.sumGross,disc:t.disc,net:t.net,vat:t.vat,total:t.total,vatRate:settings.vat,
       method,tendered,change:method==='cash'?r2(tendered-t.total):method==='split'?r2(tendered-cashAmt):0,
-      ref:method==='card'?$m('#ref').value.trim():method==='split'?$m('#sRef').value.trim():'',status:'paid'
+      ref:method==='card'?$m('#ref').value.trim():method==='split'?$m('#sRef').value.trim():method==='bank'?$m('#bRef').value.trim():'',status:'paid'
     };
     if(method==='split'){sale.cardAmt=cardAmt;sale.cashAmt=cashAmt}
     if(ed){
@@ -1525,25 +1532,26 @@ function payModal(startMethod){
   };
   setTimeout(()=>$m('#tend').focus(),30);
   upd();
-  if(startMethod==='card'||startMethod==='split')$('#pm [data-m="'+startMethod+'"]',m.el).click();
+  if(startMethod==='card'||startMethod==='split'||startMethod==='bank')$('#pm [data-m="'+startMethod+'"]',m.el).click();
 }
 $('#btnCash').onclick=()=>payModal('cash');
-// F2 = card, F3 = cash, F5 = cash + card on the sale screen; in the payment window they switch the payment type. F4 or F11 = clear the bill
+// F2 = card, F3 = cash, F5 = cash + card, F6 = bank transfer on the sale screen; in the payment window they switch the payment type. F4 or F11 = clear the bill
 document.addEventListener('keydown',e=>{
   if((e.key==='F4'||e.key==='F11')&&curView==='sale'&&$('#gate').hidden&&!modalStack.length){e.preventDefault();if(cart.length||editing)$('#btnClear').click();return}
-  if(e.key!=='F2'&&e.key!=='F3'&&e.key!=='F5')return;
+  if(e.key!=='F2'&&e.key!=='F3'&&e.key!=='F5'&&e.key!=='F6')return;
   if(curView!=='sale'||!$('#gate').hidden)return;
   if(e.key==='F5')e.preventDefault();
-  const method=e.key==='F2'?'card':e.key==='F5'?'split':'cash';
+  const method=e.key==='F2'?'card':e.key==='F5'?'split':e.key==='F6'?'bank':'cash';
   const pm=modalStack.length&&$('#pm',modalStack[modalStack.length-1].el);
   if(pm){e.preventDefault();const b=$('[data-m="'+method+'"]',pm);if(b)b.click();return}
   if(modalStack.length)return;
-  const btn=$(method==='card'?'#btnCard':method==='split'?'#btnSplit':'#btnCash');
+  const btn=$(method==='card'?'#btnCard':method==='split'?'#btnSplit':method==='bank'?'#btnBank':'#btnCash');
   e.preventDefault();
   if(!btn.disabled)payModal(method);else toast('Add items to the bill first');
 });
 $('#btnCard').onclick=()=>payModal('card');
 $('#btnSplit').onclick=()=>payModal('split');
+$('#btnBank').onclick=()=>payModal('bank');
 
 /* ---------- receipt ---------- */
 // Code 128 (set B) barcode of the invoice number, as an SVG, so a scanner can find the sale.
@@ -1590,7 +1598,8 @@ function receiptHTML(s){
     (CN&&s.reason?'<div class="kv"><span>'+L('Reason','السبب')+'</span><span>'+esc(s.reason)+'</span></div>':'')+
     (s.method==='split'?'<div class="kv"><span>'+L('Card amount','بالبطاقة')+'</span><span>'+fmt(s.cardAmt)+'</span></div><div class="kv"><span>'+L('Cash amount','نقداً')+'</span><span>'+fmt(s.cashAmt)+'</span></div>':'')+
     (s.method==='split'&&s.ref?'<div class="kv"><span>'+L('Card ref.','مرجع البطاقة')+'</span><span>'+esc(s.ref)+'</span></div>':'')+
-    (s.method!=='card'&&!CN?'<div class="kv"><span>'+L('Cash received','المدفوع')+'</span><span>'+fmt(s.tendered)+'</span></div><div class="kv"><span>'+L('Change','الباقي')+'</span><span>'+fmt(s.change)+'</span></div>':(s.ref?'<div class="kv"><span>'+L('Card ref.','مرجع البطاقة')+'</span><span>'+esc(s.ref)+'</span></div>':''))+
+    (s.method==='bank'&&s.ref?'<div class="kv"><span>'+L('Transfer ref.','مرجع التحويل')+'</span><span>'+esc(s.ref)+'</span></div>':'')+
+    ((s.method==='cash'||s.method==='split'||!s.method)&&!CN?'<div class="kv"><span>'+L('Cash received','المدفوع')+'</span><span>'+fmt(s.tendered)+'</span></div><div class="kv"><span>'+L('Change','الباقي')+'</span><span>'+fmt(s.change)+'</span></div>':(s.method==='card'&&s.ref?'<div class="kv"><span>'+L('Card ref.','مرجع البطاقة')+'</span><span>'+esc(s.ref)+'</span></div>':''))+
     (s.status==='void'?'<hr><div class="c"><b>*** VOIDED – <bdi>ملغاة</bdi> ***</b></div>':'')+
     '<hr><div class="c fine">'+esc(settings.footer)+'<br><bdi>'+esc(settings.footerAr)+'</bdi></div>'+
     (s.no?'<div class="bcw">'+barcodeSVG(s.no)+'<div class="fine">'+esc(s.no)+'</div></div>':'')+'</div>';
@@ -1604,7 +1613,7 @@ function doPrint(html,paper){
 }
 function receiptModal(s){
   const m=modal('<h2>Sale complete</h2><p class="sub">'+esc(s.no)+' – AED '+fmt(s.total)+' paid by '+payName(s).toLowerCase()+'.</p>'+
-    (s.method!=='card'&&s.change>0?'<div class="paytotal"><span>Give change</span><b class="num">AED '+fmt(s.change)+'</b></div>':'')+
+    ((s.method==='cash'||s.method==='split'||!s.method)&&s.change>0?'<div class="paytotal"><span>Give change</span><b class="num">AED '+fmt(s.change)+'</b></div>':'')+
     '<div class="paper">'+receiptHTML(s)+'</div>'+
     '<div class="actions"><button class="ghost" id="rPrint">Print again</button><button class="primary" id="rDone">New sale</button></div>');
   $('#rPrint',m.el).onclick=()=>doPrint(receiptHTML(s));
@@ -1639,15 +1648,16 @@ function quickRange(n,full){
   return f(t,t);
 }
 // how much of a bill was paid in cash / by card (split bills count in both)
-function cashOf(s){return s.method==='split'?(+s.cashAmt||0):s.method==='card'?0:s.total}
+function cashOf(s){return s.method==='split'?(+s.cashAmt||0):(s.method==='card'||s.method==='bank')?0:s.total}
+function bankOf(s){return s.method==='bank'?s.total:0}
 function cardOf(s){return s.method==='split'?(+s.cardAmt||0):s.method==='card'?s.total:0}
-function payName(s,ar){if(isReturn(s))return ar?(s.method==='card'?'Card':'Cash'):(s.method==='card'?'Card':'Cash')+' refund';return s.method==='split'?(ar?'Cash+Card':'Cash + Card'):s.method==='card'?(ar?'Card <bdi>بطاقة</bdi>':'Card'):(ar?'Cash <bdi>نقداً</bdi>':'Cash')}
+function payName(s,ar){if(isReturn(s)){const k=s.method==='card'?'Card':s.method==='bank'?'Bank':'Cash';return ar?k:k+' refund'}if(s.method==='bank')return ar?'Transfer':'Bank transfer';return s.method==='split'?(ar?'Cash+Card':'Cash + Card'):s.method==='card'?(ar?'Card <bdi>بطاقة</bdi>':'Card'):(ar?'Cash <bdi>نقداً</bdi>':'Cash')}
 function agg(list){
   const paid=list.filter(s=>s.status!=='void'),voids=list.filter(s=>s.status==='void');
   const sum=(a,f)=>r2(a.reduce((x,s)=>x+f(s),0));
-  const cash=paid.filter(s=>cashOf(s)>0),card=paid.filter(s=>cardOf(s)>0),rets=paid.filter(isReturn);
+  const cash=paid.filter(s=>cashOf(s)>0),card=paid.filter(s=>cardOf(s)>0),bank=paid.filter(s=>bankOf(s)>0),rets=paid.filter(isReturn);
   return {bills:paid.length-rets.length,retN:rets.length,retTotal:sum(rets,s=>-s.total),gross:sum(paid,s=>s.sumGross),disc:sum(paid,s=>s.disc),net:sum(paid,s=>s.net),vat:sum(paid,s=>s.vat),total:sum(paid,s=>s.total),
-    cash:sum(paid,cashOf),card:sum(paid,cardOf),cashN:cash.length,cardN:card.length,voidN:voids.length,voidTotal:sum(voids,s=>s.total)};
+    cash:sum(paid,cashOf),card:sum(paid,cardOf),bank:sum(paid,bankOf),cashN:cash.length,cardN:card.length,bankN:bank.length,voidN:voids.length,voidTotal:sum(voids,s=>s.total)};
 }
 function byItem(list){
   const map={};
@@ -1678,9 +1688,9 @@ function billsBlock(list,actions,showBr){
 }
 function branchBlock(list){
   const ids=[...new Set(C.branches.map(b=>b.id).concat(list.map(s=>s.branch)))];
-  const rows=ids.map(id=>{const a=agg(list.filter(s=>s.branch===id));return trow([esc(brName(id)),a.bills,fmt(a.cash),fmt(a.card),fmt(a.net),fmt(a.vat),fmt(a.total)],'lrrrrrr')});
+  const rows=ids.map(id=>{const a=agg(list.filter(s=>s.branch===id));return trow([esc(brName(id)),a.bills,fmt(a.cash),fmt(a.card+a.bank),fmt(a.net),fmt(a.vat),fmt(a.total)],'lrrrrrr')});
   const a=agg(list);
-  return tbl([['Branch'],['Bills',1],['Cash',1],['Card',1],['Excl. VAT',1],['VAT',1],['Total',1]],rows,trow(['All branches',a.bills,fmt(a.cash),fmt(a.card),fmt(a.net),fmt(a.vat),fmt(a.total)],'lrrrrrr','sum'));
+  return tbl([['Branch'],['Bills',1],['Cash',1],['Card / bank',1],['Excl. VAT',1],['VAT',1],['Total',1]],rows,trow(['All branches',a.bills,fmt(a.cash),fmt(a.card+a.bank),fmt(a.net),fmt(a.vat),fmt(a.total)],'lrrrrrr','sum'));
 }
 function itemsBlock(list){
   const its=byItem(list),a=agg(list);
@@ -1692,7 +1702,7 @@ function itemsBlock(list){
 function dailyBody(list,showBr){
   const a=agg(list);
   return '<div class="stats">'+statBox('Bills',a.bills)+statBox('Net sales excl. VAT',aed(a.net))+statBox('VAT collected',aed(a.vat))+statBox('Total sales',aed(a.total))+
-    statBox('Cash ('+a.cashN+' bills)',aed(a.cash))+statBox('Card ('+a.cardN+' bills)',aed(a.card))+statBox('Discounts given',aed(a.disc))+statBox('Voided ('+a.voidN+')',aed(a.voidTotal))+(a.retN?statBox('Returns ('+a.retN+')','− '+aed(a.retTotal)):'')+'</div>'+
+    statBox('Cash ('+a.cashN+' bills)',aed(a.cash))+statBox('Card ('+a.cardN+' bills)',aed(a.card))+(a.bank||a.bankN?statBox('Bank transfer ('+a.bankN+' bills)',aed(a.bank)):'')+statBox('Discounts given',aed(a.disc))+statBox('Voided ('+a.voidN+')',aed(a.voidTotal))+(a.retN?statBox('Returns ('+a.retN+')','− '+aed(a.retTotal)):'')+'</div>'+
     (showBr?'<h3 class="rs">Sales by branch</h3>'+branchBlock(list):'')+
     '<h3 class="rs">Sales by fabric</h3>'+itemsBlock(list)+'<h3 class="rs">Bills</h3>'+billsBlock(list,false,showBr);
 }
@@ -1786,7 +1796,7 @@ function reportsModal(tab){
     const rng=()=>nice(R.from)+' to '+nice(R.to);
     const showBr=hq&&R.br==='all';
     if(R.tab==='daily')filt='<div class="filters"><button class="mini" data-day="-1">‹ Prev</button>'+dateF('Date','day')+'<button class="mini" data-day="1">Next ›</button><button class="mini" data-day="0">Today</button>'+brSel()+'</div>';
-    else if(R.tab==='inv')filt='<div class="filters">'+dateF('From','from')+dateF('To','to')+brSel()+selF('Payment','method',[['all','All'],['cash','Cash'],['card','Card'],['split','Cash + Card']])+selF('Status','status',[['all','All'],['paid','Paid'],['return','Returns (credit notes)'],['void','Void']])+'<div class="qk">'+quick('data-q',[['month','This month'],['lastmonth','Last month'],['today','Today']])+'</div></div>';
+    else if(R.tab==='inv')filt='<div class="filters">'+dateF('From','from')+dateF('To','to')+brSel()+selF('Payment','method',[['all','All'],['cash','Cash'],['card','Card'],['split','Cash + Card'],['bank','Bank transfer']])+selF('Status','status',[['all','All'],['paid','Paid'],['return','Returns (credit notes)'],['void','Void']])+'<div class="qk">'+quick('data-q',[['month','This month'],['lastmonth','Last month'],['today','Today']])+'</div></div>';
     else if(R.tab==='vat')filt='<div class="filters">'+dateF('Period from','vf')+dateF('Period to','vt')+'<div class="qk">'+quick('data-vq',[['month','This month'],['lastmonth','Last month'],['quarter','This quarter'],['lastquarter','Last quarter']])+'</div></div>';
     else if(R.tab==='shifts')filt='<div class="filters">'+dateF('From','from')+dateF('To','to')+brSel()+'<div class="qk">'+quick('data-q',[['month','This month'],['lastmonth','Last month'],['today','Today']])+'</div></div>';
     else if(R.tab==='items')filt='<div class="filters">'+dateF('From','from')+dateF('To','to')+brSel()+'<div class="qk">'+quick('data-q',[['month','This month'],['lastmonth','Last month'],['today','Today']])+'</div></div>';
@@ -1802,7 +1812,7 @@ function reportsModal(tab){
       }else if(R.tab==='inv'){
         shown=(await salesIn(R.from,R.to,R.br)).filter(s=>(R.method==='all'||(s.method||'cash')===R.method)&&(R.status==='all'||(R.status==='void'?s.status==='void':s.status!=='void'&&(R.status==='return')===isReturn(s))));
         title='Invoices report';period=rng();body=billsBlock(shown,true,showBr);pbody=billsBlock(shown,false,showBr);
-        csv=csvOf([['Invoice'].concat(hq?['Branch']:[],['Date','Time','Payment','Excl VAT','VAT','Total','Cash part','Card part','Status','Card ref','Original invoice'])].concat(shown.map(s=>[s.no].concat(hq?[brName(s.branch)]:[],[ymd(s.ts),fmtTime(s.ts),s.method,s.net.toFixed(2),s.vat.toFixed(2),s.total.toFixed(2),cashOf(s).toFixed(2),cardOf(s).toFixed(2),s.status==='void'?'void':isReturn(s)?'return':'paid',s.ref||'',s.origNo||'']))));
+        csv=csvOf([['Invoice'].concat(hq?['Branch']:[],['Date','Time','Payment','Excl VAT','VAT','Total','Cash part','Card part','Bank part','Status','Card ref','Original invoice'])].concat(shown.map(s=>[s.no].concat(hq?[brName(s.branch)]:[],[ymd(s.ts),fmtTime(s.ts),s.method,s.net.toFixed(2),s.vat.toFixed(2),s.total.toFixed(2),cashOf(s).toFixed(2),cardOf(s).toFixed(2),bankOf(s).toFixed(2),s.status==='void'?'void':isReturn(s)?'return':'paid',s.ref||'',s.origNo||'']))));
       }else if(R.tab==='vat'){
         shown=await salesIn(R.vf,R.vt,'all');
         title='VAT 201 return – working';period=nice(R.vf)+' to '+nice(R.vt);body=vatBody(shown,R.vf,R.vt,true);pbody=vatBody(shown,R.vf,R.vt,false);
@@ -2055,9 +2065,9 @@ function openShift(float){
 }
 function shiftSummary(sh,list){
   const a=agg(list),byC={};
-  list.filter(x=>x.status!=='void').forEach(x=>{const k=x.cashier||'—';const o=byC[k]||(byC[k]={bills:0,total:0,cash:0,card:0});if(!isReturn(x))o.bills++;o.total=r2(o.total+x.total);o.cash=r2(o.cash+cashOf(x));o.card=r2(o.card+cardOf(x))});
+  list.filter(x=>x.status!=='void').forEach(x=>{const k=x.cashier||'—';const o=byC[k]||(byC[k]={bills:0,total:0,cash:0,card:0,bank:0});if(!isReturn(x))o.bills++;o.total=r2(o.total+x.total);o.cash=r2(o.cash+cashOf(x));o.card=r2(o.card+cardOf(x));o.bank=r2((o.bank||0)+bankOf(x))});
   const moves=sh.moves||[],paidOut=r2(moves.filter(m=>m.type==='out').reduce((n,m)=>n+m.amount,0)),paidIn=r2(moves.filter(m=>m.type==='in').reduce((n,m)=>n+m.amount,0));
-  return {bills:a.bills,gross:a.gross,disc:a.disc,net:a.net,vat:a.vat,total:a.total,cash:a.cash,card:a.card,cashN:a.cashN,cardN:a.cardN,voidN:a.voidN,voidTotal:a.voidTotal,retN:a.retN,retTotal:a.retTotal,byCashier:byC,paidOut,paidIn,moves,expectedCash:r2((+sh.openingFloat||0)+a.cash-paidOut+paidIn)};
+  return {bills:a.bills,gross:a.gross,disc:a.disc,net:a.net,vat:a.vat,total:a.total,cash:a.cash,card:a.card,bank:a.bank,cashN:a.cashN,cardN:a.cardN,bankN:a.bankN,voidN:a.voidN,voidTotal:a.voidTotal,retN:a.retN,retTotal:a.retTotal,byCashier:byC,paidOut,paidIn,moves,expectedCash:r2((+sh.openingFloat||0)+a.cash-paidOut+paidIn)};
 }
 function zReportHTML(sh,sum,kind){
   const br=branchById(sh.branch)||{};const kv=(k,v,cls)=>'<div class="kv'+(cls?' '+cls:'')+'"><span>'+k+'</span><span>'+v+'</span></div>';
@@ -2067,7 +2077,7 @@ function zReportHTML(sh,sum,kind){
     '<hr><div class="c"><b>'+(kind==='Z'?'Z REPORT – END OF SHIFT':'X REPORT – SHIFT SO FAR')+'</b>'+(closed&&sh.zNo?'<br><b>'+esc(sh.zNo)+'</b>':'')+'</div><hr>'+
     kv('Opened',fmtDate(sh.openedAt))+kv('Opened by',esc(sh.openedBy||''))+(closed?kv('Closed',fmtDate(sh.closedAt))+kv('Closed by',esc(sh.closedBy||'')):kv('Printed',fmtDate(Date.now())))+'<hr>'+
     kv('Bills',sum.bills)+kv('Items (incl. VAT)',fmt(sum.gross))+(sum.disc?kv('Discounts','− '+fmt(sum.disc)):'')+kv('Amount excl. VAT',fmt(sum.net))+kv('VAT '+settings.vat+'%',fmt(sum.vat))+kv('TOTAL (AED)',fmt(sum.total),'t')+'<hr>'+
-    kv('Cash ('+sum.cashN+')',fmt(sum.cash))+kv('Card ('+sum.cardN+')',fmt(sum.card))+kv('Voided ('+sum.voidN+')',fmt(sum.voidTotal))+(sum.retN?kv('Returns ('+sum.retN+')','− '+fmt(sum.retTotal)):'')+'<hr>'+
+    kv('Cash ('+sum.cashN+')',fmt(sum.cash))+kv('Card ('+sum.cardN+')',fmt(sum.card))+(sum.bankN?kv('Bank transfer ('+sum.bankN+')',fmt(sum.bank)):'')+kv('Voided ('+sum.voidN+')',fmt(sum.voidTotal))+(sum.retN?kv('Returns ('+sum.retN+')','− '+fmt(sum.retTotal)):'')+'<hr>'+
     '<div class="c"><b>BY CASHIER</b></div>'+Object.keys(sum.byCashier).map(k=>{const o=sum.byCashier[k];return kv(esc(k)+' ('+o.bills+')',fmt(o.total))}).join('')+(Object.keys(sum.byCashier).length?'':'<div class="fine c">No sales</div>')+'<hr>'+
     '<div class="c"><b>CASH DRAWER</b></div>'+kv('Opening float',fmt(sh.openingFloat))+kv(sum.retN?'+ Cash sales less refunds':'+ Cash sales',fmt(sum.cash))+
     (sum.paidIn?kv('+ Cash paid in',fmt(sum.paidIn)):'')+(sum.paidOut?kv('− Cash paid out',fmt(sum.paidOut)):'')+
@@ -2091,7 +2101,7 @@ function zText(sh,sum,kind){
   if(closed)L.push('Closed: '+fmtDate(sh.closedAt)+' ('+(sh.closedBy||'')+')');
   L.push('');
   L.push('Sales: AED '+fmt(sum.total)+' ('+plural(sum.bills,'bill')+')');
-  L.push('Cash: AED '+fmt(sum.cash)+' · Card: AED '+fmt(sum.card));
+  L.push('Cash: AED '+fmt(sum.cash)+' · Card: AED '+fmt(sum.card)+(sum.bankN?' · Bank transfer: AED '+fmt(sum.bank):''));
   L.push('Excl. VAT: '+fmt(sum.net)+' · VAT: '+fmt(sum.vat));
   if(sum.disc)L.push('Discounts: '+fmt(sum.disc));
   if(sum.voidN)L.push('Voided: '+sum.voidN+' (AED '+fmt(sum.voidTotal)+')');
@@ -2189,8 +2199,8 @@ async function renderShiftPage(){
   if(S.shift){
     const sh=S.shift,sum=shiftSummary(sh,S.shiftSales);
     h+='<div class="card"><h2 style="margin:0 0 2px;font-family:var(--display)">Shift open</h2><p class="sub" style="margin:0">Since '+esc(fmtDate(sh.openedAt))+' · opened by '+esc(sh.openedBy||'')+'</p>'+
-      '<div class="sh-grid"><div class="stat"><span>Sales</span><b class="num">AED '+fmt(sum.total)+'</b></div><div class="stat"><span>Bills</span><b class="num">'+sum.bills+'</b></div><div class="stat"><span>Cash · Card</span><b class="num">'+fmt(sum.cash)+' · '+fmt(sum.card)+'</b></div><div class="stat"><span>Expected cash in drawer</span><b class="num">AED '+fmt(sum.expectedCash)+'</b></div></div>'+
-      (Object.keys(sum.byCashier).length?tbl([['Cashier'],['Bills',1],['Cash',1],['Card',1],['Total',1]],Object.keys(sum.byCashier).map(k=>{const o=sum.byCashier[k];return trow([esc(k),o.bills,fmt(o.cash),fmt(o.card),fmt(o.total)],'lrrrr')})):'')+
+      '<div class="sh-grid"><div class="stat"><span>Sales</span><b class="num">AED '+fmt(sum.total)+'</b></div><div class="stat"><span>Bills</span><b class="num">'+sum.bills+'</b></div><div class="stat"><span>Cash · Card'+(sum.bankN?' · Bank':'')+'</span><b class="num">'+fmt(sum.cash)+' · '+fmt(sum.card)+(sum.bankN?' · '+fmt(sum.bank):'')+'</b></div><div class="stat"><span>Expected cash in drawer</span><b class="num">AED '+fmt(sum.expectedCash)+'</b></div></div>'+
+      (Object.keys(sum.byCashier).length?tbl([['Cashier'],['Bills',1],['Cash',1],['Card / bank',1],['Total',1]],Object.keys(sum.byCashier).map(k=>{const o=sum.byCashier[k];return trow([esc(k),o.bills,fmt(o.cash),fmt(o.card+(o.bank||0)),fmt(o.total)],'lrrrr')})):'')+
       '<h3 class="rs">Cash paid in and out</h3>'+(sum.moves.length?tbl([['Time'],['Type'],['Reason'],['By'],['Amount',1]],sum.moves.slice().sort((a,b)=>a.ts-b.ts).map(mv=>trow([fmtTime(mv.ts),mv.type==='out'?'Paid out':'Paid in',esc(mv.reason),esc(mv.cashier||''),(mv.type==='out'?'− ':'+ ')+fmt(mv.amount)],'llllr'))):'<p class="none">None yet. Use Pay out for petty cash taken from the drawer.</p>')+
       '<div class="actions"><button class="ghost" id="shOut">➖ Pay out</button><button class="ghost" id="shIn">➕ Pay in</button><button class="ghost" id="shX">Print X report</button><button class="primary" id="shZ">Close shift &amp; Z report</button></div></div>';
   }else{
@@ -2320,7 +2330,7 @@ async function renderDashboard(quiet){
     '<div class="kpi"><span>Bills</span><b>'+fmt0(a.bills)+'</b>'+deltaPill(a.bills,b.bills)+'</div>'+
     '<div class="kpi"><span>Average bill</span><b>'+fmt(avg(a))+'</b>'+deltaPill(avg(a),avg(b))+'</div>'+
     '<div class="kpi"><span>VAT collected</span><b>'+fmt(a.vat)+'</b><small>Excl. VAT '+fmt(a.net)+'</small></div>'+
-    '<div class="kpi"><span>Cash · Card</span><b>'+(a.total?Math.round(a.cash/a.total*100):0)+'% · '+(a.total?Math.round(a.card/a.total*100):0)+'%</b><small>'+fmt(a.cash)+' · '+fmt(a.card)+'</small></div>'+
+    '<div class="kpi"><span>Cash · Card'+(a.bank?' · Bank':'')+'</span><b>'+(a.total?Math.round(a.cash/a.total*100):0)+'% · '+(a.total?Math.round(a.card/a.total*100):0)+'%'+(a.bank?' · '+(a.total?Math.round(a.bank/a.total*100):0)+'%':'')+'</b><small>'+fmt(a.cash)+' · '+fmt(a.card)+(a.bank?' · '+fmt(a.bank):'')+'</small></div>'+
     '<div class="kpi"><span>Discounts given</span><b>'+fmt(a.disc)+'</b>'+deltaPill(a.disc,b.disc,'',false)+'</div>'+
     '<div class="kpi"><span>Voided bills</span><b>'+fmt0(a.voidN)+'</b><small>AED '+fmt(a.voidTotal)+'</small></div>'+
     '</div></div>';
@@ -2425,7 +2435,7 @@ $('#dashShare').onclick=()=>{
   L.push('*'+settings.name+' – '+P.label+'*');
   L.push('Total sales: *AED '+fmt(a.total)+'*'+(pc!==null?' ('+(pc>=0?'+':'')+pc+'% vs '+P.cmp+')':''));
   L.push(plural(a.bills,'bill')+' · avg AED '+fmt(a.bills?a.total/a.bills:0)+' · VAT '+fmt(a.vat));
-  L.push('Cash '+fmt(a.cash)+' · Card '+fmt(a.card));
+  L.push('Cash '+fmt(a.cash)+' · Card '+fmt(a.card)+(a.bank?' · Bank '+fmt(a.bank):''));
   L.push('');L.push('Branches:');
   rows.forEach((r,i)=>L.push((i+1)+'. '+r.br.name+': AED '+fmt(r.x.total)+' ('+r.x.bills+')'));
   const warn=al.filter(x=>x[0]!=='ok');

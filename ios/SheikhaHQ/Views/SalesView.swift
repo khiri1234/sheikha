@@ -25,6 +25,7 @@ struct SalesView: View {
                 LabeledContent("Excl. VAT", value: Fmt.amount(t.net))
                 LabeledContent("VAT", value: Fmt.amount(t.vat))
                 LabeledContent("Cash · Card", value: Fmt.amount(t.cash) + " · " + Fmt.amount(t.card))
+                if t.bank != 0 { LabeledContent("Bank transfer", value: Fmt.amount(t.bank)) }
                 if t.voidN > 0 { LabeledContent("Voided", value: "\(t.voidN) · \(Fmt.amount(t.voidTotal))") }
                 if t.retN > 0 { LabeledContent("Returns", value: "\(t.retN) · − \(Fmt.amount(t.retTotal))") }
             }
@@ -82,7 +83,7 @@ struct InvoiceDetailView: View {
                     LabeledContent("Credit note for", value: sale.origNo)
                     if !sale.reason.isEmpty { LabeledContent("Reason", value: sale.reason) }
                 }
-                LabeledContent(sale.isReturn ? "Refunded by" : "Paid by", value: sale.methodName + (sale.ref.isEmpty || !(sale.isCard || sale.isSplit) ? "" : " (\(sale.ref))"))
+                LabeledContent(sale.isReturn ? "Refunded by" : "Paid by", value: sale.methodName + (sale.ref.isEmpty || !(sale.isCard || sale.isSplit || sale.isBank) ? "" : " (\(sale.ref))"))
                 if sale.isSplit {
                     LabeledContent("Card part", value: Fmt.aed(sale.cardAmt))
                     LabeledContent("Cash part", value: Fmt.aed(sale.cashAmt))

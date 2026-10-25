@@ -88,7 +88,7 @@ struct DashboardView: View {
                     StatTile(title: "Bills", value: "\(a.bills)", delta: DeltaPill(current: Double(a.bills), previous: Double(b.bills)), icon: "doc.text.fill", tint: Brand.blue)
                     StatTile(title: "Average bill", value: Fmt.amount(a.average), delta: DeltaPill(current: a.average, previous: b.average), icon: "divide", tint: Brand.purple)
                     StatTile(title: "VAT collected", value: Fmt.amount(a.vat), footnote: "Excl. VAT " + Fmt.amount(a.net), icon: "building.columns.fill", tint: Brand.teal)
-                    StatTile(title: "Cash · Card", value: a.total > 0 ? "\(Int((a.cash / a.total * 100).rounded()))% · \(Int((a.card / a.total * 100).rounded()))%" : "–", footnote: Fmt.amount(a.cash) + " · " + Fmt.amount(a.card), icon: "creditcard.fill", tint: Brand.good)
+                    StatTile(title: "Cash · Card", value: a.total > 0 ? "\(Int((a.cash / a.total * 100).rounded()))% · \(Int((a.card / a.total * 100).rounded()))%" : "–", footnote: Fmt.amount(a.cash) + " · " + Fmt.amount(a.card) + (a.bank != 0 ? " · bank " + Fmt.amount(a.bank) : ""), icon: "creditcard.fill", tint: Brand.good)
                     StatTile(title: "Discounts", value: Fmt.amount(a.disc), delta: DeltaPill(current: a.disc, previous: b.disc, upIsGood: false), icon: "tag.fill", tint: Brand.pink)
                     StatTile(title: "Voided bills", value: "\(a.voidN)", footnote: Fmt.aed(a.voidTotal), icon: "xmark", tint: Brand.bad)
                 }
@@ -225,7 +225,7 @@ struct DashboardView: View {
         let pc = b.total > 0 ? " (\(Int(((a.total - b.total) / b.total * 100).rounded()))% vs \(period.info.cmpLabel))" : ""
         l.append("Total sales: *\(Fmt.aed(a.total))*" + pc)
         l.append("\(a.bills) bills · avg \(Fmt.amount(a.average)) · VAT \(Fmt.amount(a.vat))")
-        l.append("Cash \(Fmt.amount(a.cash)) · Card \(Fmt.amount(a.card))")
+        l.append("Cash \(Fmt.amount(a.cash)) · Card \(Fmt.amount(a.card))" + (a.bank != 0 ? " · Bank \(Fmt.amount(a.bank))" : ""))
         l.append(""); l.append("Branches:")
         for (i, r) in rows.enumerated() { l.append("\(i + 1). \(r.branch.name): \(Fmt.aed(r.cur.total)) (\(r.cur.bills))") }
         let al = alerts(a)

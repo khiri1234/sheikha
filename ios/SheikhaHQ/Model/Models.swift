@@ -107,12 +107,17 @@ struct Sale: Identifiable, Hashable {
     var isVoid: Bool { status == "void" }
     var isCard: Bool { method == "card" }
     var isSplit: Bool { method == "split" }
+    var isBank: Bool { method == "bank" }
     /// A return (credit note): minus amounts that take a refund off sales, VAT and the cash drawer.
     var isReturn: Bool { kind == "return" }
-    /// Cash and card parts of the bill (a split bill counts in both).
-    var cashPart: Double { isSplit ? cashAmt : (isCard ? 0 : total) }
+    /// Cash, card and bank-transfer parts of the bill (a split bill counts in cash and card).
+    var cashPart: Double { isSplit ? cashAmt : (isCard || isBank ? 0 : total) }
     var cardPart: Double { isSplit ? cardAmt : (isCard ? total : 0) }
-    var methodName: String { isReturn ? (isCard ? "Card refund" : "Cash refund") : isSplit ? "Cash + Card" : (isCard ? "Card" : "Cash") }
+    var bankPart: Double { isBank ? total : 0 }
+    var methodName: String {
+        if isReturn { return isCard ? "Card refund" : isBank ? "Bank refund" : "Cash refund" }
+        return isSplit ? "Cash + Card" : isCard ? "Card" : isBank ? "Bank transfer" : "Cash"
+    }
 }
 
 struct CashMove: Identifiable, Hashable {
@@ -132,6 +137,7 @@ struct CashMove: Identifiable, Hashable {
 struct ShiftSummary: Hashable {
     var bills = 0.0, gross = 0.0, disc = 0.0, net = 0.0, vat = 0.0, total = 0.0
     var cash = 0.0, card = 0.0, cashN = 0.0, cardN = 0.0, voidN = 0.0, voidTotal = 0.0, retN = 0.0, retTotal = 0.0
+    var bank = 0.0, bankN = 0.0
     var paidOut = 0.0, paidIn = 0.0, expectedCash = 0.0
     var byCashier: [String: (bills: Double, total: Double)] = [:]
 
@@ -139,6 +145,7 @@ struct ShiftSummary: Hashable {
         guard let d else { return }
         bills = num(d["bills"]); gross = num(d["gross"]); disc = num(d["disc"]); net = num(d["net"]); vat = num(d["vat"]); total = num(d["total"])
         cash = num(d["cash"]); card = num(d["card"]); cashN = num(d["cashN"]); cardN = num(d["cardN"])
+        bank = num(d["bank"]); bankN = num(d["bankN"])
         voidN = num(d["voidN"]); voidTotal = num(d["voidTotal"]); retN = num(d["retN"]); retTotal = num(d["retTotal"])
         paidOut = num(d["paidOut"]); paidIn = num(d["paidIn"]); expectedCash = num(d["expectedCash"])
         for (k, v) in ((d["byCashier"] as? [String: Any]) ?? [:]) {
@@ -226,6 +233,7 @@ struct ShopSettings {
 struct Totals {
     var bills = 0, gross = 0.0, disc = 0.0, net = 0.0, vat = 0.0, total = 0.0
     var cash = 0.0, card = 0.0, cashN = 0, cardN = 0, voidN = 0, voidTotal = 0.0, retN = 0, retTotal = 0.0
+    var bank = 0.0, bankN = 0
 
     init(_ list: [Sale]) {
         for s in list {
@@ -234,9 +242,11 @@ struct Totals {
             gross += s.sumGross; disc += s.disc; net += s.net; vat += s.vat; total += s.total
             if s.cardPart > 0 { card += s.cardPart; cardN += 1 }
             if s.cashPart > 0 { cash += s.cashPart; cashN += 1 }
+            if s.bankPart > 0 { bankN += 1 }
+            bank += s.bankPart
         }
         gross = r2(gross); disc = r2(disc); net = r2(net); vat = r2(vat); total = r2(total)
-        cash = r2(cash); card = r2(card); voidTotal = r2(voidTotal); retTotal = r2(retTotal)
+        cash = r2(cash); card = r2(card); bank = r2(bank); voidTotal = r2(voidTotal); retTotal = r2(retTotal)
     }
     var average: Double { bills > 0 ? total / Double(bills) : 0 }
 }

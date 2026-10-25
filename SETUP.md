@@ -330,3 +330,15 @@ GitHub repository be private. The tills keep working on the old address until st
    → Danger Zone → Change visibility → Private**.
 
 After the move, publish updates with `firebase deploy --only hosting` (after `git pull`).
+
+### 22. Bank transfer payments
+For customers who pay by bank transfer, press **🏦 Bank transfer** (or **F6**) on the sale
+screen, or choose **Bank** in the payment window. Check that the money has arrived (or see
+the customer's transfer confirmation), type the bank reference if you like, and press
+**Transfer received – complete sale**. The receipt shows *Paid by: Transfer* and the
+reference.
+
+Bank transfers are counted on their own: they are not in the cash drawer count. Reports,
+the Z report and the dashboard show a **Bank transfer** line, the invoice list can be
+filtered by *Bank transfer*, and the CSV export has a *Bank part* column. A return of a
+bank-transfer bill can be refunded as a **Bank refund**.
