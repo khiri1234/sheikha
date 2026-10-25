@@ -49,6 +49,7 @@ struct BranchDetailView: View {
                     row("Sales", Fmt.aed(t.total), bold: true)
                     row("Bills", "\(t.bills) · avg \(Fmt.amount(t.average))")
                     row("Cash · Card", Fmt.amount(t.cash) + " · " + Fmt.amount(t.card))
+                    if t.bank != 0 { row("Bank transfer", Fmt.amount(t.bank)) }
                     if t.voidN > 0 { row("Voided", "\(t.voidN) · \(Fmt.aed(t.voidTotal))") }
                     if t.retN > 0 { row("Returns", "\(t.retN) · − \(Fmt.aed(t.retTotal))") }
                 }

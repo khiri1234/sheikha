@@ -109,6 +109,7 @@ struct ZDetailView: View {
                 LabeledContent("Total", value: Fmt.aed(s.total)).font(.headline)
                 LabeledContent("Cash (\(Fmt.qty(s.cashN)))", value: Fmt.amount(s.cash))
                 LabeledContent("Card (\(Fmt.qty(s.cardN)))", value: Fmt.amount(s.card))
+                if s.bankN > 0 { LabeledContent("Bank transfer (\(Fmt.qty(s.bankN)))", value: Fmt.amount(s.bank)) }
                 if s.voidN > 0 { LabeledContent("Voided (\(Fmt.qty(s.voidN)))", value: Fmt.amount(s.voidTotal)) }
                 if s.retN > 0 { LabeledContent("Returns (\(Fmt.qty(s.retN)))", value: "− " + Fmt.amount(s.retTotal)) }
             }
@@ -148,7 +149,7 @@ struct ZDetailView: View {
         var l: [String] = ["*\(store.settings.name) – \(store.branchName(shift.branch))*", "Z REPORT \(shift.zNo)",
                            "Opened: \(Fmt.dateTime(shift.opened)) (\(shift.openedBy))"]
         if let c = shift.closed { l.append("Closed: \(Fmt.dateTime(c)) (\(shift.closedBy))") }
-        l += ["", "Sales: \(Fmt.aed(s.total)) (\(Fmt.qty(s.bills)) bills)", "Cash: \(Fmt.aed(s.cash)) · Card: \(Fmt.aed(s.card))",
+        l += ["", "Sales: \(Fmt.aed(s.total)) (\(Fmt.qty(s.bills)) bills)", "Cash: \(Fmt.aed(s.cash)) · Card: \(Fmt.aed(s.card))" + (s.bankN > 0 ? " · Bank transfer: \(Fmt.aed(s.bank))" : ""),
               "Excl. VAT: \(Fmt.amount(s.net)) · VAT: \(Fmt.amount(s.vat))"]
         if s.voidN > 0 { l.append("Voided: \(Fmt.qty(s.voidN)) (\(Fmt.aed(s.voidTotal)))") }
         if s.retN > 0 { l.append("Returns: \(Fmt.qty(s.retN)) (refunded \(Fmt.aed(s.retTotal)))") }
