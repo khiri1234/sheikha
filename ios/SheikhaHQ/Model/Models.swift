@@ -114,13 +114,13 @@ struct Sale: Identifiable, Hashable {
     /// Paid (or refunded) with store credit – a credit note used as a voucher.
     var isVoucher: Bool { method == "voucher" }
     /// What was paid with money, after any store credit used on the bill.
-    var paid: Double { total - vAmt }
+    var paidAmount: Double { total - vAmt }
     /// A return (credit note): minus amounts that take a refund off sales, VAT and the cash drawer.
     var isReturn: Bool { kind == "return" }
     /// Cash, card and bank-transfer parts of the bill (a split bill counts in cash and card).
-    var cashPart: Double { isSplit ? cashAmt : (isCard || isBank || isVoucher ? 0 : paid) }
-    var cardPart: Double { isSplit ? cardAmt : (isCard ? paid : 0) }
-    var bankPart: Double { isBank ? paid : 0 }
+    var cashPart: Double { isSplit ? cashAmt : (isCard || isBank || isVoucher ? 0 : paidAmount) }
+    var cardPart: Double { isSplit ? cardAmt : (isCard ? paidAmount : 0) }
+    var bankPart: Double { isBank ? paidAmount : 0 }
     var methodName: String {
         if isReturn { return isVoucher ? "Store credit" : isCard ? "Card refund" : isBank ? "Bank refund" : "Cash refund" }
         if isVoucher { return "Store credit" }
