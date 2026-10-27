@@ -342,3 +342,22 @@ Bank transfers are counted on their own: they are not in the cash drawer count. 
 the Z report and the dashboard show a **Bank transfer** line, the invoice list can be
 filtered by *Bank transfer*, and the CSV export has a *Bank part* column. A return of a
 bank-transfer bill can be refunded as a **Bank refund**.
+
+### 23. Customers' phone numbers and offers
+In the payment window the cashier can type the customer's **UAE mobile number** (050…,
+50…, +971 50… all work) and, optionally, their **name**. Leave it empty to skip.
+- A returning customer is shown in green with their name, visits and last visit.
+- Tick **Customer agrees to receive offers** only when the customer says yes. It is never
+  ticked by default; a customer who agreed before shows it ticked.
+- The receipt shows only the last 4 digits (`Customer •••• 4567`).
+
+Head office → **Customers**: totals, search and filters (branch, offers, last visit, amount
+spent), **Opt out** and **Delete** per customer, and **Export for offers**, a CSV of only
+the customers who agreed, for WhatsApp Business or an SMS service. Branch logins can look
+up one number and add a visit, but can't see, download or delete the list.
+
+UAE rules: send offers only to customers who agreed, give a way to stop (e.g. "Reply STOP")
+and mark those customers **Opt out**, and send at reasonable hours (check the current TDRA
+rules with your SMS/WhatsApp provider). The privacy policy (privacy.html) explains this.
+
+Needs the latest database rules: `firebase deploy --only firestore:rules`.

@@ -27,6 +27,9 @@ selling the system to a client.
   headers: a Content-Security-Policy that only allows Google's Firebase and font servers,
   no framing by other sites (clickjacking), HTTPS only (HSTS), and no camera, microphone
   or location access. Notes like SETUP.md and the iPhone and server code are not published.
+- Customers' phone numbers: a till can look up one number and add a visit, but can't list,
+  download or delete customers; only head office sees and exports the list, and the export
+  contains only customers who agreed to offers. Receipts show the last 4 digits only.
 - The activity log records sales, edits, voids, returns, refunds, cash movements and
   sign-ins, and can't be edited or deleted by the branches.
 - The Firebase "apiKey" in `index.html` is not a password. It only says which Firebase

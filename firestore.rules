@@ -40,6 +40,25 @@ service cloud.firestore {
       allow write: if isHQ();
     }
 
+    // customers' phone numbers (for offers): a till can look up one number and add a visit,
+    // but can't list, download or delete customers; head office manages the list
+    match /customers/{id} {
+      allow list, delete: if isHQ();
+      allow get: if isStaff();
+      allow create: if isHQ() || (isStaff() && id.matches('^9715[0-9]{8}$')
+        && request.resource.data.phone == id
+        && request.resource.data.keys().hasOnly(['phone', 'name', 'lastAt', 'lastBranch', 'visits', 'spent',
+             'consent', 'consentAt', 'consentBy', 'consentBranch', 'firstAt', 'firstBranch'])
+        && request.resource.data.visits == 1
+        && request.resource.data.get('consent', 'no') in ['agreed', 'no']);
+      allow update: if isHQ() || (isStaff()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'lastAt', 'lastBranch', 'visits', 'spent',
+             'consent', 'consentAt', 'consentBy', 'consentBranch'])
+        && request.resource.data.visits == resource.data.get('visits', 0) + 1
+        && request.resource.data.spent >= resource.data.get('spent', 0)
+        && request.resource.data.get('consent', 'no') in ['agreed', resource.data.get('consent', 'no')]);
+    }
+
     // supplier bills (Purchases), head office only
     match /purchases/{id} {
       allow read, write: if isHQ();
