@@ -439,6 +439,14 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
 .ghost.danger-t{color:var(--red);border-color:#EBC9C0}
 .edit-bar{display:flex;gap:10px;align-items:center;justify-content:space-between;background:#FFF4D6;border-bottom:1px solid #F0D58A;padding:9px 18px;font-size:12.5px;font-weight:600;color:#7A5300}
 .edit-bar .link{white-space:nowrap;color:var(--red)}
+.cust-box{border-top:1px dashed var(--line);margin:4px 0 12px;padding-top:12px}
+.cust-box .fld{margin-bottom:8px}
+.cust-box .money input{font-size:18px;min-width:0}
+.cust-info{display:flex;gap:8px;align-items:center;border-radius:9px;padding:8px 11px;font-size:12.5px;font-weight:600;margin-bottom:10px;background:var(--soft);color:var(--text-dim)}
+.cust-info.ok{background:#E8F6EE;color:#166B3A}.cust-info.bad{background:#FDECEA;color:#A63A2E}
+.cust-ok{display:flex;gap:9px;align-items:center;font-size:13px;font-weight:600;cursor:pointer}
+.cust-ok input{width:18px;height:18px;accent-color:var(--till);flex:none}
+.tag.ok{background:#E8F6EE;color:#166B3A}.tag.out{background:#FDECEA;color:#A63A2E}
 .edit-diff{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;background:#FFF4D6;border:1px solid #F0D58A;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:13px;color:#7A5300}
 .eb-find{display:flex;gap:10px;align-items:flex-end}
 .eb-msg{min-height:18px;margin:8px 0 0;font-size:13px;color:var(--text-dim)}
@@ -510,6 +518,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
       <button class="nav-btn" data-view="edit"><span class="ic">✏️</span>Edit / Return</button>
       <button class="nav-btn" data-view="items"><span class="ic">🧵</span>Items</button>
       <button class="nav-btn" data-view="purchases" hidden><span class="ic">🛒</span>Purchases</button>
+      <button class="nav-btn" data-view="customers" hidden><span class="ic">👥</span>Customers</button>
       <button class="nav-btn" data-view="reports"><span class="ic">📊</span>Reports</button>
       <button class="nav-btn" data-view="branches" hidden><span class="ic">🏬</span>Branches</button>
       <button class="nav-btn" data-view="settings"><span class="ic">⚙️</span>Settings</button>
@@ -616,6 +625,12 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
     </section>
 
     <!-- PURCHASES VIEW (head office) -->
+    <section id="view-customers" hidden>
+      <div class="topbar">
+        <div><h1>Customers</h1><div class="sub">Customers' phone numbers saved at the tills, for sending offers to those who agreed. Only head office can see this list.</div></div>
+      </div>
+      <div class="page-body card" id="customersPage"></div>
+    </section>
     <section id="view-purchases" hidden>
       <div class="topbar">
         <div><h1>Purchases</h1><div class="sub">Supplier bills – fabric stock, rent, utilities and other expenses. Their VAT goes into box 9 of the VAT 201.</div></div>
@@ -820,6 +835,7 @@ function askConfirm(title,text,okLabel,danger){
     $('[data-yes]',m.el).focus();
   });
 }
+function fmtDay(ts){return new Date(ts).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}
 function fmtDate(ts){return new Date(ts).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}
 function fmtTime(ts){return new Date(ts).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}
 const isToday=ts=>new Date(ts).toDateString()===new Date().toDateString();
@@ -1126,7 +1142,7 @@ function watchToday(){
 }
 function applyRole(){
   const role=CLOUD?C.role:'local';
-  const allow={dashboard:['hq'],shift:['branch'],sale:['local','branch'],held:['local','branch'],edit:['local','branch'],items:['local','hq'],purchases:['local','hq'],reports:['local','branch','hq'],branches:['hq'],settings:['local','hq']};
+  const allow={dashboard:['hq'],shift:['branch'],sale:['local','branch'],held:['local','branch'],edit:['local','branch'],items:['local','hq'],purchases:['local','hq'],customers:['local','hq'],reports:['local','branch','hq'],branches:['hq'],settings:['local','hq']};
   $$('.nav-btn').forEach(b=>{b.hidden=!(allow[b.dataset.view]||[]).includes(role)});
   $('#who').hidden=!CLOUD||!C.role;
   if(CLOUD&&C.role){$('#whoEmail').textContent=C.email;netState()}
@@ -1180,7 +1196,7 @@ function saveEditedSale(old,sale){
   const by=cashierName()||(CLOUD?C.email:'');
   sale.edits=(old.edits||[]).concat([{at:Date.now(),by,before}]);
   sale.editedAt=Date.now();sale.editedBy=by;
-  ['branch','branchName','by','cashier','cashierId','shiftId'].forEach(k=>{if(old[k]!==undefined)sale[k]=old[k]});
+  ['branch','branchName','by','cashier','cashierId','shiftId','cust4','custName'].forEach(k=>{if(old[k]!==undefined)sale[k]=old[k]});
   if(!CLOUD){sales=sales.map(x=>x.id===sale.id?sale:x);saveSales();return}
   salesCache.clear();
   salesCol(sale.branch).doc(sale.id).set(sale).catch(e=>{console.error(e);toast('Changes to '+sale.no+' were not saved online: '+(e.code||e.message))});
@@ -1410,7 +1426,7 @@ async function returnModal(sl){
   $m('#rtGo').onclick=()=>{
     const c=calc();if(c.bad||!c.lines.length||c.total<=0)return;
     const cn={
-      id:uid(),no:'CN-'+nextInvoiceNo().replace(/^INV-/,''),ts:Date.now(),kind:'return',origId:sl.id,origNo:sl.no,
+      id:uid(),no:'CN-'+nextInvoiceNo().replace(/^INV-/,''),ts:Date.now(),kind:'return',origId:sl.id,origNo:sl.no,...(sl.cust4?{cust4:sl.cust4}:{}),
       lines:c.lines,discount:{type:'pct',value:0},sumGross:-c.sumGross,disc:-c.disc,net:-c.net,vat:-c.vat,total:-c.total,
       vatRate:sl.vatRate||settings.vat,method,tendered:0,change:0,ref:'',reason:$m('#rtWhy').value.trim(),status:'paid'
     };
@@ -1452,6 +1468,10 @@ function payModal(startMethod){
     '<div class="change" id="chg"><span>Change to give</span><b class="num">AED 0.00</b></div></div>'+
     '<div id="cardPane" hidden><p class="sub" style="margin-bottom:12px">Take the payment on the card machine, then confirm here once it is approved.</p>'+
     '<label class="fld"><span>Approval or reference no. (optional)</span><input id="ref" placeholder="e.g. 483920"></label></div>'+
+    (editing?'':'<div class="cust-box"><div class="two-f"><label class="fld"><span>Phone (optional)</span><div class="money"><i>+971</i><input id="cPhone" class="num" inputmode="tel" autocomplete="off" placeholder="50 123 4567"></div></label>'+
+      '<label class="fld"><span>Name (optional)</span><input id="cName" autocomplete="off" maxlength="40" placeholder="e.g. Aisha"></label></div>'+
+      '<div id="cInfo" class="cust-info" hidden></div>'+
+      '<label class="cust-ok"><input type="checkbox" id="cOk"> Customer agrees to receive offers (WhatsApp / SMS)</label></div>')+
     '<div class="actions"><button class="ghost" id="payCancel">Cancel</button><button class="primary" id="payGo" disabled>Complete sale</button></div>'
   );
   const $m=s=>$(s,m.el);
@@ -1507,7 +1527,28 @@ function payModal(startMethod){
     if(!$m('#payGo').disabled)$m('#payGo').click();
   });
   $m('#payCancel').onclick=()=>m.close();
+  // customer phone: look the number up when it is a full UAE mobile number
+  let cust,custSeq=0;
+  if(!editing){
+    const ph=$m('#cPhone'),info=$m('#cInfo');
+    const show=(cls,html)=>{info.hidden=!html;info.className='cust-info'+(cls?' '+cls:'');info.innerHTML=html||''};
+    ph.addEventListener('blur',()=>{const id=uaeMobile(ph.value);if(id&&ph.value!==phoneFmt(id).slice(5))ph.value=phoneFmt(id).slice(5)});
+    ph.addEventListener('input',async()=>{
+      const id=uaeMobile(ph.value),n=++custSeq;cust=undefined;
+      if(!ph.value.trim()){show('','');return}
+      if(!id){show('','UAE mobile number, e.g. 050 123 4567');return}
+      show('','Looking up…');
+      const c=await lookupCustomer(id);if(n!==custSeq)return;
+      cust=c;
+      if(c===undefined){show('','Offline – the number will be saved with the sale');return}
+      if(!c){show('','New customer');return}
+      if(c.name&&!$m('#cName').value.trim())$m('#cName').value=c.name;
+      if(c.consent==='agreed')$m('#cOk').checked=true;
+      show(c.consent==='out'?'bad':'ok','✓ Returning customer'+(c.name?' – '+esc(c.name):'')+' · '+plural(c.visits||0,'visit')+(c.lastAt?' · last visit '+esc(fmtDay(c.lastAt)):'')+(c.consent==='out'?' · opted out of offers':''));
+    });
+  }
   $m('#payGo').onclick=()=>{
+    if(!editing&&$m('#cPhone').value.trim()&&!uaeMobile($m('#cPhone').value)){toast('Enter a UAE mobile number (e.g. 050 123 4567) or leave it empty');$m('#cPhone').focus();return}
     const cardAmt=method==='split'?r2(parseFloat($m('#cardAmt').value)||0):0,cashAmt=r2(t.total-cardAmt);
     const tendered=method==='cash'?parseFloat($m('#tend').value)||0:method==='split'?parseFloat($m('#sTend').value)||0:t.total;
     const ed=editing;
@@ -1520,6 +1561,8 @@ function payModal(startMethod){
       ref:method==='card'?$m('#ref').value.trim():method==='split'?$m('#sRef').value.trim():method==='bank'?$m('#bRef').value.trim():'',status:'paid'
     };
     if(method==='split'){sale.cardAmt=cardAmt;sale.cashAmt=cashAmt}
+    const cId=!ed&&uaeMobile($m('#cPhone').value),cName=cId?$m('#cName').value.trim().slice(0,40):'';
+    if(cId){sale.cust4=cId.slice(-4);if(cName)sale.custName=cName;recordCustomer(cId,cName,$m('#cOk').checked,t.total,cust)}
     if(ed){
       saveEditedSale(ed,sale);
       logAct('Edit',sale.no+' edited – AED '+fmt(ed.total)+' ('+ed.method+') → AED '+fmt(sale.total)+' ('+sale.method+')');
@@ -1594,6 +1637,7 @@ function receiptHTML(s){
     '<div class="kv"><span>'+L('Amount excl. VAT','قبل الضريبة')+'</span><span>'+fmt(s.net)+'</span></div>'+
     '<div class="kv"><span>'+L('VAT '+s.vatRate+'%','الضريبة '+s.vatRate+'%')+'</span><span>'+fmt(s.vat)+'</span></div>'+
     '<div class="kv t"><span>'+(CN?L('REFUND (AED)','المبلغ المسترد'):L('TOTAL (AED)','الإجمالي'))+'</span><span>'+fmt(s.total)+'</span></div><hr>'+
+    (s.cust4?'<div class="kv"><span>'+L('Customer','العميل')+'</span><span>•••• '+esc(s.cust4)+'</span></div>':'')+
     '<div class="kv"><span>'+(CN?L('Refunded by','الاسترداد'):L('Paid by','طريقة الدفع'))+'</span><b>'+payName(s,1)+'</b></div>'+
     (CN&&s.reason?'<div class="kv"><span>'+L('Reason','السبب')+'</span><span>'+esc(s.reason)+'</span></div>':'')+
     (s.method==='split'?'<div class="kv"><span>'+L('Card amount','بالبطاقة')+'</span><span>'+fmt(s.cardAmt)+'</span></div><div class="kv"><span>'+L('Cash amount','نقداً')+'</span><span>'+fmt(s.cashAmt)+'</span></div>':'')+
@@ -1800,7 +1844,7 @@ function reportsModal(tab){
     else if(R.tab==='vat')filt='<div class="filters">'+dateF('Period from','vf')+dateF('Period to','vt')+'<div class="qk">'+quick('data-vq',[['month','This month'],['lastmonth','Last month'],['quarter','This quarter'],['lastquarter','Last quarter']])+'</div></div>';
     else if(R.tab==='shifts')filt='<div class="filters">'+dateF('From','from')+dateF('To','to')+brSel()+'<div class="qk">'+quick('data-q',[['month','This month'],['lastmonth','Last month'],['today','Today']])+'</div></div>';
     else if(R.tab==='items')filt='<div class="filters">'+dateF('From','from')+dateF('To','to')+brSel()+'<div class="qk">'+quick('data-q',[['month','This month'],['lastmonth','Last month'],['today','Today']])+'</div></div>';
-    else filt='<div class="filters">'+brSel()+selF('Show','act',[['all','Everything'],['Sale','Sales'],['Void','Voids'],['Bill','Bill changes'],['Edit','Edited bills'],['Item','Items'],['Purchase','Purchases'],['Settings','Settings'],['Report','Reports'],['Data','Data']])+'</div>';
+    else filt='<div class="filters">'+brSel()+selF('Show','act',[['all','Everything'],['Sale','Sales'],['Void','Voids'],['Bill','Bill changes'],['Edit','Edited bills'],['Item','Items'],['Purchase','Purchases'],['Customer','Customers'],['Settings','Settings'],['Report','Reports'],['Data','Data']])+'</div>';
     const head='<div class="rhead modal-only"><h2>Reports</h2><button class="ghost" id="rClose">Close</button></div>'+
       '<div class="rtabs">'+T.map(t=>'<button data-t="'+t[0]+'" class="'+(R.tab===t[0]?'on':'')+'">'+t[1]+'</button>').join('')+'</div>'+filt;
     $('#rBody',m.el).innerHTML=head+'<div class="loading">Loading…</div>';
@@ -2486,6 +2530,106 @@ function branchForm(b){
 }
 $('#btnAddBranch').onclick=()=>branchForm(null);
 
+/* ---------- customers (phone numbers for offers) ----------
+   Cloud: customers/{9715xxxxxxxx}: phone, name, consent ('agreed' | 'no' | 'out'),
+   when and where they agreed, first and last visit, visits and total spent.
+   The tills can look up one number and add a visit, but can't list the
+   customers; only head office sees the list and exports it for offers. */
+// UAE mobile numbers only, typed in any usual way (050…, 50…, +971 50…, 00971 50…) → '9715xxxxxxxx'
+function uaeMobile(v){let d=String(v||'').replace(/\D/g,'');if(d.startsWith('00'))d=d.slice(2);if(d.startsWith('971'))d=d.slice(3);if(d.startsWith('0'))d=d.slice(1);return /^5\d{8}$/.test(d)?'971'+d:null}
+const phoneFmt=id=>'+971 '+id.slice(3,5)+' '+id.slice(5,8)+' '+id.slice(8);
+let customers=CLOUD?{}:store.get('sk_customers',{});
+const custCol=()=>C.db.collection('customers');
+// the customer record, null for a new number, undefined if it can't be checked (offline)
+async function lookupCustomer(id){
+  if(!CLOUD)return customers[id]||null;
+  try{const d=await withTimeout(custCol().doc(id).get(),4000);return d.exists?d.data():null}catch(e){return undefined}
+}
+function recordCustomer(id,name,agree,total,known){
+  const now=Date.now(),br=CLOUD?C.branch:'local',by=cashierName()||(CLOUD?C.email:'');
+  const upd={phone:id,lastAt:now,lastBranch:br};
+  if(name)upd.name=name;
+  if(agree)Object.assign(upd,{consent:'agreed',consentAt:now,consentBy:by,consentBranch:br});
+  if(!CLOUD){
+    const c=customers[id]||{phone:id,firstAt:now,firstBranch:br,visits:0,spent:0,consent:'no'};
+    Object.assign(c,upd);c.visits=(c.visits||0)+1;c.spent=r2((c.spent||0)+total);customers[id]=c;store.set('sk_customers',customers);
+  }else{
+    if(known===null)Object.assign(upd,{firstAt:now,firstBranch:br},agree?{}:{consent:'no'});
+    const inc=firebase.firestore.FieldValue.increment;
+    upd.visits=inc(1);upd.spent=inc(total);
+    custCol().doc(id).set(upd,{merge:true}).catch(e=>console.warn('Customer not saved',e));
+  }
+  logAct('Customer',(known?'Returning':'New')+' customer •••• '+id.slice(-4)+(agree?' (agreed to offers)':''));
+}
+const CU={q:'',br:'all',offers:'all',last:'any',min:''};
+let custCache=null;
+async function loadCustomers(fresh){
+  if(!CLOUD)return Object.values(customers);
+  if(!fresh&&custCache&&Date.now()-custCache.t<60000)return custCache.list;
+  const q=await custCol().get();
+  custCache={t:Date.now(),list:q.docs.map(d=>d.data())};
+  return custCache.list;
+}
+const custBr=id=>id==='local'?'This POS':brName(id);
+async function renderCustomers(fresh){
+  const host=$('#customersPage');
+  if(!host.innerHTML)host.innerHTML='<div class="loading">Loading…</div>';
+  let all;
+  try{all=await loadCustomers(fresh)}catch(e){host.innerHTML='<p class="none">Could not load customers: '+esc(e.code||e.message)+(e.code==='permission-denied'?' – publish the latest database rules (SETUP.md).':'')+'</p>';return}
+  const now=Date.now(),m0=new Date();m0.setDate(1);m0.setHours(0,0,0,0);
+  const agreed=all.filter(c=>c.consent==='agreed').length,newM=all.filter(c=>(c.firstAt||0)>=m0.getTime()).length,ret=all.filter(c=>(c.visits||0)>1).length;
+  const brs=[...new Set(all.map(c=>c.lastBranch).filter(Boolean))];
+  const selF=(l,f,opts)=>'<label class="fld sm"><span>'+l+'</span><select data-cf="'+f+'">'+opts.map(o=>'<option value="'+esc(o[0])+'"'+(CU[f]===o[0]?' selected':'')+'>'+esc(o[1])+'</option>').join('')+'</select></label>';
+  host.innerHTML='<div class="stats" style="margin-bottom:14px">'+statBox('Customers',all.length)+statBox('Agreed to offers',agreed)+statBox('New this month',newM)+statBox('Returning customers',all.length?Math.round(ret/all.length*100)+'%':'–')+'</div>'+
+    '<div class="filters"><label class="fld sm"><span>Search</span><input id="cuQ" placeholder="Phone or name" value="'+esc(CU.q)+'"></label>'+
+    selF('Branch (last visit)','br',[['all','All branches']].concat(brs.map(b=>[b,custBr(b)])))+
+    selF('Offers','offers',[['all','Everyone'],['agreed','Agreed only'],['no','Not asked'],['out','Opted out']])+
+    selF('Last visit','last',[['any','Any time'],['30','In the last 30 days'],['90','In the last 3 months'],['not90','Not in 3 months'],['not180','Not in 6 months']])+
+    '<label class="fld sm"><span>Spent over (AED)</span><input id="cuMin" inputmode="decimal" style="width:90px" value="'+esc(CU.min)+'"></label>'+
+    '<div class="qk"><button class="btn primary" id="cuExport">⬇ Export for offers</button></div></div><div id="cuList"></div>';
+  const draw=()=>{
+    const q=CU.q.trim().toLowerCase(),qd=q.replace(/\D/g,''),min=parseFloat(CU.min)||0,day=864e5;
+    const list=all.filter(c=>(!q||(c.name||'').toLowerCase().includes(q)||(qd.length>=3&&String(c.phone).includes(qd.replace(/^0/,''))))&&
+      (CU.br==='all'||c.lastBranch===CU.br)&&
+      (CU.offers==='all'||(c.consent||'no')===CU.offers)&&
+      (CU.last==='any'||(CU.last.startsWith('not')?now-(c.lastAt||0)>+CU.last.slice(3)*day:now-(c.lastAt||0)<=+CU.last*day))&&
+      ((c.spent||0)>=min)).sort((a,b)=>(b.lastAt||0)-(a.lastAt||0));
+    const exp=list.filter(c=>c.consent==='agreed');
+    $('#cuExport').textContent='⬇ Export for offers ('+exp.length+')';$('#cuExport').disabled=!exp.length;
+    const tag=c=>c.consent==='agreed'?'<span class="tag ok">✓ Agreed</span>':c.consent==='out'?'<span class="tag out">Opted out</span>':'<span class="tag">Not asked</span>';
+    const shown=list.slice(0,300);
+    $('#cuList').innerHTML=list.length?tbl([['Phone'],['Name'],['Branch'],['Visits',1],['Total spent',1],['Last visit'],['Offers'],['']],
+      shown.map(c=>trow([phoneFmt(c.phone),esc(c.name||'—'),esc(custBr(c.lastBranch)),c.visits||0,fmt(c.spent||0),c.lastAt?fmtDay(c.lastAt):'',tag(c),
+        (c.consent==='agreed'?'<button class="mini" data-co="'+esc(c.phone)+'">Opt out</button> ':'')+'<button class="mini danger" data-cd="'+esc(c.phone)+'">Delete</button>'],'lllrrlll')))+
+      (list.length>shown.length?'<p class="note">Showing the latest 300 of '+list.length+'. Use search or the filters to find others; the export includes all of them.</p>':''):
+      '<p class="none">'+(all.length?'No customers match these filters.':'No customers yet. Their phone numbers are saved when the cashier types them in the payment window.')+'</p>';
+    $$('[data-co]',host).forEach(b=>b.onclick=async()=>{
+      const c=all.find(x=>x.phone===b.dataset.co);if(!c)return;
+      if(!(await askConfirm('Stop offers to '+phoneFmt(c.phone)+'?','This customer will be marked “Opted out” and left out of every export. They can agree again at the till.','Opt out',true)))return;
+      const upd={consent:'out',outAt:Date.now(),outBy:CLOUD?C.email:''};Object.assign(c,upd);
+      if(CLOUD)custCol().doc(c.phone).set(upd,{merge:true}).catch(e=>toast('Not saved: '+(e.code||e.message)));else store.set('sk_customers',customers);
+      logAct('Customer','Customer •••• '+c.phone.slice(-4)+' opted out of offers');draw();
+    });
+    $$('[data-cd]',host).forEach(b=>b.onclick=async()=>{
+      const c=all.find(x=>x.phone===b.dataset.cd);if(!c)return;
+      if(!(await askConfirm('Delete '+phoneFmt(c.phone)+'?','The phone number, name and visit totals are removed. Their past bills stay (with the last 4 digits only). This cannot be undone.','Delete',true)))return;
+      if(CLOUD)custCol().doc(c.phone).delete().catch(e=>toast('Not deleted: '+(e.code||e.message)));else{delete customers[c.phone];store.set('sk_customers',customers)}
+      all=all.filter(x=>x!==c);if(custCache)custCache.list=all;
+      logAct('Customer','Customer •••• '+c.phone.slice(-4)+' deleted');draw();
+    });
+    $('#cuExport').onclick=()=>{
+      const rows=[['Phone','Name','Branch (last visit)','Visits','Total spent (AED)','Last visit','Agreed on']].concat(exp.map(c=>['+'+c.phone,c.name||'',custBr(c.lastBranch),c.visits||0,(c.spent||0).toFixed(2),c.lastAt?ymd(c.lastAt):'',c.consentAt?ymd(c.consentAt):'']));
+      const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csvOf(rows)],{type:'text/csv;charset=utf-8'}));a.download='sheikha-customers-for-offers-'+ymd(Date.now())+'.csv';
+      document.body.appendChild(a);a.click();a.remove();
+      logAct('Customer','Exported '+plural(exp.length,'customer')+' for offers');toast('Exported '+plural(exp.length,'customer'));
+    };
+  };
+  $('#cuQ').oninput=e=>{CU.q=e.target.value;draw()};
+  $('#cuMin').oninput=e=>{CU.min=e.target.value;draw()};
+  $$('[data-cf]',host).forEach(i=>i.onchange=()=>{CU[i.dataset.cf]=i.value;draw()});
+  draw();
+}
+
 /* ---------- purchases (supplier bills; head office) ----------
    Cloud: purchases/{id}, head office only. Each bill: date (YYYY-MM-DD),
    supplier, supplier TRN and invoice no, branch it was for, type, amount
@@ -2735,7 +2879,7 @@ function sideToday(){
   $('#sideToday').textContent='AED '+fmt(agg(list).total);
 }
 let curView='sale';
-const VIEWS={dashboard:()=>renderDashboard(),shift:()=>renderShiftPage(),sale:null,held:()=>renderHeld(),edit:()=>renderEditPage(),items:itemsModal,purchases:()=>renderPurchases(),reports:()=>reportsModal(),branches:()=>renderBranches(),settings:()=>{settingsModal();renderBackup()}};
+const VIEWS={dashboard:()=>renderDashboard(),shift:()=>renderShiftPage(),sale:null,held:()=>renderHeld(),edit:()=>renderEditPage(),items:itemsModal,purchases:()=>renderPurchases(),customers:()=>renderCustomers(),reports:()=>reportsModal(),branches:()=>renderBranches(),settings:()=>{settingsModal();renderBackup()}};
 function go(v){
   if(!(v in VIEWS)||!viewAllowed(v))v=CLOUD&&isHQ()?'dashboard':'sale';
   curView=v;
