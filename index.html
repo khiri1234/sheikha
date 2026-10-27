@@ -439,6 +439,8 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
 .ghost.danger-t{color:var(--red);border-color:#EBC9C0}
 .edit-bar{display:flex;gap:10px;align-items:center;justify-content:space-between;background:#FFF4D6;border-bottom:1px solid #F0D58A;padding:9px 18px;font-size:12.5px;font-weight:600;color:#7A5300}
 .edit-bar .link{white-space:nowrap;color:var(--red)}
+.vch{margin:-4px 0 12px}.vch #vOpen{font-size:13px;font-weight:700;color:var(--till-dark);padding-left:0}
+.vrow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}.vrow .btn{margin-bottom:14px;height:42px}
 .cust-box{border-top:1px dashed var(--line);margin:4px 0 12px;padding-top:12px}
 .cust-box .fld{margin-bottom:8px}
 .cust-box .money input{font-size:18px;min-width:0}
@@ -1183,10 +1185,13 @@ async function topUpInvoices(){
   }catch(e){console.warn('Could not reserve invoice numbers yet',e)}
   toppingUp=false;
 }
-function saveSale(sale){
-  if(!CLOUD){sales.unshift(sale);saveSales();return}
+function saveSale(sale,voucher){
+  if(!CLOUD){sales.unshift(sale);saveSales();if(voucher){vouchers[voucher.code]=voucher;store.set('sk_vouchers',vouchers)}return}
   Object.assign(sale,{branch:C.branch,branchName:brName(C.branch),by:C.email,cashier:cashierName(),cashierId:S.cashier?S.cashier.id:'',shiftId:S.shift?S.shift.id:''});
-  salesCol(C.branch).doc(sale.id).set(sale).catch(e=>{console.error(e);toast('Sale '+sale.no+' was not saved online: '+(e.code||e.message))});
+  const err=e=>{console.error(e);toast('Sale '+sale.no+' was not saved online: '+(e.code||e.message))};
+  if(!voucher){salesCol(C.branch).doc(sale.id).set(sale).catch(err);return}
+  // the credit note and its store-credit voucher are written together
+  const bt=C.db.batch();bt.set(salesCol(C.branch).doc(sale.id),sale);bt.set(vchCol().doc(voucher.code),Object.assign(voucher,{branch:C.branch}));bt.commit().catch(err);
 }
 // Edit Bill: the same invoice (id, number, date) with the new lines and payment.
 // The bill as it was before is kept in its edits list.
@@ -1204,6 +1209,7 @@ function saveEditedSale(old,sale){
 async function startEdit(s){
   if(s.status==='void'){toast(s.no+' is void and can’t be edited');return}
   if(isReturn(s)){toast('A credit note can’t be edited – void it and make the return again');return}
+  if(+s.vAmt>0){toast(s.no+' was paid with store credit and can’t be edited – return items instead');return}
   if(editing&&editing.id===s.id){go('sale');return}
   if((await returnsOf(s)).length){toast(s.no+' has items returned and can’t be edited – void the credit note first');return}
   if(cart.length&&!editing){
@@ -1343,6 +1349,8 @@ function showEditCandidate(sl){
   const ret=isReturn(sl);
   const m=modal('<div class="paper">'+receiptHTML(sl)+'</div><div class="actions"><button class="ghost" id="ecClose">Close</button>'+(live?'<button class="ghost danger-t" id="ecVoid">Void '+(ret?'credit note':'bill')+'</button>'+(ret?'<button class="ghost" id="ecPrint">Print</button>':'<button class="ghost" id="ecRet">Return items</button><button class="primary" id="ecEdit">Edit this bill</button>'):'')+'</div>');
   $('#ecClose',m.el).onclick=()=>m.close();
+  if(ret&&sl.method==='voucher')getVoucher(sl.no).then(v=>{if(!v)return;const d=document.createElement('div');d.className='cust-info '+(v.status==='active'?'ok':'bad');d.style.margin='0 0 10px';
+    d.textContent=v.status==='void'?'Store credit cancelled':v.balance>0?'Store credit left: AED '+fmt(v.balance)+' of '+fmt(v.amount):'Store credit fully used';$('.paper',m.el).before(d)}).catch(()=>{});
   if(!live)return;
   if(ret)$('#ecPrint',m.el).onclick=()=>doPrint(receiptHTML(sl));
   else{$('#ecEdit',m.el).onclick=()=>{m.close();startEdit(sl)};$('#ecRet',m.el).onclick=()=>{m.close();returnModal(sl)}}
@@ -1353,8 +1361,12 @@ async function confirmVoid(sl){
   if(sl.status==='void')return false;
   if(!isReturn(sl)&&(await returnsOf(sl)).length){toast(sl.no+' has items returned – void its credit note first');return false}
   if(!(await askConfirm('Void '+sl.no+'?',(isReturn(sl)?'Refund of AED '+fmt(-sl.total)+' for '+sl.origNo+'. The credit note stays on record marked VOID and the refund is taken out of all totals, so the items count as sold again.':'AED '+fmt(sl.total)+' paid by '+payName(sl).toLowerCase()+'. The bill stays on record marked VOID and is removed from all totals and the Z report.')+' This cannot be undone.','Void bill',true)))return false;
+  try{
+    if(isReturn(sl)&&sl.method==='voucher')await cancelVoucher(sl.no,sl.no);
+    else if(+sl.vAmt>0)await changeVoucher(sl.vCode,-sl.vAmt,sl.no,sl.id);
+  }catch(e){toast(e.message||String(e));return false}
   voidSale(sl);salesCache.clear();
-  logAct('Void',sl.no+' voided (AED '+fmt(sl.total)+', '+sl.method+')');
+  logAct('Void',sl.no+' voided (AED '+fmt(sl.total)+', '+sl.method+')'+(+sl.vAmt>0?' – AED '+fmt(sl.vAmt)+' put back on '+sl.vCode:''));
   if(editing&&editing.id===sl.id){editing=null;cart=[];discount={type:'pct',value:''};saveCart();renderCart()}
   sideToday();toast(sl.no+' voided');
   return true;
@@ -1387,7 +1399,7 @@ async function returnModal(sl){
     '</tbody></table></div>'+
     '<div class="quick" style="margin:10px 0"><button id="rtAll">Return everything left</button></div>'+
     '<div class="paytotal"><span>Refund to customer</span><b class="num" id="rtAmt">AED 0.00</b></div>'+
-    '<div class="seg big" id="rtm"><button data-m="cash"'+(method==='cash'?' class="on"':'')+'>Cash refund</button><button data-m="card"'+(method==='card'?' class="on"':'')+'>Card refund</button><button data-m="bank"'+(method==='bank'?' class="on"':'')+'>Bank refund</button></div>'+
+    '<div class="seg big" id="rtm"><button data-m="cash"'+(method==='cash'?' class="on"':'')+'>Cash refund</button><button data-m="card"'+(method==='card'?' class="on"':'')+'>Card refund</button><button data-m="bank"'+(method==='bank'?' class="on"':'')+'>Bank refund</button><button data-m="voucher"'+(method==='voucher'?' class="on"':'')+'>Store credit</button></div>'+
     '<label class="fld"><span>Reason (optional)</span><input id="rtWhy" placeholder="e.g. wrong colour"></label>'+
     '<div class="actions"><button class="ghost" id="rtCancel">Cancel</button><button class="primary" id="rtGo" disabled>Refund</button></div>');
   const $m=q=>$(q,m.el),ins=$$('.rq-in',m.el);
@@ -1414,7 +1426,7 @@ async function returnModal(sl){
     const c=calc();
     $m('#rtAmt').textContent='AED '+fmt(c.total);
     $m('#rtGo').disabled=c.bad||!c.lines.length||c.total<=0;
-    $m('#rtGo').textContent=c.total>0?'Refund AED '+fmt(c.total)+' '+(method==='card'?'to card':method==='bank'?'by bank transfer':'in cash'):'Refund';
+    $m('#rtGo').textContent=c.total>0?'Refund AED '+fmt(c.total)+' '+(method==='card'?'to card':method==='bank'?'by bank transfer':method==='voucher'?'as store credit':'in cash'):'Refund';
   }
   ins.forEach(inp=>{
     inp.addEventListener('input',upd);
@@ -1430,11 +1442,13 @@ async function returnModal(sl){
       lines:c.lines,discount:{type:'pct',value:0},sumGross:-c.sumGross,disc:-c.disc,net:-c.net,vat:-c.vat,total:-c.total,
       vatRate:sl.vatRate||settings.vat,method,tendered:0,change:0,ref:'',reason:$m('#rtWhy').value.trim(),status:'paid'
     };
-    saveSale(cn);salesCache.clear();
+    let vch=null;
+    if(method==='voucher')vch={code:cn.no,amount:c.total,balance:c.total,status:'active',issuedAt:cn.ts,cnId:cn.id,origNo:sl.no,uses:[],branch:CLOUD?C.branch:'local',...(sl.cust4?{cust4:sl.cust4}:{})};
+    saveSale(cn,vch);salesCache.clear();
     logAct('Return',cn.no+' – refund AED '+fmt(c.total)+' in '+method+' for '+sl.no+(cn.reason?' ('+cn.reason+')':''));
     m.close();sideToday();
     if(curView==='edit')drawEditList();
-    const r=modal('<h2>Refund AED '+fmt(c.total)+'</h2><p class="sub">'+(method==='card'?'Refund it to the customer’s card on the card machine.':method==='bank'?'Transfer AED '+fmt(c.total)+' back to the customer’s bank account.':'Give the customer AED '+fmt(c.total)+' from the cash drawer.')+' Credit note '+esc(cn.no)+' is printing.</p>'+
+    const r=modal('<h2>Refund AED '+fmt(c.total)+'</h2><p class="sub">'+(method==='voucher'?'No money is paid back. Give the customer the credit note: they use it as payment on their next purchase, at any branch.':method==='card'?'Refund it to the customer’s card on the card machine.':method==='bank'?'Transfer AED '+fmt(c.total)+' back to the customer’s bank account.':'Give the customer AED '+fmt(c.total)+' from the cash drawer.')+' Credit note '+esc(cn.no)+' is printing.</p>'+
       '<div class="paper">'+receiptHTML(cn)+'</div><div class="actions"><button class="ghost" id="cnPrint">Print again</button><button class="primary" id="cnDone">Done</button></div>');
     $('#cnPrint',r.el).onclick=()=>doPrint(receiptHTML(cn));
     $('#cnDone',r.el).onclick=()=>r.close();
@@ -1445,17 +1459,63 @@ async function returnModal(sl){
   upd();
 }
 
+/* ---------- store credit (credit notes used as vouchers) ----------
+   Cloud: vouchers/{credit note no.}: amount, balance, status ('active' | 'used' | 'void'),
+   the credit note and original bill, and a list of every use. Any branch can use it;
+   using it needs the internet so the same credit can't be spent twice. */
+let vouchers=CLOUD?{}:store.get('sk_vouchers',{});
+const vchCol=()=>C.db.collection('vouchers');
+async function getVoucher(code){
+  code=String(code||'').trim().toUpperCase();if(!code)return null;
+  if(!CLOUD)return vouchers[code]||null;
+  const d=await withTimeout(vchCol().doc(code).get({source:'server'}),6000);
+  return d.exists?d.data():null;
+}
+// use store credit on a bill (amt > 0) or put it back when that bill is voided (amt < 0)
+async function changeVoucher(code,amt,saleNo,saleId){
+  const step=v=>{
+    if(!v)throw new Error('No store credit with number '+code);
+    if(v.status==='void')throw new Error(code+' was cancelled');
+    if(amt>0&&v.balance+0.001<amt)throw new Error('Only AED '+fmt(v.balance)+' is left on '+code);
+    const bal=r2(Math.min(v.amount,v.balance-amt));
+    return {balance:bal,status:bal>0?'active':'used',use:{at:Date.now(),amount:amt,saleNo,saleId,branch:CLOUD?C.branch:'local',by:cashierName()||(CLOUD?C.email:'')}};
+  };
+  if(!CLOUD){const v=vouchers[code];const r=step(v);v.balance=r.balance;v.status=r.status;v.uses=(v.uses||[]).concat([r.use]);store.set('sk_vouchers',vouchers);return}
+  try{
+    await withTimeout(C.db.runTransaction(async tx=>{
+      const ref=vchCol().doc(code),d=await tx.get(ref),r=step(d.exists?d.data():null);
+      tx.update(ref,{balance:r.balance,status:r.status,uses:firebase.firestore.FieldValue.arrayUnion(r.use)});
+    }),8000);
+  }catch(e){
+    if(e instanceof Error&&!e.code&&e.message!=='timeout')throw e;
+    throw new Error('Store credit needs the internet. Connect and try again'+(amt>0?', or take the payment another way.':'.'));
+  }
+}
+// voiding a store-credit credit note cancels its credit, if none of it was used yet
+async function cancelVoucher(code,cnNo){
+  const v=await getVoucher(code).catch(()=>{throw new Error('Store credit needs the internet. Connect and try again.')});
+  if(!v)return;
+  if(v.balance+0.001<v.amount)throw new Error('AED '+fmt(r2(v.amount-v.balance))+' of '+code+' was already used, so the credit note can’t be voided.');
+  const use={at:Date.now(),amount:v.balance,saleNo:cnNo,void:true,branch:CLOUD?C.branch:'local',by:cashierName()||(CLOUD?C.email:'')};
+  if(!CLOUD){Object.assign(v,{balance:0,status:'void',uses:(v.uses||[]).concat([use])});store.set('sk_vouchers',vouchers);return}
+  await withTimeout(vchCol().doc(code).update({balance:0,status:'void',uses:firebase.firestore.FieldValue.arrayUnion(use)}),8000)
+    .catch(()=>{throw new Error('Store credit needs the internet. Connect and try again.')});
+}
+
 /* ---------- payment ---------- */
 function payModal(startMethod){
   const t=totals();
   if(!t.count||t.total<=0)return;
-  let method='cash';
+  let method='cash',due=t.total,vc=null;
   const cands=[...new Set([5,10,50,100,500].map(x=>Math.ceil(t.total/x)*x))].filter(v=>v>t.total).slice(0,4);
   const m=modal(
     '<h2>'+(editing?'Save '+esc(editing.no):'Take payment')+'</h2><p class="sub">'+(editing?'Enter the payment for the whole new total, as if the bill were paid again today.':'Choose how the customer is paying.')+'</p>'+
     (editing?(()=>{const d=r2(t.total-editing.total);return '<div class="edit-diff"><span>Before: AED '+fmt(editing.total)+' ('+payName(editing).toLowerCase()+')</span><b>'+(d>0?'Customer pays AED '+fmt(d)+' more':d<0?'Give back AED '+fmt(-d):'Same total')+'</b></div>'})():'')+
     '<div class="paytotal"><span>'+(editing?'New total':'Amount due')+'</span><b class="num">AED '+fmt(t.total)+'</b></div>'+
-    '<div class="seg big" id="pm"><button data-m="cash" class="on">Cash</button><button data-m="card">Card</button><button data-m="split">Cash + Card</button><button data-m="bank">Bank</button></div>'+
+    (editing?'':'<div class="vch"><button class="link" type="button" id="vOpen">🎟 Pay with a credit note (store credit)</button>'+
+      '<div id="vForm" hidden><div class="vrow"><label class="fld"><span>Credit note number</span><input id="vCode" autocomplete="off" placeholder="Scan the credit note barcode"></label><button class="btn" type="button" id="vApply">Apply</button></div>'+
+      '<div id="vInfo" class="cust-info" hidden></div></div></div>')+
+    '<div id="payRest"><div class="seg big" id="pm"><button data-m="cash" class="on">Cash</button><button data-m="card">Card</button><button data-m="split">Cash + Card</button><button data-m="bank">Bank</button></div>'+
     '<div id="bankPane" hidden><p class="sub" style="margin-bottom:12px">Check that the bank transfer has arrived (or see the customer’s transfer confirmation), then confirm here.</p>'+
     '<label class="fld"><span>Transfer reference (optional)</span><input id="bRef" placeholder="e.g. bank reference or sender name"></label></div>'+
     '<div id="splitPane" hidden><label class="fld"><span>Card part (on the card machine)</span><div class="money"><i>AED</i><input id="cardAmt" class="num" inputmode="decimal" placeholder="0.00"></div></label>'+
@@ -1467,7 +1527,7 @@ function payModal(startMethod){
     '<div class="quick"><button data-amt="'+t.total+'">Exact</button>'+cands.map(v=>'<button data-amt="'+v+'">'+v+'</button>').join('')+'</div>'+
     '<div class="change" id="chg"><span>Change to give</span><b class="num">AED 0.00</b></div></div>'+
     '<div id="cardPane" hidden><p class="sub" style="margin-bottom:12px">Take the payment on the card machine, then confirm here once it is approved.</p>'+
-    '<label class="fld"><span>Approval or reference no. (optional)</span><input id="ref" placeholder="e.g. 483920"></label></div>'+
+    '<label class="fld"><span>Approval or reference no. (optional)</span><input id="ref" placeholder="e.g. 483920"></label></div></div>'+
     (editing?'':'<div class="cust-box"><div class="two-f"><label class="fld"><span>Phone (optional)</span><div class="money"><i>+971</i><input id="cPhone" class="num" inputmode="tel" autocomplete="off" placeholder="50 123 4567"></div></label>'+
       '<label class="fld"><span>Name (optional)</span><input id="cName" autocomplete="off" maxlength="40" placeholder="e.g. Aisha"></label></div>'+
       '<div id="cInfo" class="cust-info" hidden></div>'+
@@ -1478,21 +1538,24 @@ function payModal(startMethod){
   function upd(){
     if(method==='cash'){
       const v=parseFloat($m('#tend').value)||0;
-      const ch=r2(v-t.total);
+      const ch=r2(v-due);
       const box=$m('#chg');
       box.className='change '+(v===0?'':(ch>=0?'ok':'bad'));
       box.innerHTML='<span>'+(ch>=0||v===0?'Change to give':'Still to collect')+'</span><b class="num">AED '+fmt(v===0?0:Math.abs(ch))+'</b>';
       $m('#payGo').disabled=!(v>0&&ch>=0);
       $m('#payGo').textContent=editing?'Save changes':'Complete sale';
     }else if(method==='split'){
-      const c=r2(parseFloat($m('#cardAmt').value)||0),due=r2(t.total-c),okC=c>0&&due>0;
+      const c=r2(parseFloat($m('#cardAmt').value)||0),cdue=r2(due-c),okC=c>0&&cdue>0;
       $m('#cashDue').className='change '+(c===0?'':okC?'ok':'bad');
-      $m('#cashDue').innerHTML='<span>'+(okC||c===0?'Cash part to collect':'Card part must be less than the total')+'</span><b class="num">AED '+fmt(okC?due:c===0?t.total:0)+'</b>';
-      const v=parseFloat($m('#sTend').value)||0,ch=r2(v-due),box=$m('#sChg');
+      $m('#cashDue').innerHTML='<span>'+(okC||c===0?'Cash part to collect':'Card part must be less than the total')+'</span><b class="num">AED '+fmt(okC?cdue:c===0?due:0)+'</b>';
+      const v=parseFloat($m('#sTend').value)||0,ch=r2(v-cdue),box=$m('#sChg');
       box.className='change '+(v===0||!okC?'':(ch>=0?'ok':'bad'));
       box.innerHTML='<span>'+(ch>=0||v===0?'Change to give':'Still to collect')+'</span><b class="num">AED '+fmt(v===0||!okC?0:Math.abs(ch))+'</b>';
       $m('#payGo').disabled=!(okC&&v>0&&ch>=0);
       $m('#payGo').textContent=editing?'Card approved – save changes':'Card approved – complete sale';
+    }else if(method==='voucher'){
+      $m('#payGo').disabled=false;
+      $m('#payGo').textContent='Complete sale (store credit)';
     }else if(method==='bank'){
       $m('#payGo').disabled=false;
       $m('#payGo').textContent=editing?'Transfer received – save changes':'Transfer received – complete sale';
@@ -1503,7 +1566,29 @@ function payModal(startMethod){
   }
   $m('#tend').addEventListener('input',upd);$m('#cardAmt').addEventListener('input',upd);$m('#sTend').addEventListener('input',upd);
   $$('[data-amt]',m.el).forEach(b=>b.onclick=()=>{$m('#tend').value=b.dataset.amt;upd()});
+  // store credit: look the credit note up, use as much of it as the bill needs
+  if(!editing){
+    const vInfo=(cls,html)=>{const i=$m('#vInfo');i.hidden=!html;i.className='cust-info'+(cls?' '+cls:'');i.innerHTML=html?'<span>'+html+'</span>':''};
+    $m('#vOpen').onclick=()=>{$m('#vForm').hidden=false;$m('#vOpen').hidden=true;$m('#vCode').focus()};
+    $m('#vApply').onclick=async()=>{
+      const code=$m('#vCode').value.trim().toUpperCase();if(!code)return;
+      vInfo('','Checking '+esc(code)+'…');
+      let v;try{v=await getVoucher(code)}catch(e){vInfo('bad','Store credit needs the internet. Connect and try again.');return}
+      if(!v){vInfo('bad','No store credit with number '+esc(code)+'.');return}
+      if(v.status==='void'){vInfo('bad',esc(code)+' was cancelled.');return}
+      if(!(v.balance>0)){vInfo('bad',esc(code)+' has been fully used.');return}
+      const use=r2(Math.min(v.balance,t.total));vc={code,amt:use};due=r2(t.total-use);
+      vInfo('ok','✓ '+esc(code)+': AED '+fmt(use)+' used'+(v.balance>use?' (AED '+fmt(r2(v.balance-use))+' stays on it)':'')+(due>0?' · <b>still to pay AED '+fmt(due)+'</b>':' · nothing more to pay'));
+      $m('#vCode').disabled=true;$m('#vApply').disabled=true;
+      $$('.quick [data-amt]',m.el).forEach((b,i)=>{if(i===0)b.dataset.amt=due;else b.hidden=true});
+      $m('#cashDue b').textContent='AED '+fmt(due);
+      if(due<=0){method='voucher';$m('#payRest').hidden=true}
+      $m('#tend').value='';upd();
+      if(due>0){if(method==='cash')$m('#tend').focus()}else $m('#payGo').focus();
+    };
+  }
   $$('#pm button',m.el).forEach(b=>b.onclick=()=>{
+    if(due<=0)return;
     method=b.dataset.m;
     $$('#pm button',m.el).forEach(x=>x.classList.toggle('on',x===b));
     $m('#cashPane').hidden=method!=='cash';
@@ -1517,12 +1602,13 @@ function payModal(startMethod){
   m.el.addEventListener('keydown',e=>{
     if(e.key!=='Enter'||e.target.id==='payCancel')return;
     e.preventDefault();
-    if(method==='cash'&&!$m('#tend').value.trim()){$m('#tend').value=t.total;upd()}
+    if(e.target.id==='vCode'){$m('#vApply').click();return}
+    if(method==='cash'&&!$m('#tend').value.trim()){$m('#tend').value=due;upd()}
     // split: Enter on the card part moves to cash received; empty cash received = exact cash part
     if(method==='split'){
       const c=parseFloat($m('#cardAmt').value)||0;
-      if(e.target.id==='cardAmt'){if(c>0&&c<t.total)$m('#sTend').focus();return}
-      if(c>0&&c<t.total&&!$m('#sTend').value.trim()){$m('#sTend').value=r2(t.total-c);upd()}
+      if(e.target.id==='cardAmt'){if(c>0&&c<due)$m('#sTend').focus();return}
+      if(c>0&&c<due&&!$m('#sTend').value.trim()){$m('#sTend').value=r2(due-c);upd()}
     }
     if(!$m('#payGo').disabled)$m('#payGo').click();
   });
@@ -1547,20 +1633,25 @@ function payModal(startMethod){
       show(c.consent==='out'?'bad':'ok','✓ Returning customer'+(c.name?' – '+esc(c.name):'')+' · '+plural(c.visits||0,'visit')+(c.lastAt?' · last visit '+esc(fmtDay(c.lastAt)):'')+(c.consent==='out'?' · opted out of offers':''));
     });
   }
-  $m('#payGo').onclick=()=>{
+  $m('#payGo').onclick=async()=>{
     if(!editing&&$m('#cPhone').value.trim()&&!uaeMobile($m('#cPhone').value)){toast('Enter a UAE mobile number (e.g. 050 123 4567) or leave it empty');$m('#cPhone').focus();return}
-    const cardAmt=method==='split'?r2(parseFloat($m('#cardAmt').value)||0):0,cashAmt=r2(t.total-cardAmt);
-    const tendered=method==='cash'?parseFloat($m('#tend').value)||0:method==='split'?parseFloat($m('#sTend').value)||0:t.total;
-    const ed=editing;
+    const cardAmt=method==='split'?r2(parseFloat($m('#cardAmt').value)||0):0,cashAmt=r2(due-cardAmt);
+    const tendered=method==='cash'?parseFloat($m('#tend').value)||0:method==='split'?parseFloat($m('#sTend').value)||0:due;
+    const ed=editing,saleId=uid(),saleNo=ed?ed.no:nextInvoiceNo();
+    if(vc){
+      $m('#payGo').disabled=true;
+      try{await changeVoucher(vc.code,vc.amt,saleNo,saleId)}catch(err){toast(err.message||String(err));$m('#payGo').disabled=false;return}
+    }
     const sale={
-      id:ed?ed.id:uid(),no:ed?ed.no:nextInvoiceNo(),ts:ed?ed.ts:Date.now(),
+      id:ed?ed.id:saleId,no:saleNo,ts:ed?ed.ts:Date.now(),
       lines:cart.map(l=>Object.assign({},l,calcLine(l))),
       discount:{type:discount.type,value:parseFloat(discount.value)||0},
       sumGross:t.sumGross,disc:t.disc,net:t.net,vat:t.vat,total:t.total,vatRate:settings.vat,
-      method,tendered,change:method==='cash'?r2(tendered-t.total):method==='split'?r2(tendered-cashAmt):0,
+      method,tendered,change:method==='cash'?r2(tendered-due):method==='split'?r2(tendered-cashAmt):0,
       ref:method==='card'?$m('#ref').value.trim():method==='split'?$m('#sRef').value.trim():method==='bank'?$m('#bRef').value.trim():'',status:'paid'
     };
     if(method==='split'){sale.cardAmt=cardAmt;sale.cashAmt=cashAmt}
+    if(vc){sale.vCode=vc.code;sale.vAmt=vc.amt}
     const cId=!ed&&uaeMobile($m('#cPhone').value),cName=cId?$m('#cName').value.trim().slice(0,40):'';
     if(cId){sale.cust4=cId.slice(-4);if(cName)sale.custName=cName;recordCustomer(cId,cName,$m('#cOk').checked,t.total,cust)}
     if(ed){
@@ -1637,9 +1728,11 @@ function receiptHTML(s){
     '<div class="kv"><span>'+L('Amount excl. VAT','قبل الضريبة')+'</span><span>'+fmt(s.net)+'</span></div>'+
     '<div class="kv"><span>'+L('VAT '+s.vatRate+'%','الضريبة '+s.vatRate+'%')+'</span><span>'+fmt(s.vat)+'</span></div>'+
     '<div class="kv t"><span>'+(CN?L('REFUND (AED)','المبلغ المسترد'):L('TOTAL (AED)','الإجمالي'))+'</span><span>'+fmt(s.total)+'</span></div><hr>'+
+    (+s.vAmt>0?'<div class="kv"><span>'+L('Store credit','رصيد شرائي')+'</span><span>'+fmt(s.vAmt)+'</span></div><div class="kv"><span>'+L('Credit note','رقم الإشعار')+'</span><span>'+esc(s.vCode)+'</span></div>':'')+
     (s.cust4?'<div class="kv"><span>'+L('Customer','العميل')+'</span><span>•••• '+esc(s.cust4)+'</span></div>':'')+
     '<div class="kv"><span>'+(CN?L('Refunded by','الاسترداد'):L('Paid by','طريقة الدفع'))+'</span><b>'+payName(s,1)+'</b></div>'+
     (CN&&s.reason?'<div class="kv"><span>'+L('Reason','السبب')+'</span><span>'+esc(s.reason)+'</span></div>':'')+
+    (CN&&s.method==='voucher'?'<hr><div class="c"><b>STORE CREDIT AED '+fmt(s.total)+'</b><br>Use this credit note as payment on your next purchase.<br><bdi>استخدم هذا الإشعار كرصيد في مشترياتك القادمة</bdi></div>':'')+
     (s.method==='split'?'<div class="kv"><span>'+L('Card amount','بالبطاقة')+'</span><span>'+fmt(s.cardAmt)+'</span></div><div class="kv"><span>'+L('Cash amount','نقداً')+'</span><span>'+fmt(s.cashAmt)+'</span></div>':'')+
     (s.method==='split'&&s.ref?'<div class="kv"><span>'+L('Card ref.','مرجع البطاقة')+'</span><span>'+esc(s.ref)+'</span></div>':'')+
     (s.method==='bank'&&s.ref?'<div class="kv"><span>'+L('Transfer ref.','مرجع التحويل')+'</span><span>'+esc(s.ref)+'</span></div>':'')+
@@ -1692,16 +1785,22 @@ function quickRange(n,full){
   return f(t,t);
 }
 // how much of a bill was paid in cash / by card (split bills count in both)
-function cashOf(s){return s.method==='split'?(+s.cashAmt||0):(s.method==='card'||s.method==='bank')?0:s.total}
-function bankOf(s){return s.method==='bank'?s.total:0}
-function cardOf(s){return s.method==='split'?(+s.cardAmt||0):s.method==='card'?s.total:0}
-function payName(s,ar){if(isReturn(s)){const k=s.method==='card'?'Card':s.method==='bank'?'Bank':'Cash';return ar?k:k+' refund'}if(s.method==='bank')return ar?'Transfer':'Bank transfer';return s.method==='split'?(ar?'Cash+Card':'Cash + Card'):s.method==='card'?(ar?'Card <bdi>بطاقة</bdi>':'Card'):(ar?'Cash <bdi>نقداً</bdi>':'Cash')}
+// what was paid with money, after any store credit used on the bill
+const paidOf=s=>r2(s.total-(+s.vAmt||0));
+function cashOf(s){return s.method==='split'?(+s.cashAmt||0):(s.method==='card'||s.method==='bank'||s.method==='voucher')?0:paidOf(s)}
+function bankOf(s){return s.method==='bank'?paidOf(s):0}
+// store credit used on sales (+) and given as refunds (−)
+function creditOf(s){return isReturn(s)?(s.method==='voucher'?s.total:0):(+s.vAmt||0)}
+function cardOf(s){return s.method==='split'?(+s.cardAmt||0):s.method==='card'?paidOf(s):0}
+function payName(s,ar){if(isReturn(s)){if(s.method==='voucher')return ar?'Credit':'Store credit';const k=s.method==='card'?'Card':s.method==='bank'?'Bank':'Cash';return ar?k:k+' refund'}
+  if(s.method==='voucher')return ar?'Credit':'Store credit';if(!ar&&+s.vAmt>0)return payName(Object.assign({},s,{vAmt:0}))+' + store credit';if(s.method==='bank')return ar?'Transfer':'Bank transfer';return s.method==='split'?(ar?'Cash+Card':'Cash + Card'):s.method==='card'?(ar?'Card <bdi>بطاقة</bdi>':'Card'):(ar?'Cash <bdi>نقداً</bdi>':'Cash')}
 function agg(list){
   const paid=list.filter(s=>s.status!=='void'),voids=list.filter(s=>s.status==='void');
   const sum=(a,f)=>r2(a.reduce((x,s)=>x+f(s),0));
   const cash=paid.filter(s=>cashOf(s)>0),card=paid.filter(s=>cardOf(s)>0),bank=paid.filter(s=>bankOf(s)>0),rets=paid.filter(isReturn);
+  const crUsed=sum(paid.filter(s=>!isReturn(s)),creditOf),crGiven=sum(rets,s=>-creditOf(s));
   return {bills:paid.length-rets.length,retN:rets.length,retTotal:sum(rets,s=>-s.total),gross:sum(paid,s=>s.sumGross),disc:sum(paid,s=>s.disc),net:sum(paid,s=>s.net),vat:sum(paid,s=>s.vat),total:sum(paid,s=>s.total),
-    cash:sum(paid,cashOf),card:sum(paid,cardOf),bank:sum(paid,bankOf),cashN:cash.length,cardN:card.length,bankN:bank.length,voidN:voids.length,voidTotal:sum(voids,s=>s.total)};
+    cash:sum(paid,cashOf),card:sum(paid,cardOf),bank:sum(paid,bankOf),crUsed,crGiven,cashN:cash.length,cardN:card.length,bankN:bank.length,voidN:voids.length,voidTotal:sum(voids,s=>s.total)};
 }
 function byItem(list){
   const map={};
@@ -1746,7 +1845,7 @@ function itemsBlock(list){
 function dailyBody(list,showBr){
   const a=agg(list);
   return '<div class="stats">'+statBox('Bills',a.bills)+statBox('Net sales excl. VAT',aed(a.net))+statBox('VAT collected',aed(a.vat))+statBox('Total sales',aed(a.total))+
-    statBox('Cash ('+a.cashN+' bills)',aed(a.cash))+statBox('Card ('+a.cardN+' bills)',aed(a.card))+(a.bank||a.bankN?statBox('Bank transfer ('+a.bankN+' bills)',aed(a.bank)):'')+statBox('Discounts given',aed(a.disc))+statBox('Voided ('+a.voidN+')',aed(a.voidTotal))+(a.retN?statBox('Returns ('+a.retN+')','− '+aed(a.retTotal)):'')+'</div>'+
+    statBox('Cash ('+a.cashN+' bills)',aed(a.cash))+statBox('Card ('+a.cardN+' bills)',aed(a.card))+(a.bank||a.bankN?statBox('Bank transfer ('+a.bankN+' bills)',aed(a.bank)):'')+(a.crUsed||a.crGiven?statBox('Store credit given · used',fmt(a.crGiven)+' · '+fmt(a.crUsed)):'')+statBox('Discounts given',aed(a.disc))+statBox('Voided ('+a.voidN+')',aed(a.voidTotal))+(a.retN?statBox('Returns ('+a.retN+')','− '+aed(a.retTotal)):'')+'</div>'+
     (showBr?'<h3 class="rs">Sales by branch</h3>'+branchBlock(list):'')+
     '<h3 class="rs">Sales by fabric</h3>'+itemsBlock(list)+'<h3 class="rs">Bills</h3>'+billsBlock(list,false,showBr);
 }
@@ -2111,7 +2210,7 @@ function shiftSummary(sh,list){
   const a=agg(list),byC={};
   list.filter(x=>x.status!=='void').forEach(x=>{const k=x.cashier||'—';const o=byC[k]||(byC[k]={bills:0,total:0,cash:0,card:0,bank:0});if(!isReturn(x))o.bills++;o.total=r2(o.total+x.total);o.cash=r2(o.cash+cashOf(x));o.card=r2(o.card+cardOf(x));o.bank=r2((o.bank||0)+bankOf(x))});
   const moves=sh.moves||[],paidOut=r2(moves.filter(m=>m.type==='out').reduce((n,m)=>n+m.amount,0)),paidIn=r2(moves.filter(m=>m.type==='in').reduce((n,m)=>n+m.amount,0));
-  return {bills:a.bills,gross:a.gross,disc:a.disc,net:a.net,vat:a.vat,total:a.total,cash:a.cash,card:a.card,bank:a.bank,cashN:a.cashN,cardN:a.cardN,bankN:a.bankN,voidN:a.voidN,voidTotal:a.voidTotal,retN:a.retN,retTotal:a.retTotal,byCashier:byC,paidOut,paidIn,moves,expectedCash:r2((+sh.openingFloat||0)+a.cash-paidOut+paidIn)};
+  return {bills:a.bills,gross:a.gross,disc:a.disc,net:a.net,vat:a.vat,total:a.total,cash:a.cash,card:a.card,bank:a.bank,crUsed:a.crUsed,crGiven:a.crGiven,cashN:a.cashN,cardN:a.cardN,bankN:a.bankN,voidN:a.voidN,voidTotal:a.voidTotal,retN:a.retN,retTotal:a.retTotal,byCashier:byC,paidOut,paidIn,moves,expectedCash:r2((+sh.openingFloat||0)+a.cash-paidOut+paidIn)};
 }
 function zReportHTML(sh,sum,kind){
   const br=branchById(sh.branch)||{};const kv=(k,v,cls)=>'<div class="kv'+(cls?' '+cls:'')+'"><span>'+k+'</span><span>'+v+'</span></div>';
@@ -2121,7 +2220,7 @@ function zReportHTML(sh,sum,kind){
     '<hr><div class="c"><b>'+(kind==='Z'?'Z REPORT – END OF SHIFT':'X REPORT – SHIFT SO FAR')+'</b>'+(closed&&sh.zNo?'<br><b>'+esc(sh.zNo)+'</b>':'')+'</div><hr>'+
     kv('Opened',fmtDate(sh.openedAt))+kv('Opened by',esc(sh.openedBy||''))+(closed?kv('Closed',fmtDate(sh.closedAt))+kv('Closed by',esc(sh.closedBy||'')):kv('Printed',fmtDate(Date.now())))+'<hr>'+
     kv('Bills',sum.bills)+kv('Items (incl. VAT)',fmt(sum.gross))+(sum.disc?kv('Discounts','− '+fmt(sum.disc)):'')+kv('Amount excl. VAT',fmt(sum.net))+kv('VAT '+settings.vat+'%',fmt(sum.vat))+kv('TOTAL (AED)',fmt(sum.total),'t')+'<hr>'+
-    kv('Cash ('+sum.cashN+')',fmt(sum.cash))+kv('Card ('+sum.cardN+')',fmt(sum.card))+(sum.bankN?kv('Bank transfer ('+sum.bankN+')',fmt(sum.bank)):'')+kv('Voided ('+sum.voidN+')',fmt(sum.voidTotal))+(sum.retN?kv('Returns ('+sum.retN+')','− '+fmt(sum.retTotal)):'')+'<hr>'+
+    kv('Cash ('+sum.cashN+')',fmt(sum.cash))+kv('Card ('+sum.cardN+')',fmt(sum.card))+(sum.bankN?kv('Bank transfer ('+sum.bankN+')',fmt(sum.bank)):'')+(sum.crUsed?kv('Store credit used',fmt(sum.crUsed)):'')+(sum.crGiven?kv('Store credit given',fmt(sum.crGiven)):'')+kv('Voided ('+sum.voidN+')',fmt(sum.voidTotal))+(sum.retN?kv('Returns ('+sum.retN+')','− '+fmt(sum.retTotal)):'')+'<hr>'+
     '<div class="c"><b>BY CASHIER</b></div>'+Object.keys(sum.byCashier).map(k=>{const o=sum.byCashier[k];return kv(esc(k)+' ('+o.bills+')',fmt(o.total))}).join('')+(Object.keys(sum.byCashier).length?'':'<div class="fine c">No sales</div>')+'<hr>'+
     '<div class="c"><b>CASH DRAWER</b></div>'+kv('Opening float',fmt(sh.openingFloat))+kv(sum.retN?'+ Cash sales less refunds':'+ Cash sales',fmt(sum.cash))+
     (sum.paidIn?kv('+ Cash paid in',fmt(sum.paidIn)):'')+(sum.paidOut?kv('− Cash paid out',fmt(sum.paidOut)):'')+

@@ -59,6 +59,33 @@ service cloud.firestore {
         && request.resource.data.get('consent', 'no') in ['agreed', resource.data.get('consent', 'no')]);
     }
 
+    // store credit: a credit note refunded as store credit becomes a voucher (same number).
+    // It is created by its branch together with the credit note; any till can look one up
+    // and use it (balance only goes down, or back up when a bill paid with it is voided,
+    // never above the credit note); every change adds an entry to "uses"; never deleted.
+    match /vouchers/{code} {
+      allow list: if isHQ();
+      allow get: if isStaff();
+      allow create: if isBranch(request.resource.data.branch)
+        && request.resource.data.code == code
+        && request.resource.data.amount > 0
+        && request.resource.data.balance == request.resource.data.amount
+        && request.resource.data.status == 'active'
+        && request.resource.data.uses.size() == 0
+        && getAfter(/databases/$(database)/documents/branches/$(request.resource.data.branch)/sales/$(request.resource.data.cnId)).data.no == code
+        && getAfter(/databases/$(database)/documents/branches/$(request.resource.data.branch)/sales/$(request.resource.data.cnId)).data.kind == 'return'
+        && getAfter(/databases/$(database)/documents/branches/$(request.resource.data.branch)/sales/$(request.resource.data.cnId)).data.method == 'voucher'
+        && getAfter(/databases/$(database)/documents/branches/$(request.resource.data.branch)/sales/$(request.resource.data.cnId)).data.total == -request.resource.data.amount;
+      allow update: if isStaff()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balance', 'status', 'uses'])
+        && request.resource.data.balance >= 0
+        && request.resource.data.balance <= resource.data.amount
+        && request.resource.data.status in ['active', 'used', 'void']
+        && resource.data.status != 'void'
+        && request.resource.data.uses.size() == resource.data.uses.size() + 1
+        && request.resource.data.uses.hasAll(resource.data.uses);
+    }
+
     // supplier bills (Purchases), head office only
     match /purchases/{id} {
       allow read, write: if isHQ();

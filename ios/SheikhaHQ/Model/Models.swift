@@ -89,6 +89,8 @@ struct Sale: Identifiable, Hashable {
     var cashAmt: Double
     var cardAmt: Double
     var kind: String
+    var vAmt: Double
+    var vCode: String
     var origNo: String
     var reason: String
 
@@ -101,6 +103,7 @@ struct Sale: Identifiable, Hashable {
         tendered = num(d["tendered"]); change = num(d["change"]); ref = str(d["ref"])
         vatRate = d["vatRate"] == nil ? 5 : num(d["vatRate"])
         cashAmt = num(d["cashAmt"]); cardAmt = num(d["cardAmt"])
+        vAmt = num(d["vAmt"]); vCode = str(d["vCode"])
         kind = str(d["kind"]); origNo = str(d["origNo"]); reason = str(d["reason"])
     }
     var date: Date { Date(timeIntervalSince1970: ts / 1000) }
@@ -108,15 +111,21 @@ struct Sale: Identifiable, Hashable {
     var isCard: Bool { method == "card" }
     var isSplit: Bool { method == "split" }
     var isBank: Bool { method == "bank" }
+    /// Paid (or refunded) with store credit – a credit note used as a voucher.
+    var isVoucher: Bool { method == "voucher" }
+    /// What was paid with money, after any store credit used on the bill.
+    var paidAmount: Double { total - vAmt }
     /// A return (credit note): minus amounts that take a refund off sales, VAT and the cash drawer.
     var isReturn: Bool { kind == "return" }
     /// Cash, card and bank-transfer parts of the bill (a split bill counts in cash and card).
-    var cashPart: Double { isSplit ? cashAmt : (isCard || isBank ? 0 : total) }
-    var cardPart: Double { isSplit ? cardAmt : (isCard ? total : 0) }
-    var bankPart: Double { isBank ? total : 0 }
+    var cashPart: Double { isSplit ? cashAmt : (isCard || isBank || isVoucher ? 0 : paidAmount) }
+    var cardPart: Double { isSplit ? cardAmt : (isCard ? paidAmount : 0) }
+    var bankPart: Double { isBank ? paidAmount : 0 }
     var methodName: String {
-        if isReturn { return isCard ? "Card refund" : isBank ? "Bank refund" : "Cash refund" }
-        return isSplit ? "Cash + Card" : isCard ? "Card" : isBank ? "Bank transfer" : "Cash"
+        if isReturn { return isVoucher ? "Store credit" : isCard ? "Card refund" : isBank ? "Bank refund" : "Cash refund" }
+        if isVoucher { return "Store credit" }
+        let base = isSplit ? "Cash + Card" : isCard ? "Card" : isBank ? "Bank transfer" : "Cash"
+        return vAmt > 0 ? base + " + store credit" : base
     }
 }
 
