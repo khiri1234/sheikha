@@ -361,3 +361,22 @@ and mark those customers **Opt out**, and send at reasonable hours (check the cu
 rules with your SMS/WhatsApp provider). The privacy policy (privacy.html) explains this.
 
 Needs the latest database rules: `firebase deploy --only firestore:rules`.
+
+### 24. Store credit (credit note as a voucher)
+When a customer returns items and would rather have credit than money back, choose
+**Store credit** in the return window. No money is paid out: the printed credit note
+says *STORE CREDIT AED …* and the customer brings it back to pay.
+
+To use it, in the payment window press **🎟 Pay with a credit note**, scan the credit note
+barcode (or type its number, e.g. `CN-B1-000123`) and press **Enter**.
+- If the credit covers the bill, press **Complete sale (store credit)**.
+- If not, the window shows what is **still to pay**: take it by cash, card, cash + card or
+  bank transfer as usual.
+- Whatever is left stays on the credit note for next time, at any branch. Scanning the
+  credit note on the Edit / Return page shows how much is left.
+
+Using store credit needs the internet, so the same credit can't be spent twice. Voiding a
+bill paid with store credit puts the credit back; a store-credit credit note can only be
+voided while none of it has been used. Store credit is not cash: it is not in the cash
+drawer count. Reports and the Z report show *Store credit given · used*.
+Needs the latest database rules: `firebase deploy --only firestore:rules`.
