@@ -90,6 +90,7 @@ struct Sale: Identifiable, Hashable {
     var cardAmt: Double
     var kind: String
     var vAmt: Double
+    var pend: String
     var vCode: String
     var origNo: String
     var reason: String
@@ -103,7 +104,7 @@ struct Sale: Identifiable, Hashable {
         tendered = num(d["tendered"]); change = num(d["change"]); ref = str(d["ref"])
         vatRate = d["vatRate"] == nil ? 5 : num(d["vatRate"])
         cashAmt = num(d["cashAmt"]); cardAmt = num(d["cardAmt"])
-        vAmt = num(d["vAmt"]); vCode = str(d["vCode"])
+        vAmt = num(d["vAmt"]); vCode = str(d["vCode"]); pend = str(d["pend"])
         kind = str(d["kind"]); origNo = str(d["origNo"]); reason = str(d["reason"])
     }
     var date: Date { Date(timeIntervalSince1970: ts / 1000) }
@@ -118,14 +119,17 @@ struct Sale: Identifiable, Hashable {
     /// A return (credit note): minus amounts that take a refund off sales, VAT and the cash drawer.
     var isReturn: Bool { kind == "return" }
     /// Cash, card and bank-transfer parts of the bill (a split bill counts in cash and card).
-    var cashPart: Double { isSplit ? cashAmt : (isCard || isBank || isVoucher ? 0 : paidAmount) }
+    var cashPart: Double { isSplit ? cashAmt : (method == "cash" || method.isEmpty ? paidAmount : 0) }
+    /// Cheque, pay later or a bank transfer not received yet: still waiting for the money.
+    var isWaiting: Bool { !isVoid && (pend == "waiting" || pend == "bounced") }
     var cardPart: Double { isSplit ? cardAmt : (isCard ? paidAmount : 0) }
     var bankPart: Double { isBank ? paidAmount : 0 }
     var methodName: String {
         if isReturn { return isVoucher ? "Store credit" : isCard ? "Card refund" : isBank ? "Bank refund" : "Cash refund" }
         if isVoucher { return "Store credit" }
-        let base = isSplit ? "Cash + Card" : isCard ? "Card" : isBank ? "Bank transfer" : "Cash"
-        return vAmt > 0 ? base + " + store credit" : base
+        let base = isSplit ? "Cash + Card" : isCard ? "Card" : isBank ? "Bank transfer" : method == "cheque" ? "Cheque" : method == "later" ? "Pay later" : "Cash"
+        let full = vAmt > 0 ? base + " + store credit" : base
+        return pend == "bounced" ? full + " (bounced)" : isWaiting ? full + " (waiting)" : full
     }
 }
 
@@ -243,6 +247,7 @@ struct Totals {
     var bills = 0, gross = 0.0, disc = 0.0, net = 0.0, vat = 0.0, total = 0.0
     var cash = 0.0, card = 0.0, cashN = 0, cardN = 0, voidN = 0, voidTotal = 0.0, retN = 0, retTotal = 0.0
     var bank = 0.0, bankN = 0
+    var waiting = 0.0, waitingN = 0
 
     init(_ list: [Sale]) {
         for s in list {
@@ -253,9 +258,10 @@ struct Totals {
             if s.cashPart > 0 { cash += s.cashPart; cashN += 1 }
             if s.bankPart > 0 { bankN += 1 }
             bank += s.bankPart
+            if s.isWaiting { waiting += s.paidAmount; waitingN += 1 }
         }
         gross = r2(gross); disc = r2(disc); net = r2(net); vat = r2(vat); total = r2(total)
-        cash = r2(cash); card = r2(card); bank = r2(bank); voidTotal = r2(voidTotal); retTotal = r2(retTotal)
+        cash = r2(cash); card = r2(card); bank = r2(bank); waiting = r2(waiting); voidTotal = r2(voidTotal); retTotal = r2(retTotal)
     }
     var average: Double { bills > 0 ? total / Double(bills) : 0 }
 }

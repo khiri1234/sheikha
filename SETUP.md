@@ -380,3 +380,25 @@ bill paid with store credit puts the credit back; a store-credit credit note can
 voided while none of it has been used. Store credit is not cash: it is not in the cash
 drawer count. Reports and the Z report show *Store credit given · used*.
 Needs the latest database rules: `firebase deploy --only firestore:rules`.
+
+### 25. Cheques, transfers not received yet, and pay later
+The payment window has **Cheque** and **Pay later**, and **Bank** has a tick box *Not
+received yet*.
+- **Cheque:** type the cheque number (required), bank and cheque date (can be later).
+- **Pay later:** needs the customer's phone number; pick the date to pay by and an optional
+  note. The window shows what that customer already owes.
+- The receipt says **PAYMENT PENDING – AED …**.
+
+The sale counts on its own date (daily sales, VAT, Z report), but its money isn't in the
+cash drawer: reports show *Cheques*, *Pay later* and *Still waiting for payment*.
+
+**Pending payments** (left menu, with a counter; each branch sees its own, head office all):
+- **✓ Received** when the money is in: cheque cleared / transfer arrived, or paid in cash,
+  card, bank transfer, or a new cheque. Cash goes into the open shift's drawer as *cash
+  paid in*.
+- **✗ Bounced** for a returned cheque or a transfer that never came; the bill stays owed
+  and shows **Collect**.
+- *Customers who owe* lists the total per customer. Overdue bills are red.
+A bill still waiting can't be returned: use **Edit** to change it, or **Void** it.
+The 11:59 PM summary adds *waiting for payment AED … (… overdue)*.
+Needs: `firebase deploy --only firestore:rules,functions`.

@@ -57,7 +57,7 @@ function payoutMessages(before, after, branch, prefs) {
 }
 
 /** Evening summary. sales: today's sales of all branches; open: shifts still open. */
-function dailyMessage(branches, sales, open, prefs) {
+function dailyMessage(branches, sales, open, prefs, pending = [], today = '') {
   if (!settings(prefs).daily) return null;
   const paid = sales.filter(s => s.status !== 'void');
   const total = paid.reduce((n, s) => n + Number(s.total || 0), 0);
@@ -71,6 +71,11 @@ function dailyMessage(branches, sales, open, prefs) {
   if (per.length && per[0].t > 0) parts.push('best: ' + per[0].b.name + ' AED ' + money(per[0].t));
   if (idle) parts.push(idle + ' branch' + (idle === 1 ? '' : 'es') + ' with no sales');
   if (voids) parts.push(voids + ' void' + (voids === 1 ? '' : 's'));
+  if (pending.length) {
+    const amt = pending.reduce((n, s) => n + Number(s.total || 0) - Number(s.vAmt || 0), 0);
+    const late = pending.filter(s => s.pend === 'bounced' || (s.dueDate && today && s.dueDate < today)).length;
+    parts.push('waiting for payment AED ' + money(amt) + (late ? ' (' + late + ' overdue)' : ''));
+  }
   if (open.length) parts.push(open.length + ' shift' + (open.length === 1 ? '' : 's') + ' still open');
   return { kind: 'daily', title: "Today's sales: AED " + money(total), body: parts.join(' · ') };
 }

@@ -118,6 +118,16 @@ service cloud.firestore {
           && request.resource.data.ts == resource.data.ts
           && request.resource.data.edits.size() == resource.data.get('edits', []).size() + 1
           && request.resource.data.edits.hasAll(resource.data.get('edits', []));
+        // pending payments (cheque, transfer not received yet, pay later): mark received,
+        // bounced, or a new cheque; every step is added to payLog, nothing else changes
+        allow update: if (isHQ() || isBranch(b)) && resource.data.status == 'paid'
+          && request.resource.data.status == 'paid'
+          && resource.data.get('pend', '') in ['waiting', 'bounced']
+          && request.resource.data.pend in ['waiting', 'received', 'bounced']
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pend', 'method', 'chqNo', 'chqBank', 'dueDate', 'payLog'])
+          && request.resource.data.method in [resource.data.method, 'cheque']
+          && request.resource.data.payLog.size() == resource.data.get('payLog', []).size() + 1
+          && request.resource.data.payLog.hasAll(resource.data.get('payLog', []));
       }
 
       match /held/{id} {
