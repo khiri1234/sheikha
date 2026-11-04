@@ -162,6 +162,11 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
 .seg button.on{background:var(--till);color:#fff}
 .seg.big{display:flex;margin-bottom:14px}
 .seg.big button{flex:1;padding:12px;font-size:15px}
+#pm{display:grid;grid-template-columns:repeat(3,1fr)}
+#pm button{padding:10px 6px}
+.nav-badge{margin-left:auto;background:#FF8A4C;color:#fff;border-radius:99px;padding:0 7px;font-size:11px;line-height:18px}
+.pend-note{color:var(--text-dim);font-size:12px}.pend-note.bad{color:#C0392B}
+.pay-ok{color:#166B3A}
 .quick{display:flex;gap:8px;flex-wrap:wrap;margin:-4px 0 12px}
 .quick button{padding:8px 13px;border-radius:9px;border:1px solid var(--line);background:#fff;font-weight:600;font-family:var(--mono);font-size:13px}
 .change{display:flex;justify-content:space-between;font-size:19px;font-weight:700;padding:10px 0}
@@ -518,6 +523,7 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
       <button class="nav-btn" data-view="shift" hidden><span class="ic">🕘</span>Shift</button>
       <button class="nav-btn" data-view="held"><span class="ic">⏸️</span>Held Bills<span class="nav-count" id="heldCount" hidden></span></button>
       <button class="nav-btn" data-view="edit"><span class="ic">✏️</span>Edit / Return</button>
+      <button class="nav-btn" data-view="pending" hidden><span class="ic">⏳</span>Pending payments<span class="nav-badge" id="pendBadge" hidden></span></button>
       <button class="nav-btn" data-view="items"><span class="ic">🧵</span>Items</button>
       <button class="nav-btn" data-view="purchases" hidden><span class="ic">🛒</span>Purchases</button>
       <button class="nav-btn" data-view="customers" hidden><span class="ic">👥</span>Customers</button>
@@ -627,6 +633,12 @@ main{padding:22px 26px;overflow-x:hidden;min-width:0}
     </section>
 
     <!-- PURCHASES VIEW (head office) -->
+    <section id="view-pending" hidden>
+      <div class="topbar">
+        <div><h1>Pending payments</h1><div class="sub">Bills paid by cheque, by a bank transfer that hasn't arrived yet, or pay later. Mark each one when the money is in.</div></div>
+      </div>
+      <div class="page-body card" id="pendingPage"></div>
+    </section>
     <section id="view-customers" hidden>
       <div class="topbar">
         <div><h1>Customers</h1><div class="sub">Customers' phone numbers saved at the tills, for sending offers to those who agreed. Only head office can see this list.</div></div>
@@ -1101,7 +1113,7 @@ async function startSession(user){
     listen(C.db.collection('branches'),snap=>{
       const ids=C.branches.map(b=>b.id).join();
       C.branches=snap.docs.map(d=>d.data()).sort(byCode);
-      watchToday();if(curView==='branches')renderBranches();
+      watchToday();watchPending();if(curView==='branches')renderBranches();
       if(ids!==C.branches.map(b=>b.id).join()){salesCache.clear();if(curView==='dashboard')renderDashboard(true)}
     });
     listen(C.db.collection('config').doc('vatin'),snap=>{vatin=snap.exists?snap.data():{}});
@@ -1118,6 +1130,7 @@ async function startSession(user){
       updateWho();
     });
     listen(heldCol(),snap=>{held=snap.docs.map(d=>d.data());renderHeld()});
+    watchPending();
     watchToday();
     watchShift();
     topUpInvoices();
@@ -1144,7 +1157,7 @@ function watchToday(){
 }
 function applyRole(){
   const role=CLOUD?C.role:'local';
-  const allow={dashboard:['hq'],shift:['branch'],sale:['local','branch'],held:['local','branch'],edit:['local','branch'],items:['local','hq'],purchases:['local','hq'],customers:['local','hq'],reports:['local','branch','hq'],branches:['hq'],settings:['local','hq']};
+  const allow={dashboard:['hq'],shift:['branch'],sale:['local','branch'],held:['local','branch'],edit:['local','branch'],pending:['local','branch','hq'],items:['local','hq'],purchases:['local','hq'],customers:['local','hq'],reports:['local','branch','hq'],branches:['hq'],settings:['local','hq']};
   $$('.nav-btn').forEach(b=>{b.hidden=!(allow[b.dataset.view]||[]).includes(role)});
   $('#who').hidden=!CLOUD||!C.role;
   if(CLOUD&&C.role){$('#whoEmail').textContent=C.email;netState()}
@@ -1186,7 +1199,7 @@ async function topUpInvoices(){
   toppingUp=false;
 }
 function saveSale(sale,voucher){
-  if(!CLOUD){sales.unshift(sale);saveSales();if(voucher){vouchers[voucher.code]=voucher;store.set('sk_vouchers',vouchers)}return}
+  if(!CLOUD){sales.unshift(sale);saveSales();pendBadge();if(voucher){vouchers[voucher.code]=voucher;store.set('sk_vouchers',vouchers)}return}
   Object.assign(sale,{branch:C.branch,branchName:brName(C.branch),by:C.email,cashier:cashierName(),cashierId:S.cashier?S.cashier.id:'',shiftId:S.shift?S.shift.id:''});
   const err=e=>{console.error(e);toast('Sale '+sale.no+' was not saved online: '+(e.code||e.message))};
   if(!voucher){salesCol(C.branch).doc(sale.id).set(sale).catch(err);return}
@@ -1197,11 +1210,11 @@ function saveSale(sale,voucher){
 // The bill as it was before is kept in its edits list.
 function saveEditedSale(old,sale){
   const before={};
-  ['lines','discount','sumGross','disc','net','vat','total','method','cashAmt','cardAmt','tendered','change','ref','cashier'].forEach(k=>{if(old[k]!==undefined)before[k]=old[k]});
+  ['lines','discount','sumGross','disc','net','vat','total','method','cashAmt','cardAmt','tendered','change','ref','cashier','pend','dueDate','chqNo','chqBank','payNote'].forEach(k=>{if(old[k]!==undefined)before[k]=old[k]});
   const by=cashierName()||(CLOUD?C.email:'');
   sale.edits=(old.edits||[]).concat([{at:Date.now(),by,before}]);
   sale.editedAt=Date.now();sale.editedBy=by;
-  ['branch','branchName','by','cashier','cashierId','shiftId','cust4','custName'].forEach(k=>{if(old[k]!==undefined)sale[k]=old[k]});
+  ['branch','branchName','by','cashier','cashierId','shiftId','cust4','custName','custPhone'].forEach(k=>{if(old[k]!==undefined)sale[k]=old[k]});
   if(!CLOUD){sales=sales.map(x=>x.id===sale.id?sale:x);saveSales();return}
   salesCache.clear();
   salesCol(sale.branch).doc(sale.id).set(sale).catch(e=>{console.error(e);toast('Changes to '+sale.no+' were not saved online: '+(e.code||e.message))});
@@ -1386,6 +1399,7 @@ async function returnModal(sl){
   if(sl.status==='void'||isReturn(sl))return;
   if(CLOUD&&!isBranchUser()){toast('Returns are made on the branch till, so the refund comes out of that branch’s cash drawer');return}
   if(editing&&editing.id===sl.id){toast('Finish or cancel editing '+sl.no+' first');return}
+  if(isPendingPay(sl)){toast(sl.no+' isn’t paid yet – use Edit to change it, or Void it');return}
   let prev;
   try{prev=await returnsOf(sl)}catch(e){toast('Could not check earlier returns: '+(e.code||e.message));return}
   const done=sl.lines.map((l,i)=>r2(prev.reduce((n,c)=>n+c.lines.filter(x=>x.src===i).reduce((k,x)=>k-(+x.qty),0),0)));
@@ -1515,9 +1529,15 @@ function payModal(startMethod){
     (editing?'':'<div class="vch"><button class="link" type="button" id="vOpen">🎟 Pay with a credit note (store credit)</button>'+
       '<div id="vForm" hidden><div class="vrow"><label class="fld"><span>Credit note number</span><input id="vCode" autocomplete="off" placeholder="Scan the credit note barcode"></label><button class="btn" type="button" id="vApply">Apply</button></div>'+
       '<div id="vInfo" class="cust-info" hidden></div></div></div>')+
-    '<div id="payRest"><div class="seg big" id="pm"><button data-m="cash" class="on">Cash</button><button data-m="card">Card</button><button data-m="split">Cash + Card</button><button data-m="bank">Bank</button></div>'+
+    '<div id="payRest"><div class="seg big" id="pm"><button data-m="cash" class="on">Cash</button><button data-m="card">Card</button><button data-m="split">Cash + Card</button><button data-m="bank">Bank</button><button data-m="cheque">Cheque</button><button data-m="later">Pay later</button></div>'+
+    '<div id="chequePane" hidden><div class="two-f"><label class="fld"><span>Cheque number</span><input id="chqNo" autocomplete="off" placeholder="e.g. 004512"></label><label class="fld"><span>Bank</span><input id="chqBank" autocomplete="off" placeholder="e.g. Emirates NBD"></label></div>'+
+    '<div class="two-f"><label class="fld"><span>Cheque date</span><input type="date" id="chqDate" value="'+ymd(Date.now())+'"></label><div></div></div>'+
+    '<div class="cust-info"><span>⏳ Not counted as cash. The bill waits on <b>Pending payments</b> until the cheque clears and it is marked <b>Received</b>.</span></div></div>'+
+    '<div id="laterPane" hidden><div class="two-f"><label class="fld"><span>Pay by (date)</span><input type="date" id="dueDate" value="'+ymd(Date.now()+30*864e5)+'"></label><label class="fld"><span>Note (optional)</span><input id="payNote" maxlength="60" placeholder="e.g. Pays at month end"></label></div>'+
+    '<div class="cust-info" id="laterInfo" style="background:#FFF4D6;color:#7A5300"><span>Pay later needs the customer’s phone number.</span></div></div>'+
     '<div id="bankPane" hidden><p class="sub" style="margin-bottom:12px">Check that the bank transfer has arrived (or see the customer’s transfer confirmation), then confirm here.</p>'+
-    '<label class="fld"><span>Transfer reference (optional)</span><input id="bRef" placeholder="e.g. bank reference or sender name"></label></div>'+
+    '<label class="fld"><span>Transfer reference (optional)</span><input id="bRef" placeholder="e.g. bank reference or sender name"></label>'+
+    '<label class="cust-ok" style="margin-bottom:12px"><input type="checkbox" id="bWait"> Not received yet – wait for it on Pending payments</label></div>'+
     '<div id="splitPane" hidden><label class="fld"><span>Card part (on the card machine)</span><div class="money"><i>AED</i><input id="cardAmt" class="num" inputmode="decimal" placeholder="0.00"></div></label>'+
     '<div class="change" id="cashDue"><span>Cash part to collect</span><b class="num">AED '+fmt(t.total)+'</b></div>'+
     '<label class="fld"><span>Cash received</span><div class="money"><i>AED</i><input id="sTend" class="num" inputmode="decimal" placeholder="0.00"></div></label>'+
@@ -1556,15 +1576,29 @@ function payModal(startMethod){
     }else if(method==='voucher'){
       $m('#payGo').disabled=false;
       $m('#payGo').textContent='Complete sale (store credit)';
+    }else if(method==='cheque'){
+      $m('#payGo').disabled=false;
+      $m('#payGo').textContent=editing?'Cheque taken – save changes':'Cheque taken – complete sale';
+    }else if(method==='later'){
+      $m('#payGo').disabled=false;
+      $m('#payGo').textContent=editing?'Save changes – pay later':'Complete sale – pay later';
     }else if(method==='bank'){
       $m('#payGo').disabled=false;
-      $m('#payGo').textContent=editing?'Transfer received – save changes':'Transfer received – complete sale';
+      $m('#payGo').textContent=$m('#bWait').checked?(editing?'Save changes – wait for transfer':'Complete sale – wait for transfer'):editing?'Transfer received – save changes':'Transfer received – complete sale';
     }else{
       $m('#payGo').disabled=false;
       $m('#payGo').textContent=editing?'Card approved – save changes':'Card approved – complete sale';
     }
   }
-  $m('#tend').addEventListener('input',upd);$m('#cardAmt').addEventListener('input',upd);$m('#sTend').addEventListener('input',upd);
+  $m('#tend').addEventListener('input',upd);$m('#bWait').addEventListener('change',upd);
+  // pay later: show what this customer already owes here
+  function laterInfo(){
+    if(method!=='later')return;
+    const id=!editing&&uaeMobile($m('#cPhone').value)||(editing&&editing.custPhone)||null,box=$m('#laterInfo');
+    if(!id){box.innerHTML='<span>Pay later needs the customer’s phone number'+(editing?' – this bill has none, so it can’t be pay later.':' below.')+'</span>';return}
+    const owe=pendingList().filter(x=>x.custPhone===id&&(!editing||x.id!==editing.id)),amt=r2(owe.reduce((n,x)=>n+paidOf(x),0));
+    box.innerHTML='<span>'+(owe.length?'<b>This customer already owes AED '+fmt(amt)+'</b> ('+plural(owe.length,'bill')+(CLOUD&&!isHQ()?' at this branch':'')+').':'✓ Nothing owed by this customer yet.')+'</span>';
+  }$m('#cardAmt').addEventListener('input',upd);$m('#sTend').addEventListener('input',upd);
   $$('[data-amt]',m.el).forEach(b=>b.onclick=()=>{$m('#tend').value=b.dataset.amt;upd()});
   // store credit: look the credit note up, use as much of it as the bill needs
   if(!editing){
@@ -1595,8 +1629,11 @@ function payModal(startMethod){
     $m('#cardPane').hidden=method!=='card';
     $m('#splitPane').hidden=method!=='split';
     $m('#bankPane').hidden=method!=='bank';
-    upd();
-    if(method==='cash')$m('#tend').focus();else if(method==='split')$m('#cardAmt').focus();else if(method==='bank')$m('#bRef').focus();else $m('#ref').focus();
+    $m('#chequePane').hidden=method!=='cheque';
+    $m('#laterPane').hidden=method!=='later';
+    upd();laterInfo();
+    if(method==='cash')$m('#tend').focus();else if(method==='split')$m('#cardAmt').focus();else if(method==='bank')$m('#bRef').focus();
+    else if(method==='cheque')$m('#chqNo').focus();else if(method==='later')(editing?$m('#dueDate'):$m('#cPhone')).focus();else $m('#ref').focus();
   });
   // Enter completes the payment (cash with nothing typed = exact amount)
   m.el.addEventListener('keydown',e=>{
@@ -1620,6 +1657,7 @@ function payModal(startMethod){
     const show=(cls,html)=>{info.hidden=!html;info.className='cust-info'+(cls?' '+cls:'');info.innerHTML=html||''};
     ph.addEventListener('blur',()=>{const id=uaeMobile(ph.value);if(id&&ph.value!==phoneFmt(id).slice(5))ph.value=phoneFmt(id).slice(5)});
     ph.addEventListener('input',async()=>{
+      laterInfo();
       const id=uaeMobile(ph.value),n=++custSeq;cust=undefined;
       if(!ph.value.trim()){show('','');return}
       if(!id){show('','UAE mobile number, e.g. 050 123 4567');return}
@@ -1635,6 +1673,9 @@ function payModal(startMethod){
   }
   $m('#payGo').onclick=async()=>{
     if(!editing&&$m('#cPhone').value.trim()&&!uaeMobile($m('#cPhone').value)){toast('Enter a UAE mobile number (e.g. 050 123 4567) or leave it empty');$m('#cPhone').focus();return}
+    const owner=!editing?uaeMobile($m('#cPhone').value):editing.custPhone||null;
+    if(method==='later'&&!owner){toast(editing?'This bill has no customer phone number, so it can’t be pay later':'Pay later needs the customer’s phone number');if(!editing)$m('#cPhone').focus();return}
+    if(method==='cheque'&&!$m('#chqNo').value.trim()){toast('Enter the cheque number');$m('#chqNo').focus();return}
     const cardAmt=method==='split'?r2(parseFloat($m('#cardAmt').value)||0):0,cashAmt=r2(due-cardAmt);
     const tendered=method==='cash'?parseFloat($m('#tend').value)||0:method==='split'?parseFloat($m('#sTend').value)||0:due;
     const ed=editing,saleId=uid(),saleNo=ed?ed.no:nextInvoiceNo();
@@ -1652,6 +1693,11 @@ function payModal(startMethod){
     };
     if(method==='split'){sale.cardAmt=cardAmt;sale.cashAmt=cashAmt}
     if(vc){sale.vCode=vc.code;sale.vAmt=vc.amt}
+    // cheque, pay later and a bank transfer not received yet wait on Pending payments
+    if(method==='cheque')Object.assign(sale,{pend:'waiting',chqNo:$m('#chqNo').value.trim(),chqBank:$m('#chqBank').value.trim(),dueDate:$m('#chqDate').value||ymd(Date.now())});
+    if(method==='later')Object.assign(sale,{pend:'waiting',dueDate:$m('#dueDate').value||ymd(Date.now()+30*864e5),payNote:$m('#payNote').value.trim()});
+    if(method==='bank'&&$m('#bWait').checked)sale.pend='waiting';
+    if(sale.pend){sale.payLog=[];if(owner)sale.custPhone=owner}
     const cId=!ed&&uaeMobile($m('#cPhone').value),cName=cId?$m('#cName').value.trim().slice(0,40):'';
     if(cId){sale.cust4=cId.slice(-4);if(cName)sale.custName=cName;recordCustomer(cId,cName,$m('#cOk').checked,t.total,cust)}
     if(ed){
@@ -1735,6 +1781,9 @@ function receiptHTML(s){
     (CN&&s.method==='voucher'?'<hr><div class="c"><b>STORE CREDIT AED '+fmt(s.total)+'</b><br>Use this credit note as payment on your next purchase.<br><bdi>استخدم هذا الإشعار كرصيد في مشترياتك القادمة</bdi></div>':'')+
     (s.method==='split'?'<div class="kv"><span>'+L('Card amount','بالبطاقة')+'</span><span>'+fmt(s.cardAmt)+'</span></div><div class="kv"><span>'+L('Cash amount','نقداً')+'</span><span>'+fmt(s.cashAmt)+'</span></div>':'')+
     (s.method==='split'&&s.ref?'<div class="kv"><span>'+L('Card ref.','مرجع البطاقة')+'</span><span>'+esc(s.ref)+'</span></div>':'')+
+    (s.method==='cheque'?'<div class="kv"><span>'+L('Cheque no.','رقم الشيك')+'</span><span>'+esc(s.chqNo||'')+'</span></div>'+(s.chqBank?'<div class="kv"><span>'+L('Bank','البنك')+'</span><span>'+esc(s.chqBank)+'</span></div>':'')+'<div class="kv"><span>'+L('Cheque date','تاريخ الشيك')+'</span><span>'+(s.dueDate?fmtDay(s.dueDate+'T12:00:00'):'')+'</span></div>':'')+
+    (s.method==='later'&&s.dueDate?'<div class="kv"><span>'+L('Pay by','تاريخ الدفع')+'</span><span>'+fmtDay(s.dueDate+'T12:00:00')+'</span></div>':'')+
+    (s.pend&&!CN?'<hr><div class="c">'+(s.pend==='received'?'<b>PAID – <bdi>تم الدفع</bdi></b>':'<b>PAYMENT PENDING – AED '+fmt(paidOf(s))+'</b><br>'+(s.method==='cheque'?'Until the cheque is cleared<br><bdi>الدفع معلّق حتى صرف الشيك</bdi>':s.method==='later'?'To be paid later<br><bdi>المبلغ مستحق الدفع لاحقاً</bdi>':'Until the bank transfer arrives<br><bdi>الدفع معلّق حتى وصول التحويل</bdi>'))+'</div>':'')+
     (s.method==='bank'&&s.ref?'<div class="kv"><span>'+L('Transfer ref.','مرجع التحويل')+'</span><span>'+esc(s.ref)+'</span></div>':'')+
     ((s.method==='cash'||s.method==='split'||!s.method)&&!CN?'<div class="kv"><span>'+L('Cash received','المدفوع')+'</span><span>'+fmt(s.tendered)+'</span></div><div class="kv"><span>'+L('Change','الباقي')+'</span><span>'+fmt(s.change)+'</span></div>':(s.method==='card'&&s.ref?'<div class="kv"><span>'+L('Card ref.','مرجع البطاقة')+'</span><span>'+esc(s.ref)+'</span></div>':''))+
     (s.status==='void'?'<hr><div class="c"><b>*** VOIDED – <bdi>ملغاة</bdi> ***</b></div>':'')+
@@ -1787,20 +1836,25 @@ function quickRange(n,full){
 // how much of a bill was paid in cash / by card (split bills count in both)
 // what was paid with money, after any store credit used on the bill
 const paidOf=s=>r2(s.total-(+s.vAmt||0));
-function cashOf(s){return s.method==='split'?(+s.cashAmt||0):(s.method==='card'||s.method==='bank'||s.method==='voucher')?0:paidOf(s)}
+function cashOf(s){return s.method==='split'?(+s.cashAmt||0):(s.method==='cash'||!s.method)?paidOf(s):0}
 function bankOf(s){return s.method==='bank'?paidOf(s):0}
 // store credit used on sales (+) and given as refunds (−)
+function chequeOf(s){return s.method==='cheque'?paidOf(s):0}
+function laterOf(s){return s.method==='later'?paidOf(s):0}
+const isPendingPay=s=>!!s&&s.status!=='void'&&(s.pend==='waiting'||s.pend==='bounced');
 function creditOf(s){return isReturn(s)?(s.method==='voucher'?s.total:0):(+s.vAmt||0)}
 function cardOf(s){return s.method==='split'?(+s.cardAmt||0):s.method==='card'?paidOf(s):0}
 function payName(s,ar){if(isReturn(s)){if(s.method==='voucher')return ar?'Credit':'Store credit';const k=s.method==='card'?'Card':s.method==='bank'?'Bank':'Cash';return ar?k:k+' refund'}
-  if(s.method==='voucher')return ar?'Credit':'Store credit';if(!ar&&+s.vAmt>0)return payName(Object.assign({},s,{vAmt:0}))+' + store credit';if(s.method==='bank')return ar?'Transfer':'Bank transfer';return s.method==='split'?(ar?'Cash+Card':'Cash + Card'):s.method==='card'?(ar?'Card <bdi>بطاقة</bdi>':'Card'):(ar?'Cash <bdi>نقداً</bdi>':'Cash')}
+  if(s.method==='voucher')return ar?'Credit':'Store credit';
+  if(s.method==='cheque'||s.method==='later'){const k=s.method==='cheque'?'Cheque':ar?'Later':'Pay later';return !ar&&+s.vAmt>0?k+' + store credit':k}if(!ar&&+s.vAmt>0)return payName(Object.assign({},s,{vAmt:0}))+' + store credit';if(s.method==='bank')return ar?'Transfer':'Bank transfer';return s.method==='split'?(ar?'Cash+Card':'Cash + Card'):s.method==='card'?(ar?'Card <bdi>بطاقة</bdi>':'Card'):(ar?'Cash <bdi>نقداً</bdi>':'Cash')}
 function agg(list){
   const paid=list.filter(s=>s.status!=='void'),voids=list.filter(s=>s.status==='void');
   const sum=(a,f)=>r2(a.reduce((x,s)=>x+f(s),0));
   const cash=paid.filter(s=>cashOf(s)>0),card=paid.filter(s=>cardOf(s)>0),bank=paid.filter(s=>bankOf(s)>0),rets=paid.filter(isReturn);
   const crUsed=sum(paid.filter(s=>!isReturn(s)),creditOf),crGiven=sum(rets,s=>-creditOf(s));
+  const waiting=paid.filter(isPendingPay);
   return {bills:paid.length-rets.length,retN:rets.length,retTotal:sum(rets,s=>-s.total),gross:sum(paid,s=>s.sumGross),disc:sum(paid,s=>s.disc),net:sum(paid,s=>s.net),vat:sum(paid,s=>s.vat),total:sum(paid,s=>s.total),
-    cash:sum(paid,cashOf),card:sum(paid,cardOf),bank:sum(paid,bankOf),crUsed,crGiven,cashN:cash.length,cardN:card.length,bankN:bank.length,voidN:voids.length,voidTotal:sum(voids,s=>s.total)};
+    cash:sum(paid,cashOf),card:sum(paid,cardOf),bank:sum(paid,bankOf),cheque:sum(paid,chequeOf),later:sum(paid,laterOf),waitAmt:sum(waiting,paidOf),waitN:waiting.length,crUsed,crGiven,cashN:cash.length,cardN:card.length,bankN:bank.length,voidN:voids.length,voidTotal:sum(voids,s=>s.total)};
 }
 function byItem(list){
   const map={};
@@ -1845,7 +1899,7 @@ function itemsBlock(list){
 function dailyBody(list,showBr){
   const a=agg(list);
   return '<div class="stats">'+statBox('Bills',a.bills)+statBox('Net sales excl. VAT',aed(a.net))+statBox('VAT collected',aed(a.vat))+statBox('Total sales',aed(a.total))+
-    statBox('Cash ('+a.cashN+' bills)',aed(a.cash))+statBox('Card ('+a.cardN+' bills)',aed(a.card))+(a.bank||a.bankN?statBox('Bank transfer ('+a.bankN+' bills)',aed(a.bank)):'')+(a.crUsed||a.crGiven?statBox('Store credit given · used',fmt(a.crGiven)+' · '+fmt(a.crUsed)):'')+statBox('Discounts given',aed(a.disc))+statBox('Voided ('+a.voidN+')',aed(a.voidTotal))+(a.retN?statBox('Returns ('+a.retN+')','− '+aed(a.retTotal)):'')+'</div>'+
+    statBox('Cash ('+a.cashN+' bills)',aed(a.cash))+statBox('Card ('+a.cardN+' bills)',aed(a.card))+(a.bank||a.bankN?statBox('Bank transfer ('+a.bankN+' bills)',aed(a.bank)):'')+(a.cheque?statBox('Cheques',aed(a.cheque)):'')+(a.later?statBox('Pay later',aed(a.later)):'')+(a.waitN?statBox('Still waiting for payment ('+a.waitN+')',aed(a.waitAmt)):'')+(a.crUsed||a.crGiven?statBox('Store credit given · used',fmt(a.crGiven)+' · '+fmt(a.crUsed)):'')+statBox('Discounts given',aed(a.disc))+statBox('Voided ('+a.voidN+')',aed(a.voidTotal))+(a.retN?statBox('Returns ('+a.retN+')','− '+aed(a.retTotal)):'')+'</div>'+
     (showBr?'<h3 class="rs">Sales by branch</h3>'+branchBlock(list):'')+
     '<h3 class="rs">Sales by fabric</h3>'+itemsBlock(list)+'<h3 class="rs">Bills</h3>'+billsBlock(list,false,showBr);
 }
@@ -2210,7 +2264,7 @@ function shiftSummary(sh,list){
   const a=agg(list),byC={};
   list.filter(x=>x.status!=='void').forEach(x=>{const k=x.cashier||'—';const o=byC[k]||(byC[k]={bills:0,total:0,cash:0,card:0,bank:0});if(!isReturn(x))o.bills++;o.total=r2(o.total+x.total);o.cash=r2(o.cash+cashOf(x));o.card=r2(o.card+cardOf(x));o.bank=r2((o.bank||0)+bankOf(x))});
   const moves=sh.moves||[],paidOut=r2(moves.filter(m=>m.type==='out').reduce((n,m)=>n+m.amount,0)),paidIn=r2(moves.filter(m=>m.type==='in').reduce((n,m)=>n+m.amount,0));
-  return {bills:a.bills,gross:a.gross,disc:a.disc,net:a.net,vat:a.vat,total:a.total,cash:a.cash,card:a.card,bank:a.bank,crUsed:a.crUsed,crGiven:a.crGiven,cashN:a.cashN,cardN:a.cardN,bankN:a.bankN,voidN:a.voidN,voidTotal:a.voidTotal,retN:a.retN,retTotal:a.retTotal,byCashier:byC,paidOut,paidIn,moves,expectedCash:r2((+sh.openingFloat||0)+a.cash-paidOut+paidIn)};
+  return {bills:a.bills,gross:a.gross,disc:a.disc,net:a.net,vat:a.vat,total:a.total,cash:a.cash,card:a.card,bank:a.bank,cheque:a.cheque,later:a.later,crUsed:a.crUsed,crGiven:a.crGiven,cashN:a.cashN,cardN:a.cardN,bankN:a.bankN,voidN:a.voidN,voidTotal:a.voidTotal,retN:a.retN,retTotal:a.retTotal,byCashier:byC,paidOut,paidIn,moves,expectedCash:r2((+sh.openingFloat||0)+a.cash-paidOut+paidIn)};
 }
 function zReportHTML(sh,sum,kind){
   const br=branchById(sh.branch)||{};const kv=(k,v,cls)=>'<div class="kv'+(cls?' '+cls:'')+'"><span>'+k+'</span><span>'+v+'</span></div>';
@@ -2220,7 +2274,7 @@ function zReportHTML(sh,sum,kind){
     '<hr><div class="c"><b>'+(kind==='Z'?'Z REPORT – END OF SHIFT':'X REPORT – SHIFT SO FAR')+'</b>'+(closed&&sh.zNo?'<br><b>'+esc(sh.zNo)+'</b>':'')+'</div><hr>'+
     kv('Opened',fmtDate(sh.openedAt))+kv('Opened by',esc(sh.openedBy||''))+(closed?kv('Closed',fmtDate(sh.closedAt))+kv('Closed by',esc(sh.closedBy||'')):kv('Printed',fmtDate(Date.now())))+'<hr>'+
     kv('Bills',sum.bills)+kv('Items (incl. VAT)',fmt(sum.gross))+(sum.disc?kv('Discounts','− '+fmt(sum.disc)):'')+kv('Amount excl. VAT',fmt(sum.net))+kv('VAT '+settings.vat+'%',fmt(sum.vat))+kv('TOTAL (AED)',fmt(sum.total),'t')+'<hr>'+
-    kv('Cash ('+sum.cashN+')',fmt(sum.cash))+kv('Card ('+sum.cardN+')',fmt(sum.card))+(sum.bankN?kv('Bank transfer ('+sum.bankN+')',fmt(sum.bank)):'')+(sum.crUsed?kv('Store credit used',fmt(sum.crUsed)):'')+(sum.crGiven?kv('Store credit given',fmt(sum.crGiven)):'')+kv('Voided ('+sum.voidN+')',fmt(sum.voidTotal))+(sum.retN?kv('Returns ('+sum.retN+')','− '+fmt(sum.retTotal)):'')+'<hr>'+
+    kv('Cash ('+sum.cashN+')',fmt(sum.cash))+kv('Card ('+sum.cardN+')',fmt(sum.card))+(sum.bankN?kv('Bank transfer ('+sum.bankN+')',fmt(sum.bank)):'')+(sum.cheque?kv('Cheques',fmt(sum.cheque)):'')+(sum.later?kv('Pay later',fmt(sum.later)):'')+(sum.crUsed?kv('Store credit used',fmt(sum.crUsed)):'')+(sum.crGiven?kv('Store credit given',fmt(sum.crGiven)):'')+kv('Voided ('+sum.voidN+')',fmt(sum.voidTotal))+(sum.retN?kv('Returns ('+sum.retN+')','− '+fmt(sum.retTotal)):'')+'<hr>'+
     '<div class="c"><b>BY CASHIER</b></div>'+Object.keys(sum.byCashier).map(k=>{const o=sum.byCashier[k];return kv(esc(k)+' ('+o.bills+')',fmt(o.total))}).join('')+(Object.keys(sum.byCashier).length?'':'<div class="fine c">No sales</div>')+'<hr>'+
     '<div class="c"><b>CASH DRAWER</b></div>'+kv('Opening float',fmt(sh.openingFloat))+kv(sum.retN?'+ Cash sales less refunds':'+ Cash sales',fmt(sum.cash))+
     (sum.paidIn?kv('+ Cash paid in',fmt(sum.paidIn)):'')+(sum.paidOut?kv('− Cash paid out',fmt(sum.paidOut)):'')+
@@ -2629,6 +2683,111 @@ function branchForm(b){
 }
 $('#btnAddBranch').onclick=()=>branchForm(null);
 
+/* ---------- pending payments (cheques, transfers not received yet, pay later) ----------
+   A bill paid this way is a sale on its own date (sales, VAT, Z report) but its money
+   comes later: it carries pend 'waiting' until someone marks it received, or 'bounced'
+   when a cheque is returned. Every step is added to the bill's payLog. Money collected
+   in cash later goes into the cash drawer of the open shift as "cash paid in". */
+let pendLive={},pendUnsubs=[];
+function watchPending(){
+  if(!CLOUD)return;
+  pendUnsubs.forEach(u=>u());pendUnsubs=[];pendLive={};
+  const ids=isHQ()?C.branches.map(b=>b.id):[C.branch];
+  ids.forEach(id=>{
+    const u=salesCol(id).where('pend','in',['waiting','bounced']).onSnapshot(q=>{pendLive[id]=q.docs.map(d=>d.data());pendBadge();if(curView==='pending')drawPending()},
+      e=>console.warn('Pending payments',e));
+    pendUnsubs.push(u);C.unsubs.push(u);
+  });
+}
+function pendingList(){return (CLOUD?Object.values(pendLive).flat():sales).filter(isPendingPay)}
+function pendBadge(){const n=pendingList().length,b=$('#pendBadge');if(b){b.hidden=!n;b.textContent=n}}
+const daysTo=d=>Math.round((new Date(d+'T12:00:00')-new Date(ymd(Date.now())+'T12:00:00'))/864e5);
+const pendHow=s=>s.method==='cheque'?'Cheque '+esc(s.chqNo||'')+(s.chqBank?' · '+esc(s.chqBank):''):s.method==='later'?'Pay later'+(s.payNote?' · '+esc(s.payNote):''):'Bank transfer'+(s.ref?' · '+esc(s.ref):'');
+const PD={show:'open',type:'all',br:'all',q:''};
+function renderPending(){
+  const host=$('#pendingPage');
+  const selF=(l,f,opts)=>'<label class="fld sm"><span>'+l+'</span><select data-pdf="'+f+'">'+opts.map(o=>'<option value="'+o[0]+'"'+(PD[f]===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+'</select></label>';
+  host.innerHTML='<div id="pdStats"></div><div class="filters">'+selF('Show','show',[['open','Waiting and overdue'],['overdue','Overdue only'],['bounced','Bounced cheques']])+
+    selF('Type','type',[['all','All'],['cheque','Cheques'],['bank','Bank transfers'],['later','Pay later']])+
+    (CLOUD&&isHQ()?selF('Branch','br',[['all','All branches']].concat(C.branches.map(b=>[b.id,b.code+' · '+b.name]))):'')+
+    '<label class="fld sm"><span>Search</span><input id="pdQ" placeholder="Invoice, customer, cheque no." value="'+esc(PD.q)+'"></label></div><div id="pdList"></div>';
+  $$('[data-pdf]',host).forEach(i=>i.onchange=()=>{PD[i.dataset.pdf]=i.value;drawPending()});
+  $('#pdQ').oninput=e=>{PD.q=e.target.value;drawPending()};
+  drawPending();
+}
+function drawPending(){
+  if(!$('#pdList'))return;
+  const all=pendingList(),over=s=>s.pend==='waiting'&&s.dueDate&&daysTo(s.dueDate)<0;
+  const sumOf=l=>r2(l.reduce((n,x)=>n+paidOf(x),0));
+  const ov=all.filter(over),chq=all.filter(x=>x.method==='cheque'||x.method==='bank'),lat=all.filter(x=>x.method==='later');
+  $('#pdStats').innerHTML='<div class="stats" style="margin-bottom:14px">'+statBox('Waiting for payment ('+all.length+')',aed(sumOf(all)))+statBox('Overdue ('+ov.length+')',ov.length?'<span style="color:#C0392B;font:inherit">'+aed(sumOf(ov))+'</span>':aed(0))+
+    statBox('Cheques · transfers ('+chq.length+')',aed(sumOf(chq)))+statBox('Pay later ('+plural(new Set(lat.map(x=>x.custPhone)).size,'customer')+')',aed(sumOf(lat)))+'</div>';
+  const q=PD.q.trim().toLowerCase();
+  const list=all.filter(s=>(PD.show==='open'||(PD.show==='overdue'?over(s):s.pend==='bounced'))&&(PD.type==='all'||s.method===PD.type)&&(PD.br==='all'||s.branch===PD.br)&&
+    (!q||[s.no,s.custName,s.custPhone,s.chqNo,s.chqBank,s.ref].some(v=>String(v||'').toLowerCase().includes(q.replace(/^0/,'')))))
+    .sort((a,b)=>(a.dueDate||ymd(a.ts)).localeCompare(b.dueDate||ymd(b.ts)));
+  const due=s=>{if(s.pend==='bounced'){const e=(s.payLog||[]).filter(x=>x.ev==='bounced').pop();return '<span class="pend-note bad">bounced'+(e?' '+fmtDay(e.at):'')+'</span>'}
+    if(!s.dueDate){const d=Math.round((Date.now()-s.ts)/864e5);return '—<br><span class="pend-note">'+(d<1?'since today':plural(d,'day')+' waiting')+'</span>'}
+    const d=daysTo(s.dueDate);return fmtDay(s.dueDate+'T12:00:00')+'<br><span class="pend-note'+(d<0?' bad':'')+'">'+(d<0?plural(-d,'day')+' late':d===0?'today':'in '+plural(d,'day'))+'</span>'};
+  const tag=s=>s.pend==='bounced'?'<span class="tag out">Bounced</span>':over(s)?'<span class="tag out">Overdue</span>':'<span class="tag">Waiting</span>';
+  const who=s=>esc(s.custName||'—')+(s.custPhone?' <small class="pend-note">•••• '+s.custPhone.slice(-4)+'</small>':s.cust4?' <small class="pend-note">•••• '+esc(s.cust4)+'</small>':'');
+  let html=list.length?tbl([['Invoice']].concat(CLOUD&&isHQ()?[['Branch']]:[],[['Date'],['Customer'],['How'],['Due'],['Amount',1],['Status'],['']]),
+    list.map(s=>trow([esc(s.no)].concat(CLOUD&&isHQ()?[esc(brName(s.branch))]:[],[fmtDay(s.ts),who(s),pendHow(s),due(s),'<b>'+fmt(paidOf(s))+'</b>',tag(s),
+      s.pend==='bounced'?'<button class="mini" data-pr="'+esc(s.id)+'">Collect</button>':'<button class="mini pay-ok" data-pr="'+esc(s.id)+'">✓ Received</button>'+(s.method==='later'?'':' <button class="mini danger" data-pb="'+esc(s.id)+'">✗ Bounced</button>')]),
+      CLOUD&&isHQ()?'llllllrll':'lllllrll'))):'<p class="none">'+(all.length?'Nothing matches these filters.':'No payments waiting. Bills paid by cheque, pay later, or a bank transfer not received yet show here until they are paid.')+'</p>';
+  const by={};all.filter(x=>x.custPhone).forEach(x=>{const o=by[x.custPhone]||(by[x.custPhone]={name:'',n:0,amt:0,old:x.ts,over:false});o.name=o.name||x.custName||'';o.n++;o.amt=r2(o.amt+paidOf(x));o.old=Math.min(o.old,x.ts);o.over=o.over||over(x)||x.pend==='bounced'});
+  const ows=Object.entries(by).sort((a,b)=>b[1].amt-a[1].amt);
+  if(ows.length)html+='<h3 class="rs">Customers who owe</h3>'+tbl([['Customer'],['Bills',1],['Owes',1],['Oldest']],ows.map(([ph,o])=>trow([esc(o.name||'—')+' <small class="pend-note">'+phoneFmt(ph)+'</small>',o.n,'<b>'+fmt(o.amt)+'</b>',fmtDay(o.old)+(o.over?' <span class="tag out">Overdue</span>':'')],'lrrl')));
+  $('#pdList').innerHTML=html;
+  $$('[data-pr]').forEach(b=>b.onclick=()=>{const s=all.find(x=>x.id===b.dataset.pr);if(s)receivePayment(s)});
+  $$('[data-pb]').forEach(b=>b.onclick=async()=>{
+    const s=all.find(x=>x.id===b.dataset.pb);if(!s)return;
+    if(!(await askConfirm((s.method==='cheque'?'Cheque bounced':'Transfer not received')+' – '+s.no+'?','AED '+fmt(paidOf(s))+' stays owed and the bill is marked Bounced. Collect it later with another payment, or void the bill.','Mark bounced',true)))return;
+    updatePay(s,{pend:'bounced'},{ev:'bounced'});logAct('Payment',s.no+' – '+(s.method==='cheque'?'cheque '+(s.chqNo||'')+' bounced':'payment not received')+' (AED '+fmt(paidOf(s))+')');
+  });
+}
+function updatePay(s,ch,ev){
+  const e=Object.assign({at:Date.now(),by:cashierName()||(CLOUD?C.email:'')},ev);
+  if(!CLOUD){Object.assign(s,ch);s.payLog=(s.payLog||[]).concat([e]);saveSales();pendBadge();if(curView==='pending')drawPending();return}
+  salesCol(s.branch).doc(s.id).update(Object.assign({},ch,{payLog:firebase.firestore.FieldValue.arrayUnion(e)})).catch(err=>{console.error(err);toast('Not saved: '+(err.code||err.message))});
+  salesCache.clear();
+}
+// money for a waiting or bounced bill came in
+function receivePayment(s){
+  const amt=paidOf(s),bounced=s.pend==='bounced';
+  const first=bounced?'cash':s.method==='cheque'?'cleared':s.method==='bank'?'arrived':'cash';
+  const opts=(bounced||s.method==='later'?[]:[[first,s.method==='cheque'?'Cheque cleared':'Transfer arrived']]).concat([['cash','Cash'],['card','Card'],['bank','Bank transfer'],['cheque','New cheque']]);
+  const shiftOk=CLOUD&&isBranchUser()&&S.shift;
+  const m=modal('<h2>'+(bounced?'Collect':'Payment received')+' – '+esc(s.no)+'</h2><p class="sub">'+pendHow(s)+(s.custName?' · '+esc(s.custName):'')+'</p>'+
+    '<div class="paytotal"><span>Amount</span><b class="num">AED '+fmt(amt)+'</b></div>'+
+    '<div class="seg big" id="rcm" style="display:grid;grid-template-columns:repeat('+Math.min(opts.length,3)+',1fr)">'+opts.map((o,i)=>'<button data-m="'+o[0]+'"'+(i===0?' class="on"':'')+'>'+o[1]+'</button>').join('')+'</div>'+
+    '<div id="rcNew" hidden><div class="two-f"><label class="fld"><span>Cheque number</span><input id="rcChq"></label><label class="fld"><span>Bank</span><input id="rcBank"></label></div><label class="fld"><span>Cheque date</span><input type="date" id="rcDate" value="'+ymd(Date.now())+'"></label></div>'+
+    '<label class="fld"><span>Reference (optional)</span><input id="rcRef" placeholder="e.g. card approval or bank reference"></label>'+
+    '<div class="cust-info" id="rcInfo"></div>'+
+    '<div class="actions"><button class="ghost" id="rcCancel">Cancel</button><button class="primary" id="rcGo">Confirm</button></div>');
+  const $m=x=>$(x,m.el);let how=opts[0][0];
+  const info=()=>{$m('#rcNew').hidden=how!=='cheque';
+    $m('#rcInfo').innerHTML='<span>'+(how==='cash'?(shiftOk?'AED '+fmt(amt)+' goes into the cash drawer of the open shift (as cash paid in).':'Put the cash in the drawer'+(CLOUD&&isBranchUser()?' – there is no open shift, so it isn’t added to a drawer count.':'.')):how==='cheque'?'The bill keeps waiting until the new cheque clears.':'The bill is marked paid.')+'</span>'};
+  $$('#rcm button',m.el).forEach(b=>b.onclick=()=>{how=b.dataset.m;$$('#rcm button',m.el).forEach(x=>x.classList.toggle('on',x===b));info()});info();
+  $m('#rcCancel').onclick=()=>m.close();
+  $m('#rcGo').onclick=()=>{
+    const ref=$m('#rcRef').value.trim();
+    if(how==='cheque'){
+      const no=$m('#rcChq').value.trim();if(!no){toast('Enter the cheque number');$m('#rcChq').focus();return}
+      updatePay(s,{pend:'waiting',method:'cheque',chqNo:no,chqBank:$m('#rcBank').value.trim(),dueDate:$m('#rcDate').value||ymd(Date.now())},{ev:'newcheque',chqNo:no,ref});
+      logAct('Payment',s.no+' – new cheque '+no+' (AED '+fmt(amt)+')');
+    }else{
+      updatePay(s,{pend:'received'},{ev:'received',how,ref,amount:amt});
+      if(how==='cash'&&shiftOk){
+        const mv={id:uid(),ts:Date.now(),type:'in',amount:amt,reason:'Payment for '+s.no,cashier:cashierName()||C.email};
+        shiftsCol().doc(S.shift.id).update({moves:firebase.firestore.FieldValue.arrayUnion(mv)}).catch(e=>toast('Drawer not updated: '+(e.code||e.message)));
+      }
+      logAct('Payment',s.no+' – AED '+fmt(amt)+' received ('+({cleared:'cheque cleared',arrived:'transfer arrived',cash:'cash',card:'card',bank:'bank transfer'}[how]||how)+')');
+    }
+    m.close();toast(how==='cheque'?'New cheque saved':s.no+' marked paid');
+  };
+}
+
 /* ---------- customers (phone numbers for offers) ----------
    Cloud: customers/{9715xxxxxxxx}: phone, name, consent ('agreed' | 'no' | 'out'),
    when and where they agreed, first and last visit, visits and total spent.
@@ -2978,7 +3137,7 @@ function sideToday(){
   $('#sideToday').textContent='AED '+fmt(agg(list).total);
 }
 let curView='sale';
-const VIEWS={dashboard:()=>renderDashboard(),shift:()=>renderShiftPage(),sale:null,held:()=>renderHeld(),edit:()=>renderEditPage(),items:itemsModal,purchases:()=>renderPurchases(),customers:()=>renderCustomers(),reports:()=>reportsModal(),branches:()=>renderBranches(),settings:()=>{settingsModal();renderBackup()}};
+const VIEWS={dashboard:()=>renderDashboard(),shift:()=>renderShiftPage(),sale:null,held:()=>renderHeld(),edit:()=>renderEditPage(),pending:()=>renderPending(),items:itemsModal,purchases:()=>renderPurchases(),customers:()=>renderCustomers(),reports:()=>reportsModal(),branches:()=>renderBranches(),settings:()=>{settingsModal();renderBackup()}};
 function go(v){
   if(!(v in VIEWS)||!viewAllowed(v))v=CLOUD&&isHQ()?'dashboard':'sale';
   curView=v;
@@ -2987,7 +3146,7 @@ function go(v){
   document.body.classList.remove('cart-open');
   if(VIEWS[v])VIEWS[v]();
   if(v==='sale'){renderGrid();checkBackupNag();if(innerWidth>900)setTimeout(()=>$('#scanInput').focus(),0)}
-  sideToday();
+  sideToday();pendBadge();
   window.scrollTo(0,0);
 }
 $$('.nav-btn').forEach(b=>b.onclick=()=>go(b.dataset.view));

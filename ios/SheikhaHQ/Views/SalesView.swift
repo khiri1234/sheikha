@@ -26,6 +26,7 @@ struct SalesView: View {
                 LabeledContent("VAT", value: Fmt.amount(t.vat))
                 LabeledContent("Cash · Card", value: Fmt.amount(t.cash) + " · " + Fmt.amount(t.card))
                 if t.bank != 0 { LabeledContent("Bank transfer", value: Fmt.amount(t.bank)) }
+                if t.waitingN > 0 { LabeledContent("Waiting for payment (\(t.waitingN))", value: Fmt.amount(t.waiting)) }
                 if t.voidN > 0 { LabeledContent("Voided", value: "\(t.voidN) · \(Fmt.amount(t.voidTotal))") }
                 if t.retN > 0 { LabeledContent("Returns", value: "\(t.retN) · − \(Fmt.amount(t.retTotal))") }
             }

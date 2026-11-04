@@ -97,16 +97,19 @@ async function dailySummary(now = new Date()) {
   const dubai = new Date(now.getTime() + 4 * 3600e3);
   const start = Date.UTC(dubai.getUTCFullYear(), dubai.getUTCMonth(), dubai.getUTCDate()) - 4 * 3600e3;
   const branches = (await db.collection('branches').get()).docs.map(d => Object.assign({ id: d.id }, d.data()));
-  let sales = [], open = [];
+  let sales = [], open = [], pending = [];
   for (const b of branches) {
-    const [s, o] = await Promise.all([
+    const [s, o, w] = await Promise.all([
       db.collection('branches/' + b.id + '/sales').where('ts', '>=', start).get(),
-      db.collection('branches/' + b.id + '/shifts').where('status', '==', 'open').get()
+      db.collection('branches/' + b.id + '/shifts').where('status', '==', 'open').get(),
+      db.collection('branches/' + b.id + '/sales').where('pend', 'in', ['waiting', 'bounced']).get()
     ]);
     sales = sales.concat(s.docs.map(d => d.data()));
     open = open.concat(o.docs.map(d => d.data()));
+    pending = pending.concat(w.docs.map(d => d.data()).filter(x => x.status !== 'void'));
   }
-  const msg = N.dailyMessage(branches, sales, open, p);
+  const today = new Date(now.getTime() + 4 * 3600e3).toISOString().slice(0, 10);
+  const msg = N.dailyMessage(branches, sales, open, p, pending, today);
   await send(msg);
   return msg;
 }
